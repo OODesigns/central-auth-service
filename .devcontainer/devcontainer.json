@@ -1,28 +1,18 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/java-postgres
 {
-	"name": "Java & PostgreSQL",
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "app",
-	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {}
-
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// This can be used to network with other containers or with the host.
-	// "forwardPorts": [5432],
-
-	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "java -version",
-
-	// Configure tool-specific properties.
-  "customizations" : {
-    "jetbrains" : {
-      "backend" : "IntelliJ"
-    }
-  },
-
-	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
+	"name": "Java + Postgres + Flyway",              // Human‑readable name shown in IntelliJ’s Dev Container UI
+	"dockerComposeFile": "docker-compose.yml",       // Path to the Docker Compose file that defines your services
+	"service": "app",                                // The Compose service to use as your main development container
+	"workspaceFolder": "/workspace",                 // Directory inside the container where your project is mounted
+	"postCreateCommand":                             // Command IntelliJ runs after the container is built
+	"flyway -configFiles=/workspace/flyway/conf/flyway.conf migrate",
+	"customizations": {                              // IntelliJ‑specific IDE customizations
+		"jetbrains": {                               // JetBrains plugin settings
+			"plugins": [
+				"org.intellij.plugins.hcl"           // Installs the HCL plugin inside the container
+			]
+		}
+	}
 }
+

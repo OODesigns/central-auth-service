@@ -1,17 +1,47 @@
-FROM mcr.microsoft.com/devcontainers/java:1-21-bullseye
+FROM node:16
 
-ARG INSTALL_MAVEN="false"
-ARG MAVEN_VERSION=""
+# Install basic development tools
+RUN apt-get update && apt-get install -y \
+    git \
+    procps \
+    nano \
+    wget \
+    curl \
+    postgresql-client \
+    jq \
+    vim \
+    openjdk-11-jre-headless \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-ARG INSTALL_GRADLE="true"
-ARG GRADLE_VERSION=""
+# Install Liquibase
+RUN mkdir -p /opt/liquibase && \
+    curl -L https://github.com/liquibase/liquibase/releases/download/v4.20.0/liquibase-4.20.0.tar.gz | \
+    tar -xz -C /opt/liquibase && \
+    chmod +x /opt/liquibase/liquibase && \
+    ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase
 
-RUN if [ "${INSTALL_MAVEN}" = "true" ]; then su vscode -c "umask 0002 && . /usr/local/sdkman/bin/sdkman-init.sh && sdk install maven \"${MAVEN_VERSION}\""; fi \
-    && if [ "${INSTALL_GRADLE}" = "true" ]; then su vscode -c "umask 0002 && . /usr/local/sdkman/bin/sdkman-init.sh && sdk install gradle \"${GRADLE_VERSION}\""; fi
+# Install useful global npm packages
+RUN npm install -g nodemon typescript ts-node jest \
+    @nestjs/cli \
+    prisma \
+    eslint \
+    prettier
 
-# [Optional] Uncomment this section to install additional OS packages.
-# RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-#     && apt-get -y install --no-install-recommends <your-package-list-here>
+# Set up non-root user
+ARG USERNAME=node
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 
-# [Optional] Uncomment this line to install global node packages.
-# RUN su vscode -c "source /usr/local/share/nvm/nvm.sh && npm install -g <your-package-here>" 2>&1
+# Create the workspace directory
+RUN mkdir -p /workspace
+WORKDIR /workspace
+
+# Change ownership to non-root user
+RUN chown -R $USERNAME:$USERNAME /workspace
+
+# Set environment variables
+ENV NODE_ENV=development
+
+# Expose common ports
+EXPOSE 3000 9229
