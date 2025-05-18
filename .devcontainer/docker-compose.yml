@@ -1,18 +1,44 @@
-version: '3.8'
+version: '3.8'  # Specifies the Docker Compose file format version.
 
+  # Named volume to persist PostgreSQL data even if the container is destroyed.
+  # You later see this in the db service being assigned a volume to mount
 volumes:
   postgres-data:
 
 services:
   app:
+    # Custom name for the app container.
+    # Docker itself uses it to refer to the running container.
     container_name: auth-service
     build: 
+      # The build context is the set of files and directories that Docker sends to
+      # the Docker Engine during a docker build.
+      # The (dot) means: Use the current directory (where your docker-compose.yml file is)
+      # as the root of the build context.
       context: .
+      # Uses the specified Dockerfile to build the app container.
+      # The standard and expected name
       dockerfile: Dockerfile
+    # Mounts the project root two levels up into /workspaces inside the container.
+    # cached mode to improve performance (on macOS especially).
+    # So if your docker-compose.yml is located at:
+    # /home/your-name/dev/myproject/.devcontainer/docker-compose.yml
+    # Then:
+    # ../.. = /home/your-name/dev/myproject
+    # Mount the root of your project (2 levels up) into the container.
+    # /workspaces
+    # This is the target path inside the container.
+    # So your container will see your entire project (your code, resources, etc.) available at:
     volumes:
       - ../..:/workspaces:cached
-      - ../db_migrations:/workspaces/db_migrations
+    # Keeps the container running indefinitely, suitable for dev containers.
     command: sleep infinity
+    # Shares the network stack with the db container, allowing 'localhost' to reach the DB.
+    # The db is referenced later
+    # It means Then inside the flyway container, you can connect to the Postgres DB like this:
+    # jdbc:postgresql://localhost:5432/mydb rather than jdbc:postgresql://db:5432/mydb
+    # Because from Flyway’s point of view, it is on the same IP stack as the db container.
+    # localhost literally points to the db container.
     network_mode: service:db
     environment:
       # Auth service specific environment variables

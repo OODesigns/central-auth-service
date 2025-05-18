@@ -14,13 +14,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Liquibase
-RUN mkdir -p /opt/liquibase && \
-    curl -L https://github.com/liquibase/liquibase/releases/download/v4.20.0/liquibase-4.20.0.tar.gz | \
-    tar -xz -C /opt/liquibase && \
-    chmod +x /opt/liquibase/liquibase && \
-    ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase
-
 # Install useful global npm packages
 RUN npm install -g nodemon typescript ts-node jest \
     @nestjs/cli \
