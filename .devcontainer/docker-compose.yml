@@ -29,8 +29,11 @@ services:
     # /workspaces
     # This is the target path inside the container.
     # So your container will see your entire project (your code, resources, etc.) available at:
+    # docker-entrypoint-initdb.d is a magic folder that the official postgres Docker image watches at container
+    # startup — specifically, during the first-time initialization of the database volume.
     volumes:
       - ../..:/workspaces:cached
+      - ./db/init:/docker-entrypoint-initdb.d
     # Keeps the container running indefinitely, suitable for dev containers.
     command: sleep infinity
     # Shares the network stack with the db container, allowing 'localhost' to reach the DB.
@@ -42,30 +45,36 @@ services:
     network_mode: service:db
     environment:
       # Auth service specific environment variables
+      # JDBC-style connection string for the database.
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/auth_db
+      # Indicates development environment.
       NODE_ENV: development
-      JWT_SECRET: dev_secret_change_in_production
-      # Database connection details
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_DB: auth_db
-      POSTGRES_HOSTNAME: db
-
-    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally. 
-    # (Adding the "ports" property to this file will not forward from a Codespace.)
+      # JWT secret key for signing tokens.
+      JWT_SECRET: ${JWT_SECRET}
+      # Used by your Java app to load its own private key (for mTLS or TLS client/server authentication).
+      # This password protects the .jks or .p12 file that contains the app’s private key and certificate.
+      KEYSTORE_PASSWORD: ${KEYSTORE_PASSWORD}
+      # Used to verify the identity of the remote service (machine-to-machine).
+      # This unlocks the truststore file that holds trusted Certificate Authorities (CAs) or specific server certificates.
+      TRUSTSTORE_PASSWORD: ${TRUSTSTORE_PASSWORD}
 
   db:
+    # Custom name for the Postgres container.
     container_name: auth-db
+    # Uses the official PostgreSQL version 15 image.
     image: postgres:15
+    # Restarts the container unless explicitly stopped.
+    # If this container stops or crashes, try to start it again — unless I (the user) told you not to."
     restart: unless-stopped
     volumes:
       - postgres-data:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_DB: auth_db
+      # Root password for Postgres.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Default user created at startup.
+      POSTGRES_USER: ${POSTGRES_USER}
+      # Default database created at startup.
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Exposes Postgres on host port 5432 for external access (e.g., IntelliJ).
     ports:
-      - 5432:5432
-
-    # Add "forwardPorts": ["5432"] to **devcontainer.json** to forward PostgreSQL locally.
-    # (Adding the "ports" property to this file will not forward from a Codespace.)
+      - "5432:5432"
