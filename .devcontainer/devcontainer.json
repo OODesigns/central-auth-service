@@ -6,7 +6,7 @@
 	"service": "app",                                // The Compose service to use as your main development container
 	"workspaceFolder": "/workspace",                 // Directory inside the container where your project is mounted
 	"postCreateCommand":                             // Command IntelliJ runs after the container is built
-	"flyway -configFiles=/workspace/flyway/conf/flyway.conf migrate",
+	"flyway -configFiles=/workspace/flyway/conf/flyway.conf migrate && bash /workspace/db_scripts/seed_admin.sh",
 	"customizations": {                              // IntelliJ‑specific IDE customizations
 		"jetbrains": {                               // JetBrains plugin settings
 			"plugins": [

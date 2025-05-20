@@ -6,6 +6,9 @@ volumes:
   postgres-data:
 
 services:
+  # =======================
+  # App Container (Java Auth Service)
+  # =======================
   app:
     # Custom name for the app container.
     # Docker itself uses it to refer to the running container.
@@ -33,7 +36,6 @@ services:
     # startup — specifically, during the first-time initialization of the database volume.
     volumes:
       - ../..:/workspaces:cached
-      - ./db/init:/docker-entrypoint-initdb.d
     # Keeps the container running indefinitely, suitable for dev containers.
     command: sleep infinity
     # Shares the network stack with the db container, allowing 'localhost' to reach the DB.
@@ -46,7 +48,7 @@ services:
     environment:
       # Auth service specific environment variables
       # JDBC-style connection string for the database.
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/auth_db
+      DATABASE_URL: jdbc:postgresql://localhost:5432/${POSTGRES_DB}
       # Indicates development environment.
       NODE_ENV: development
       # JWT secret key for signing tokens.
@@ -57,7 +59,12 @@ services:
       # Used to verify the identity of the remote service (machine-to-machine).
       # This unlocks the truststore file that holds trusted Certificate Authorities (CAs) or specific server certificates.
       TRUSTSTORE_PASSWORD: ${TRUSTSTORE_PASSWORD}
+    depends_on:
+      - db  # Ensures db service is started before app
 
+  # =======================
+  # Database Service (PostgreSQL)
+  # =======================
   db:
     # Custom name for the Postgres container.
     container_name: auth-db
@@ -68,6 +75,7 @@ services:
     restart: unless-stopped
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
     environment:
       # Root password for Postgres.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -78,3 +86,5 @@ services:
     # Exposes Postgres on host port 5432 for external access (e.g., IntelliJ).
     ports:
       - "5432:5432"
+
+
