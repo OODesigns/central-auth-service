@@ -73,6 +73,8 @@ services:
     # Restarts the container unless explicitly stopped.
     # If this container stops or crashes, try to start it again — unless I (the user) told you not to."
     restart: unless-stopped
+    # in initdb Make sure the file has the executable bit before you commit chmod +x db/init/01_create_app_user.sh
+    # Preferred: set the executable bit in Git via git update-index --chmod=+x ….
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d
@@ -83,6 +85,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       # Default database created at startup.
       POSTGRES_DB: ${POSTGRES_DB}
+      # pass these to initdb so template1 is created with your locales/encoding
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_GB.UTF-8 --lc-collate=en_GB.UTF-8 --lc-ctype=en_GB.UTF-8"
+      # Password for app_user
+      APP_PASSWORD: ${APP_PASSWORD}
+
     # Exposes Postgres on host port 5432 for external access (e.g., IntelliJ).
     ports:
       - "5432:5432"

@@ -15,48 +15,48 @@ DROP TABLE IF EXISTS users;
 
 -- === USERS TABLE ===
 CREATE TABLE users (
-                       user_id       SERIAL PRIMARY KEY,
-                       username      VARCHAR(50) UNIQUE NOT NULL,
-                       password_hash VARCHAR(255) NOT NULL,
-                       created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                       updated_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    user_id       SERIAL PRIMARY KEY,
+    username      VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- === ROLES TABLE ===
 CREATE TABLE roles (
-                       role_id     SERIAL PRIMARY KEY,
-                       name        VARCHAR(50) UNIQUE NOT NULL,
-                       description TEXT
+    role_id     SERIAL PRIMARY KEY,
+    name        VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT
 );
 
 -- === USER_ROLES (many-to-many) ===
 CREATE TABLE user_roles (
-                            user_id INT NOT NULL,
-                            role_id INT NOT NULL,
-                            PRIMARY KEY (user_id, role_id),
-                            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                            FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE
+    user_id INT NOT NULL,
+    role_id INT NOT NULL,
+    PRIMARY KEY (user_id, role_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE
 );
 
 -- === PERMISSIONS TABLE ===
 CREATE TABLE permissions (
-                             permission_id SERIAL PRIMARY KEY,
-                             name          VARCHAR(100) UNIQUE NOT NULL
+    permission_id SERIAL PRIMARY KEY,
+    name          VARCHAR(100) UNIQUE NOT NULL
 );
 
 -- === ROLE_PERMISSIONS (many-to-many) ===
 CREATE TABLE role_permissions (
-                                  role_id       INT NOT NULL,
-                                  permission_id INT NOT NULL,
-                                  PRIMARY KEY (role_id, permission_id),
-                                  FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE,
-                                  FOREIGN KEY (permission_id) REFERENCES permissions(permission_id) ON DELETE CASCADE
+    role_id       INT NOT NULL,
+    permission_id INT NOT NULL,
+    PRIMARY KEY (role_id, permission_id),
+    FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE,
+    FOREIGN KEY (permission_id) REFERENCES permissions(permission_id) ON DELETE CASCADE
 );
 
 -- === INVALIDATED JWTs ===
 CREATE TABLE invalidated_jwts (
-                                  jti              VARCHAR(255) PRIMARY KEY NOT NULL,
-                                  expiry_timestamp TIMESTAMP WITH TIME ZONE NOT NULL
+    jti              VARCHAR(255) PRIMARY KEY NOT NULL,
+    expiry_timestamp TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 -- === INDEXES ===
@@ -79,12 +79,14 @@ CREATE TRIGGER update_users_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 INSERT INTO roles (name, description) VALUES
-                                          ('admin', 'Administrator'),
-                                          ('user', 'Regular user'),
-                                          ('kiosk', 'Wall mounted public user');
+    ('admin', 'Administrator'),
+    ('user', 'Regular user'),
+    ('kiosk', 'Wall mounted public user');
 
-INSERT INTO permissions (name) VALUES ('manage_users');
-INSERT INTO role_permissions (role_id, permission_id) VALUES (1, 1);
+INSERT INTO permissions (name) VALUES
+    ('manage_users');
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+    (1, 1);
 
 -- need to create an app database password not just the admin one
 
