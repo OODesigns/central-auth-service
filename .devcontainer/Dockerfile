@@ -1,40 +1,37 @@
-FROM node:16
+# -------------------------
+# 1) Build stage
+# -------------------------
+FROM openjdk:21-jdk-slim AS builder
 
-# Install basic development tools
-RUN apt-get update && apt-get install -y \
-    git \
-    procps \
-    nano \
-    wget \
-    curl \
-    postgresql-client \
-    jq \
-    vim \
-    openjdk-11-jre-headless \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Install Git, bash (for any code-gen or entrypoint scripts)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      bash git openssh-client && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install useful global npm packages
-RUN npm install -g nodemon typescript ts-node jest \
-    @nestjs/cli \
-    prisma \
-    eslint \
-    prettier
-
-# Set up non-root user
-ARG USERNAME=node
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-
-# Create the workspace directory
-RUN mkdir -p /workspace
 WORKDIR /workspace
 
-# Change ownership to non-root user
-RUN chown -R $USERNAME:$USERNAME /workspace
+# Copy just the Gradle wrapper & build files to cache dependencies
+COPY gradlew settings.gradle build.gradle ./
+COPY gradle ./gradle
 
-# Set environment variables
-ENV NODE_ENV=development
+RUN chmod +x gradlew && ./gradlew --no-daemon dependencies
 
-# Expose common ports
-EXPOSE 3000 9229
+# Copy source and build
+COPY src ./src
+RUN ./gradlew --no-daemon clean build -x test
+
+# -------------------------
+# 2) Runtime stage
+# -------------------------
+FROM openjdk:21-jdk-slim
+
+WORKDIR /app
+
+# Copy the fat-jar (or however your build produces it)
+COPY --from=builder /workspace/build/libs/*.jar app.jar
+
+# Expose your gRPC port
+EXPOSE 6565
+
+ENTRYPOINT ["java","-jar","/app/app.jar"]
