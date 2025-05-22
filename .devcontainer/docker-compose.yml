@@ -1,5 +1,3 @@
-version: '3.8'  # Specifies the Docker Compose file format version.
-
   # Named volume to persist PostgreSQL data even if the container is destroyed.
   # You later see this in the db service being assigned a volume to mount
 volumes:
@@ -17,11 +15,11 @@ services:
       # The build context is the set of files and directories that Docker sends to
       # the Docker Engine during a docker build.
       # The (dot) means: Use the current directory (where your docker-compose.yml file is)
-      # as the root of the build context.
-      context: .
+      # ← one level up, where your code is
+      context: ..
       # Uses the specified Dockerfile to build the app container.
       # The standard and expected name
-      dockerfile: Dockerfile
+      dockerfile: .devcontainer/Dockerfile
     # Mounts the project root two levels up into /workspaces inside the container.
     # cached mode to improve performance (on macOS especially).
     # So if your docker-compose.yml is located at:
@@ -86,7 +84,7 @@ services:
       # Default database created at startup.
       POSTGRES_DB: ${POSTGRES_DB}
       # pass these to initdb so template1 is created with your locales/encoding
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_GB.UTF-8 --lc-collate=en_GB.UTF-8 --lc-ctype=en_GB.UTF-8"
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8 --lc-collate=C.UTF-8 --lc-ctype=C.UTF-8"
       # Password for app_user
       APP_PASSWORD: ${APP_PASSWORD}
 
