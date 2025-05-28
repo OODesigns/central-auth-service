@@ -5,7 +5,7 @@ set -e
 # against the 'auth_db' database, because it lives in /docker-entrypoint-initdb.d.
 
 # 1) Create the non-superuser application role
-psql --username "$POSTGRES_USER" <<-EOSQL
+psql --username "$APP_USER" <<-EOSQL
   CREATE ROLE cas_app_user
     WITH LOGIN
          PASSWORD '${APP_PASSWORD}'
@@ -16,7 +16,7 @@ psql --username "$POSTGRES_USER" <<-EOSQL
 EOSQL
 
 # 2) Grant minimal privileges on the schema and its tables
-psql --username "$POSTGRES_USER" <<-EOSQL
+psql --username "$APP_USER" <<-EOSQL
   -- Allow the app user to connect and use the public schema
   GRANT CONNECT ON DATABASE auth_db TO cas_app_user;
   GRANT USAGE   ON SCHEMA public     TO cas_app_user;

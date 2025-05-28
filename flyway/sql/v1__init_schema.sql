@@ -88,6 +88,5 @@ INSERT INTO permissions (name) VALUES
 INSERT INTO role_permissions (role_id, permission_id) VALUES
     (1, 1);
 
--- need to create an app database password not just the admin one
 
 

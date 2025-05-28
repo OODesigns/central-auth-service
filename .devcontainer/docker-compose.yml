@@ -3,6 +3,18 @@
 volumes:
   postgres-data:
 
+  # External network: We simply tell Compose “pg-network” already exists, please join it.
+  # Dual‐network: By listing both default and pg-network under your db, your services can talk to each
+  # other via the default network and pgAdmin can reach them via pg-network.
+networks:
+  # Compose’s own default network for app<->db
+  default:
+    name: central-auth-service_default
+
+  # Your pre-existing pg-network (external, already created)
+  pg-network:
+    external: true
+
 services:
   # =======================
   # App Container (Java Auth Service)
@@ -42,7 +54,10 @@ services:
     # jdbc:postgresql://localhost:5432/mydb rather than jdbc:postgresql://db:5432/mydb
     # Because from Flyway’s point of view, it is on the same IP stack as the db container.
     # localhost literally points to the db container.
-    network_mode: service:db
+    # Attach to both the default Compose network AND pg-network
+    networks:
+      - default
+      - pg-network
     environment:
       # Auth service specific environment variables
       # JDBC-style connection string for the database.
@@ -71,25 +86,22 @@ services:
     # Restarts the container unless explicitly stopped.
     # If this container stops or crashes, try to start it again — unless I (the user) told you not to."
     restart: unless-stopped
-    # in initdb Make sure the file has the executable bit before you commit chmod +x db/init/01_create_app_user.sh
+    # in initdb Make sure the file has the executable bit before you commit chmod +x db/init/02_create_app_user.sh
     # Preferred: set the executable bit in Git via git update-index --chmod=+x ….
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d
     environment:
-      # Root password for Postgres.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      # Default user created at startup.
-      POSTGRES_USER: ${POSTGRES_USER}
-      # Default database created at startup.
-      POSTGRES_DB: ${POSTGRES_DB}
-      # pass these to initdb so template1 is created with your locales/encoding
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8 --lc-collate=C.UTF-8 --lc-ctype=C.UTF-8"
-      # Password for app_user
-      APP_PASSWORD: ${APP_PASSWORD}
-
+      # Root password for Postgres default
+      POSTGRES_PASSWORD: ${POSTGRES_ROOT_PASSWORD}
+    # Attach to both the default Compose network AND pg-network
+    networks:
+      - default
+      - pg-network
     # Exposes Postgres on host port 5432 for external access (e.g., IntelliJ).
     ports:
       - "5432:5432"
+
+
 
 
