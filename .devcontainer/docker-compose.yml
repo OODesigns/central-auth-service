@@ -84,7 +84,7 @@ services:
     # Uses the official PostgreSQL version 15 image.
     image: postgres:15
     # Restarts the container unless explicitly stopped.
-    # If this container stops or crashes, try to start it again — unless I (the user) told you not to."
+    # If this container stops or crashes, try to start it again — unless I (the user) told you not to.
     restart: unless-stopped
     # in initdb Make sure the file has the executable bit before you commit chmod +x db/init/02_create_app_user.sh
     # Preferred: set the executable bit in Git via git update-index --chmod=+x ….

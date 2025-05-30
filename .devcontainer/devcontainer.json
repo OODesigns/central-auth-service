@@ -12,7 +12,7 @@
 	                                                 // ADMIN_PASSWORD_HASH (and any other vars) become real
 	                                                 // environment variables
                                                      // set +a stops auto-exporting new variables (just good hygiene).
-	"set -a && source /workspace/.env && set +a && flyway -configFiles=/workspace/flyway/conf/flyway.conf migrate",
+	"bash ${containerWorkspaceFolder}/.devcontainer/scripts/run-migrations.sh",
 	"customizations": {                              // IntelliJ‑specific IDE customizations
 		"jetbrains": {                               // JetBrains plugin settings
 			"plugins": [

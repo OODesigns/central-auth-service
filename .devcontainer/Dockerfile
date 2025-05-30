@@ -28,7 +28,7 @@ RUN rm -rf /var/lib/apt/lists/*
 ##############################################
 # Install Flyway CLI for DB migrations
 ##############################################
-ARG FLYWAY_VERSION=9.22.3
+ARG FLYWAY_VERSION=11.8.2
 RUN curl -SL "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
     | tar -xz && \
     mv flyway-${FLYWAY_VERSION} /opt/flyway
