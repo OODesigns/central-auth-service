@@ -88,5 +88,18 @@ INSERT INTO permissions (name) VALUES
 INSERT INTO role_permissions (role_id, permission_id) VALUES
     (1, 1);
 
+-- enable pgcrypto so we can hash passwords in-DB
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- seed the admin account with DB-side bcrypt hashing
+INSERT INTO users (username, password_hash, created_at, updated_at)
+VALUES (
+           'admin',
+           crypt('${ADMIN_PASSWORD}', gen_salt('bf')),
+           NOW(),
+           NOW()
+       )
+ON CONFLICT (username) DO NOTHING;
+
 
 

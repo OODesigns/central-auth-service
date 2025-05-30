@@ -2,10 +2,9 @@
 set -e
 
 # This script is automatically executed by the Postgres container
-# against the 'auth_db' database, because it lives in /docker-entrypoint-initdb.d.
 
 # 1) Create the non-superuser application role
-psql --username "$APP_USER" <<-EOSQL
+psql --username "$APP_USER" --dbname="${POSTGRES_DB}" <<-EOSQL
   CREATE ROLE cas_app_user
     WITH LOGIN
          PASSWORD '${APP_PASSWORD}'
@@ -16,7 +15,7 @@ psql --username "$APP_USER" <<-EOSQL
 EOSQL
 
 # 2) Grant minimal privileges on the schema and its tables
-psql --username "$APP_USER" <<-EOSQL
+psql --username "$APP_USER" --dbname="${POSTGRES_DB}" <<-EOSQL
   -- Allow the app user to connect and use the public schema
   GRANT CONNECT ON DATABASE auth_db TO cas_app_user;
   GRANT USAGE   ON SCHEMA public     TO cas_app_user;
@@ -31,3 +30,5 @@ psql --username "$APP_USER" <<-EOSQL
     GRANT SELECT, INSERT, UPDATE, DELETE
     ON TABLES TO cas_app_user;
 EOSQL
+
+

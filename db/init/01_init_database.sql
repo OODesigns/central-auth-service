@@ -1,4 +1,4 @@
-
+-- This script is automatically executed by the Postgres container
 CREATE DATABASE auth_db
 WITH
   OWNER = postgres
