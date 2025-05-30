@@ -94,6 +94,8 @@ services:
     environment:
       # Root password for Postgres default
       POSTGRES_PASSWORD: ${POSTGRES_ROOT_PASSWORD}
+      # ← tell initdb to use C.utf8 for the entire cluster
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.utf8"
     # Attach to both the default Compose network AND pg-network
     networks:
       - default

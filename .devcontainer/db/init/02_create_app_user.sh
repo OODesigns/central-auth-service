@@ -4,7 +4,7 @@ set -e
 # This script is automatically executed by the Postgres container
 
 # 1) Create the non-superuser application role
-psql --username "$APP_USER" --dbname="${POSTGRES_DB}" <<-EOSQL
+psql --username "${POSTGRES_USER:-postgres}" --dbname="${POSTGRES_DB}" <<-EOSQL
   CREATE ROLE cas_app_user
     WITH LOGIN
          PASSWORD '${APP_PASSWORD}'
@@ -18,7 +18,7 @@ EOSQL
 psql --username "$APP_USER" --dbname="${POSTGRES_DB}" <<-EOSQL
   -- Allow the app user to connect and use the public schema
   GRANT CONNECT ON DATABASE auth_db TO cas_app_user;
-  GRANT USAGE   ON SCHEMA public     TO cas_app_user;
+  GRANT USAGE   ON SCHEMA public    TO cas_app_user;
 
   -- Grant CRUD on all existing tables
   GRANT SELECT, INSERT, UPDATE, DELETE

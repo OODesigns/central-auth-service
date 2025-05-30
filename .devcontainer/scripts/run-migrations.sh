@@ -2,10 +2,10 @@
 set -e
 
 # Source environment variables if .env exists
-if [ -f /.devcontainer/.env ]; then
+# Source environment variables if .env exists
+if [ -f /workspace/.devcontainer/.env ]; then
   set -a
-  # Use . instead of source for better compatibility
-  . /.devcontainer/.env
+  . /workspace/.devcontainer/.env
   set +a
 fi
 
