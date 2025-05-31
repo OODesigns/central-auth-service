@@ -86,14 +86,20 @@ services:
     # Restarts the container unless explicitly stopped.
     # If this container stops or crashes, try to start it again — unless I (the user) told you not to.
     restart: unless-stopped
-    # in initdb Make sure the file has the executable bit before you commit chmod +x db/init/02_create_app_user.sh
+    # in initdb Make sure the file has the executable bit before you commit chmod +x db/init/01_init_database.sh
     # Preferred: set the executable bit in Git via git update-index --chmod=+x ….
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d
     environment:
-      # Root password for Postgres default
-      POSTGRES_PASSWORD: ${POSTGRES_ROOT_PASSWORD}
+      # These are the official, built-in Docker-Postgres variables:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} #
+      # If your script creates a separate "app" database + roles:
+      APP_DB: ${APP_DB}
+      APP_USER: ${APP_USER}
+      APP_PASSWORD: ${APP_PASSWORD}
       # ← tell initdb to use C.utf8 for the entire cluster
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.utf8"
     # Attach to both the default Compose network AND pg-network
