@@ -95,7 +95,7 @@ services:
       # These are the official, built-in Docker-Postgres variables:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} #
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       # If your script creates a separate "app" database + roles:
       APP_DB: ${APP_DB}
       APP_USER: ${APP_USER}
@@ -109,6 +109,41 @@ services:
     # Exposes Postgres on host port 5432 for external access (e.g., IntelliJ).
     ports:
       - "5432:5432"
+    # ─── healthcheck so Flyway waits until Postgres is really ready
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # =======================
+  # The Flyway service: invokes your migrations against the “db” service
+  # =======================
+  flyway:
+      image: flyway/flyway:latest
+      container_name: flyway-migrations
+      environment:
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_USER: ${POSTGRES_USER}
+        APP_DB: ${APP_DB}
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      depends_on:
+        db:
+         condition: service_healthy
+      volumes:
+        # 1) Mount your flyway.conf → /flyway/conf/flyway.conf (read‐only)
+        - ./flyway/conf/flyway.conf:/flyway/conf/flyway.conf:ro
+
+        # 2) Mount your SQL migrations → /flyway/sql (read‐only)
+        - ./flyway/sql:/flyway/sql:ro
+
+      # Tell Flyway to run “migrate” as soon as it starts
+      command: [ "migrate" ]
+      networks:
+        - default
+        - pg-network
+
 
 
 

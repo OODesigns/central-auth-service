@@ -28,9 +28,6 @@ RUN rm -rf /var/lib/apt/lists/*
 ##############################################
 # Install Flyway CLI for DB migrations
 ##############################################
-##############################################
-# Install Flyway CLI for DB migrations
-##############################################
 ARG FLYWAY_VERSION=11.8.2
 RUN curl -SL \
       "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
@@ -39,10 +36,6 @@ RUN curl -SL \
     && ln -s /opt/flyway/flyway /usr/local/bin/flyway
 
 ENV PATH="/opt/flyway:${PATH}"
-
-
-ENV PATH="/opt/flyway:${PATH}"
-
 
 ##############################################
 # Set up Gradle for development

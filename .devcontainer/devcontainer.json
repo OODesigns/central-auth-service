@@ -5,14 +5,6 @@
 	"dockerComposeFile": "docker-compose.yml",       // Path to the Docker Compose file that defines your services
 	"service": "app",                                // The Compose service to use as your main development container
 	"workspaceFolder": "/workspace",                 // Directory inside the container where your project is mounted
-	"postCreateCommand":                             // Command IntelliJ runs after the container is built
-					                                 // set -a (aka set -o allexport) turns every subsequently
-	                                                 // defined variable into an exported env var.
-					                                 // source /workspace/.env reads your .env file, so now
-	                                                 // ADMIN_PASSWORD_HASH (and any other vars) become real
-	                                                 // environment variables
-                                                     // set +a stops auto-exporting new variables (just good hygiene).
-	"bash ${containerWorkspaceFolder}/.devcontainer/scripts/run-migrations.sh",
 	"customizations": {                              // IntelliJ‑specific IDE customizations
 		"jetbrains": {                               // JetBrains plugin settings
 			"plugins": [
