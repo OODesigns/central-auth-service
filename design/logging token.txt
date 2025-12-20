@@ -1,0 +1,19 @@
+
+// Example: Issue access token and audit
+accessToken, err := issueAccessToken(user, claims)
+if err != nil {
+    return err
+}
+
+// Audit the issuance right after success
+err = auditLog(ctx, &AuditEvent{
+    ActorID:    user.ID,
+    ActorType:  "USER",
+    Action:     "TOKEN_ISSUED",
+    TargetType: "access_token",
+    Metadata: map[string]interface{}{
+        "jti":        claims.JTI,
+        "expires_at": claims.ExpiresAt,
+        "scopes":     claims.Scopes,
+    },
+})

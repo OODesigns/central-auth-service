@@ -393,3 +393,115 @@ CREATE TRIGGER trg_set_trusted_clients_updated_at
     BEFORE UPDATE ON trusted_clients
     FOR EACH ROW
 EXECUTE FUNCTION set_updated_at_timestamp();
+
+-- ============================================================================
+-- AUDIT TRIGGER FUNCTIONS
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION audit_users()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO audit_logs (
+    actor_id, actor_type, action, target_type, target_id, metadata
+  ) VALUES (
+    current_setting('app.actor_id', true)::UUID,
+    current_setting('app.actor_type', true),
+    CASE TG_OP
+      WHEN 'INSERT' THEN 'USER_CREATED'
+      WHEN 'UPDATE' THEN 
+        CASE WHEN OLD.password_hash IS DISTINCT FROM NEW.password_hash 
+          THEN 'USER_PASSWORD_ROTATED' 
+          ELSE 'USER_UPDATED' 
+        END
+      WHEN 'DELETE' THEN 'USER_DISABLED'
+    END,
+    'users',
+    NEW.user_id::UUID,
+    to_jsonb(NEW)
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION audit_invalidated_jwts()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO audit_logs (
+    actor_id, actor_type, action, target_type, target_id, metadata
+  ) VALUES (
+    current_setting('app.actor_id', true)::UUID,
+    current_setting('app.actor_type', true),
+    'TOKEN_INVALIDATED',
+    'invalidated_jwts',
+    gen_random_uuid(),
+    to_jsonb(NEW)
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION audit_refresh_tokens()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO audit_logs (
+    actor_id, actor_type, action, target_type, target_id, metadata
+  ) VALUES (
+    current_setting('app.actor_id', true)::UUID,
+    current_setting('app.actor_type', true),
+    CASE TG_OP
+      WHEN 'INSERT' THEN 'REFRESH_TOKEN_ISSUED'
+      WHEN 'UPDATE' THEN CASE WHEN NEW.rotated_at IS NOT NULL THEN 'REFRESH_TOKEN_ROTATED' ELSE 'REFRESH_TOKEN_REVOKED' END
+      WHEN 'DELETE' THEN 'REFRESH_TOKEN_REVOKED'
+    END,
+    'refresh_tokens',
+    NEW.id,
+    to_jsonb(NEW)
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION audit_trusted_clients()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO audit_logs (
+    actor_id, actor_type, action, target_type, target_id, metadata
+  ) VALUES (
+    current_setting('app.actor_id', true)::UUID,
+    current_setting('app.actor_type', true),
+    CASE TG_OP
+      WHEN 'INSERT' THEN 'TRUSTED_CLIENT_CREATED'
+      WHEN 'UPDATE' THEN CASE WHEN NEW.revoked = true THEN 'TRUSTED_CLIENT_REVOKED' ELSE 'TRUSTED_CLIENT_UPDATED' END
+      WHEN 'DELETE' THEN 'TRUSTED_CLIENT_REVOKED'
+    END,
+    'trusted_clients',
+    NEW.id,
+    to_jsonb(NEW)
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- AUDIT TRIGGERS
+-- ============================================================================
+
+CREATE TRIGGER trg_audit_users
+    AFTER INSERT OR UPDATE OR DELETE ON users
+    FOR EACH ROW
+EXECUTE FUNCTION audit_users();
+
+CREATE TRIGGER trg_audit_invalidated_jwts
+    AFTER INSERT ON invalidated_jwts
+    FOR EACH ROW
+EXECUTE FUNCTION audit_invalidated_jwts();
+
+CREATE TRIGGER trg_audit_refresh_tokens
+    AFTER INSERT OR UPDATE OR DELETE ON refresh_tokens
+    FOR EACH ROW
+EXECUTE FUNCTION audit_refresh_tokens();
+
+CREATE TRIGGER trg_audit_trusted_clients
+    AFTER INSERT OR UPDATE OR DELETE ON trusted_clients
+    FOR EACH ROW
+EXECUTE FUNCTION audit_trusted_clients();
