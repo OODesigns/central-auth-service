@@ -25,20 +25,26 @@ ON CONFLICT (name) DO NOTHING;
 -- ============================================================================
 
 INSERT INTO permissions (name) VALUES
-    ('manage_users')
+    ('create_user'),
+    ('update_user'),
+    ('delete_user'),
+    ('create_certificate'),
+    ('view_audit_log'),
+    ('clear_audit_log')
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================================
 -- MAP ROLES → PERMISSIONS
 -- ============================================================================
 
--- Admins can manage users
+-- Admins can manage users and audit logs
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id
 FROM roles r
          JOIN permissions p
               ON r.name = 'admin'
-                  AND p.name = 'manage_users'
+                  AND p.name IN ('create_user', 'update_user', 'delete_user', 
+                  'create_certificate', 'view_audit_log', 'clear_audit_log')
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
@@ -57,11 +63,11 @@ INSERT INTO users (
     updated_at
 )
 VALUES (
-           'admin',
-           password_hash,  -- pre-hashed, injected securely
-           true,
-           NOW(),
-           NOW()
+        'admin',
+         password_hash,  -- pre-hashed, injected securely
+         true,
+         NOW(),
+         NOW()
        )
 ON CONFLICT (username) DO NOTHING;
 
