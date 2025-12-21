@@ -9,6 +9,12 @@
 --  - admin → admin-role assignment
 --
 -- All inserts are idempotent and safe to run once.
+--
+-- REQUIRED CONFIGURATION:
+--  - Set Flyway placeholder for ${ADMIN_PASSWORD} in application configuration
+--    Example: flyway.placeholders.admin_password=<bcrypt_hash_of_initial_password>
+--  - The placeholder MUST be replaced before running this migration
+--  - Failure to set the placeholder will result in migration failure
 
 -- ============================================================================
 -- SEED ROLES (STATIC CONFIG)
@@ -41,11 +47,12 @@ ON CONFLICT (name) DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id
 FROM roles r
-  JOIN permissions p ON r.name = 'admin'
-                    AND p.name IN ('create_user', 'update_user', 'delete_user',
-                                   'create_certificate', 'view_audit_log',
-                                   'clear_audit_log')
-ON CONFLICT DO NOTHING;
+  CROSS JOIN permissions p
+WHERE r.name = 'admin'
+  AND p.name IN ('create_user', 'update_user', 'delete_user',
+                 'create_certificate', 'view_audit_log',
+                 'clear_audit_log')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- ============================================================================
 -- BOOTSTRAP ADMIN USER (FORCE PASSWORD ROTATION)
@@ -66,8 +73,7 @@ ON CONFLICT (username) DO NOTHING;
 INSERT INTO user_roles (user_id, role_id)
 SELECT u.user_id, r.role_id
 FROM users u
-         JOIN roles r
-              ON u.username = 'admin'
-                  AND r.name = 'admin'
-ON CONFLICT DO NOTHING;
-JOIN roles r ON u.username = 'admin'
+  CROSS JOIN roles r
+WHERE u.username = 'admin'
+  AND r.name = 'admin'
+ON CONFLICT (user_id, role_id) DO NOTHING;

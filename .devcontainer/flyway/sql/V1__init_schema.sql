@@ -7,16 +7,45 @@
 -- CLEANUP (safe for re-run in dev only)
 -- ============================================================================
 
+DROP TRIGGER IF EXISTS trg_audit_users ON users;
+DROP TRIGGER IF EXISTS trg_audit_invalidated_jwts ON invalidated_jwts;
+DROP TRIGGER IF EXISTS trg_audit_refresh_tokens ON refresh_tokens;
+DROP TRIGGER IF EXISTS trg_audit_trusted_clients ON trusted_clients;
+DROP TRIGGER IF EXISTS trg_audit_role_permissions ON role_permissions;
+DROP TRIGGER IF EXISTS trg_audit_user_roles ON user_roles;
 DROP TRIGGER IF EXISTS trg_set_trusted_clients_updated_at ON trusted_clients;
 DROP TRIGGER IF EXISTS trg_set_users_updated_at ON users;
+DROP FUNCTION IF EXISTS audit_users();
+DROP FUNCTION IF EXISTS audit_invalidated_jwts();
+DROP FUNCTION IF EXISTS audit_refresh_tokens();
+DROP FUNCTION IF EXISTS audit_trusted_clients();
+DROP FUNCTION IF EXISTS audit_role_permissions();
+DROP FUNCTION IF EXISTS audit_user_roles();
 DROP FUNCTION IF EXISTS set_updated_at_timestamp();
 
+DROP INDEX IF EXISTS idx_users_username;
+DROP INDEX IF EXISTS idx_token_hash;
+DROP INDEX IF EXISTS idx_jti;
+DROP INDEX IF EXISTS idx_expiry_timestamp;
+DROP INDEX IF EXISTS idx_refresh_tokens_user_id;
+DROP INDEX IF EXISTS idx_refresh_tokens_family_id;
+DROP INDEX IF EXISTS idx_refresh_tokens_expires_at;
+DROP INDEX IF EXISTS idx_refresh_tokens_token_hash;
+DROP INDEX IF EXISTS idx_refresh_tokens_active;
+DROP INDEX IF EXISTS idx_user_roles_user_id;
+DROP INDEX IF EXISTS idx_user_roles_role_id;
+DROP INDEX IF EXISTS idx_trusted_clients_revoked;
+DROP INDEX IF EXISTS idx_audit_logs_actor;
+DROP INDEX IF EXISTS idx_audit_logs_action;
+DROP INDEX IF EXISTS idx_audit_logs_created_at;
+DROP INDEX IF EXISTS idx_audit_logs_action_actor_time;
+
 DROP TABLE IF EXISTS refresh_tokens;
-DROP TABLE IF EXISTS role_permissions;
-DROP TABLE IF EXISTS permissions;
 DROP TABLE IF EXISTS user_roles;
-DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS role_permissions;
 DROP TABLE IF EXISTS invalidated_jwts;
+DROP TABLE IF EXISTS permissions;
+DROP TABLE IF EXISTS roles;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS trusted_clients;
 DROP TABLE IF EXISTS audit_logs;
@@ -28,7 +57,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ============================================================================
 
 CREATE TABLE users (
-  user_id              SERIAL PRIMARY KEY,
+  user_id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   username             VARCHAR(50) UNIQUE NOT NULL,
   password_hash        VARCHAR(255) NOT NULL,
   force_password_reset BOOLEAN NOT NULL DEFAULT true,
@@ -39,7 +68,7 @@ CREATE TABLE users (
 COMMENT ON TABLE users IS
   'Application users and authentication credentials';
 COMMENT ON COLUMN users.user_id IS
-  'Internal numeric user identifier (primary key)';
+  'Unique user identifier (UUID primary key)';
 COMMENT ON COLUMN users.username IS
   'Unique login name';
 COMMENT ON COLUMN users.password_hash IS
@@ -56,7 +85,7 @@ COMMENT ON COLUMN users.updated_at IS
 -- ============================================================================
 
 CREATE TABLE roles (
-  role_id     SERIAL PRIMARY KEY,
+  role_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        VARCHAR(50) UNIQUE NOT NULL,
   description TEXT
 );
@@ -64,7 +93,7 @@ CREATE TABLE roles (
 COMMENT ON TABLE roles IS
   'Role definitions. Values are static and seeded separately';
 COMMENT ON COLUMN roles.role_id IS
-  'Internal role identifier (primary key)';
+  'Unique role identifier (UUID primary key)';
 COMMENT ON COLUMN roles.name IS
   'Unique role name (e.g. admin, user, kiosk)';
 COMMENT ON COLUMN roles.description IS
@@ -75,8 +104,8 @@ COMMENT ON COLUMN roles.description IS
 -- ============================================================================
 
 CREATE TABLE user_roles (
-  user_id INT NOT NULL,
-  role_id INT NOT NULL,
+  user_id UUID NOT NULL,
+  role_id UUID NOT NULL,
   PRIMARY KEY (user_id, role_id),
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
   FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE
@@ -94,14 +123,14 @@ COMMENT ON COLUMN user_roles.role_id IS
 -- ============================================================================
 
 CREATE TABLE permissions (
-  permission_id SERIAL PRIMARY KEY,
+  permission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name          VARCHAR(100) UNIQUE NOT NULL
 );
 
 COMMENT ON TABLE permissions IS
   'Permission definitions. Values are static and seeded separately';
 COMMENT ON COLUMN permissions.permission_id IS
-  'Internal permission identifier (primary key)';
+  'Unique permission identifier (UUID primary key)';
 COMMENT ON COLUMN permissions.name IS
   'Unique permission name (e.g. manage_users)';
 
@@ -110,8 +139,8 @@ COMMENT ON COLUMN permissions.name IS
 -- ============================================================================
 
 CREATE TABLE role_permissions (
-  role_id       INT NOT NULL,
-  permission_id INT NOT NULL,
+  role_id       UUID NOT NULL,
+  permission_id UUID NOT NULL,
   PRIMARY KEY (role_id, permission_id),
   FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE,
   FOREIGN KEY (permission_id) REFERENCES permissions(permission_id) ON DELETE CASCADE
@@ -129,7 +158,7 @@ COMMENT ON COLUMN role_permissions.permission_id IS
 -- ============================================================================
 
 CREATE TABLE invalidated_jwts (
-  id               SERIAL PRIMARY KEY,
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   jti              VARCHAR(255),
   token_hash       VARCHAR(255) NOT NULL,
   reason           TEXT,
@@ -140,7 +169,7 @@ CREATE TABLE invalidated_jwts (
 COMMENT ON TABLE invalidated_jwts IS
   'Revoked or invalidated access JWTs. Access tokens themselves are never stored';
 COMMENT ON COLUMN invalidated_jwts.id IS
-  'Internal identifier for the invalidated token entry (primary key)';
+  'Unique identifier for the invalidated token entry (UUID primary key)';
 COMMENT ON COLUMN invalidated_jwts.jti IS
   'JWT ID (jti claim) if present';
 COMMENT ON COLUMN invalidated_jwts.token_hash IS
@@ -158,7 +187,7 @@ COMMENT ON COLUMN invalidated_jwts.created_at IS
 
 CREATE TABLE refresh_tokens (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id               INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  user_id               UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   client_id             TEXT,
   token_hash            TEXT NOT NULL UNIQUE,
   family_id             UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -254,7 +283,7 @@ COMMENT ON COLUMN trusted_clients.updated_at IS
 CREATE TABLE audit_logs (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_id    UUID,
-  actor_type  VARCHAR(20) NOT NULL CHECK (actor_type IN ('USER', 'SERVICE', 'CERT', 'SYSTEM')),
+  actor_type  VARCHAR(20) NOT NULL CHECK (actor_type IN ('USER', 'SERVICE', 'CERT', 'SYSTEM', 'MIGRATION')),
   action      VARCHAR(50) NOT NULL,
   target_type VARCHAR(50),
   target_id   UUID,
@@ -266,6 +295,8 @@ CREATE TABLE audit_logs (
       'USER_UPDATED',
       'USER_DISABLED',
       'USER_PASSWORD_ROTATED',
+      'USER_ROLE_ASSIGNED',
+      'USER_ROLE_REMOVED',
       'TOKEN_ISSUED',
       'TOKEN_INVALIDATED',
       'REFRESH_TOKEN_ISSUED',
@@ -273,7 +304,9 @@ CREATE TABLE audit_logs (
       'REFRESH_TOKEN_REVOKED',
       'TRUSTED_CLIENT_CREATED',
       'TRUSTED_CLIENT_UPDATED',
-      'TRUSTED_CLIENT_REVOKED'
+      'TRUSTED_CLIENT_REVOKED',
+      'ROLE_PERMISSION_ASSIGNED',
+      'ROLE_PERMISSION_REMOVED'
     )
   )
 );
@@ -285,7 +318,7 @@ COMMENT ON COLUMN audit_logs.id IS
 COMMENT ON COLUMN audit_logs.actor_id IS
   'Identifier of the actor performing the action';
 COMMENT ON COLUMN audit_logs.actor_type IS
-  'Actor classification (USER, SERVICE, CERT, SYSTEM)';
+  'Actor classification (USER, SERVICE, CERT, SYSTEM, MIGRATION)';
 COMMENT ON COLUMN audit_logs.action IS
   'Normalized audit action name (controlled vocabulary)';
 COMMENT ON COLUMN audit_logs.target_type IS
@@ -310,10 +343,17 @@ CREATE INDEX idx_expiry_timestamp ON invalidated_jwts(expiry_timestamp);
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_family_id ON refresh_tokens(family_id);
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+CREATE INDEX idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
+CREATE INDEX idx_refresh_tokens_active ON refresh_tokens(user_id) WHERE revoked_at IS NULL;
+
+CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
+CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
+
+CREATE INDEX idx_trusted_clients_revoked ON trusted_clients(revoked);
 
 CREATE INDEX idx_audit_logs_actor ON audit_logs(actor_id);
 CREATE INDEX idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
 CREATE INDEX idx_audit_logs_action_actor_time
   ON audit_logs (action, actor_id, created_at DESC);
 
@@ -345,7 +385,12 @@ CREATE TRIGGER trg_set_trusted_clients_updated_at
 
 CREATE OR REPLACE FUNCTION audit_users()
   RETURNS TRIGGER AS $$
+DECLARE
+  target_record RECORD;
 BEGIN
+  -- Use NEW for INSERT/UPDATE, OLD for DELETE
+  target_record := CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+  
   INSERT INTO audit_logs (
     actor_id,
     actor_type,
@@ -354,8 +399,8 @@ BEGIN
     target_id,
     metadata
   ) VALUES (
-    current_setting('app.actor_id', true)::UUID,
-    current_setting('app.actor_type', true),
+    NULLIF(current_setting('app.actor_id', true), '')::UUID,
+    COALESCE(NULLIF(current_setting('app.actor_type', true), ''), 'MIGRATION'),
     CASE TG_OP
       WHEN 'INSERT' THEN 'USER_CREATED'
       WHEN 'UPDATE' THEN
@@ -366,10 +411,12 @@ BEGIN
       WHEN 'DELETE' THEN 'USER_DISABLED'
     END,
     'users',
-    NEW.user_id::UUID,
-    to_jsonb(NEW)
+    target_record.user_id,
+    to_jsonb(target_record)
   );
-  RETURN NEW;
+  
+  -- Return appropriate record for trigger
+  RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -384,11 +431,11 @@ BEGIN
     target_id,
     metadata
   ) VALUES (
-    current_setting('app.actor_id', true)::UUID,
-    current_setting('app.actor_type', true),
+    NULLIF(current_setting('app.actor_id', true), '')::UUID,
+    COALESCE(NULLIF(current_setting('app.actor_type', true), ''), 'MIGRATION'),
     'TOKEN_INVALIDATED',
     'invalidated_jwts',
-    gen_random_uuid(),
+    NEW.id,
     to_jsonb(NEW)
   );
   RETURN NEW;
@@ -397,7 +444,12 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION audit_refresh_tokens()
   RETURNS TRIGGER AS $$
+DECLARE
+  target_record RECORD;
 BEGIN
+  -- Use NEW for INSERT/UPDATE, OLD for DELETE
+  target_record := CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+  
   INSERT INTO audit_logs (
     actor_id,
     actor_type,
@@ -406,8 +458,8 @@ BEGIN
     target_id,
     metadata
   ) VALUES (
-    current_setting('app.actor_id', true)::UUID,
-    current_setting('app.actor_type', true),
+    NULLIF(current_setting('app.actor_id', true), '')::UUID,
+    COALESCE(NULLIF(current_setting('app.actor_type', true), ''), 'MIGRATION'),
     CASE TG_OP
       WHEN 'INSERT' THEN 'REFRESH_TOKEN_ISSUED'
       WHEN 'UPDATE' THEN
@@ -418,16 +470,23 @@ BEGIN
       WHEN 'DELETE' THEN 'REFRESH_TOKEN_REVOKED'
     END,
     'refresh_tokens',
-    NEW.id,
-    to_jsonb(NEW)
+    target_record.id,
+    to_jsonb(target_record)
   );
-  RETURN NEW;
+  
+  -- Return appropriate record for trigger
+  RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION audit_trusted_clients()
   RETURNS TRIGGER AS $$
+DECLARE
+  target_record RECORD;
 BEGIN
+  -- Use NEW for INSERT/UPDATE, OLD for DELETE
+  target_record := CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+  
   INSERT INTO audit_logs (
     actor_id,
     actor_type,
@@ -436,8 +495,8 @@ BEGIN
     target_id,
     metadata
   ) VALUES (
-    current_setting('app.actor_id', true)::UUID,
-    current_setting('app.actor_type', true),
+    NULLIF(current_setting('app.actor_id', true), '')::UUID,
+    COALESCE(NULLIF(current_setting('app.actor_type', true), ''), 'MIGRATION'),
     CASE TG_OP
       WHEN 'INSERT' THEN 'TRUSTED_CLIENT_CREATED'
       WHEN 'UPDATE' THEN
@@ -448,10 +507,82 @@ BEGIN
       WHEN 'DELETE' THEN 'TRUSTED_CLIENT_REVOKED'
     END,
     'trusted_clients',
-    NEW.id,
-    to_jsonb(NEW)
+    target_record.id,
+    to_jsonb(target_record)
   );
-  RETURN NEW;
+  
+  -- Return appropriate record for trigger
+  RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION audit_role_permissions()
+  RETURNS TRIGGER AS $$
+DECLARE
+  target_record RECORD;
+  composite_id UUID;
+BEGIN
+  -- Use NEW for INSERT, OLD for DELETE
+  target_record := CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+  -- Create deterministic UUID from composite key for audit trail
+  composite_id := md5(target_record.role_id::text || ':' || target_record.permission_id::text)::uuid;
+  
+  INSERT INTO audit_logs (
+    actor_id,
+    actor_type,
+    action,
+    target_type,
+    target_id,
+    metadata
+  ) VALUES (
+    NULLIF(current_setting('app.actor_id', true), '')::UUID,
+    COALESCE(NULLIF(current_setting('app.actor_type', true), ''), 'MIGRATION'),
+    CASE TG_OP
+      WHEN 'INSERT' THEN 'ROLE_PERMISSION_ASSIGNED'
+      WHEN 'DELETE' THEN 'ROLE_PERMISSION_REMOVED'
+    END,
+    'role_permissions',
+    composite_id,
+    to_jsonb(target_record)
+  );
+  
+  -- Return appropriate record for trigger
+  RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION audit_user_roles()
+  RETURNS TRIGGER AS $$
+DECLARE
+  target_record RECORD;
+  composite_id UUID;
+BEGIN
+  -- Use NEW for INSERT, OLD for DELETE
+  target_record := CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
+  -- Create deterministic UUID from composite key for audit trail
+  composite_id := md5(target_record.user_id::text || ':' || target_record.role_id::text)::uuid;
+  
+  INSERT INTO audit_logs (
+    actor_id,
+    actor_type,
+    action,
+    target_type,
+    target_id,
+    metadata
+  ) VALUES (
+    NULLIF(current_setting('app.actor_id', true), '')::UUID,
+    COALESCE(NULLIF(current_setting('app.actor_type', true), ''), 'MIGRATION'),
+    CASE TG_OP
+      WHEN 'INSERT' THEN 'USER_ROLE_ASSIGNED'
+      WHEN 'DELETE' THEN 'USER_ROLE_REMOVED'
+    END,
+    'user_roles',
+    composite_id,
+    to_jsonb(target_record)
+  );
+  
+  -- Return appropriate record for trigger
+  RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -478,3 +609,13 @@ CREATE TRIGGER trg_audit_trusted_clients
   AFTER INSERT OR UPDATE OR DELETE ON trusted_clients
   FOR EACH ROW
   EXECUTE FUNCTION audit_trusted_clients();
+
+CREATE TRIGGER trg_audit_role_permissions
+  AFTER INSERT OR DELETE ON role_permissions
+  FOR EACH ROW
+  EXECUTE FUNCTION audit_role_permissions();
+
+CREATE TRIGGER trg_audit_user_roles
+  AFTER INSERT OR DELETE ON user_roles
+  FOR EACH ROW
+  EXECUTE FUNCTION audit_user_roles();
