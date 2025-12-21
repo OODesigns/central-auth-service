@@ -1,7 +1,7 @@
 ##############################################
 # Development container configuration
 ##############################################
-FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:21-jdk
 
 ##############################################
 # Install development tools & dependencies

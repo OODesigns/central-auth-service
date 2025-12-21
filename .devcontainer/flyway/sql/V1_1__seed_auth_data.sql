@@ -14,23 +14,23 @@
 -- SEED ROLES (STATIC CONFIG)
 -- ============================================================================
 
-INSERT INTO roles (name, description) VALUES
-                                          ('admin', 'Administrator'),
-                                          ('user', 'Regular user'),
-                                          ('kiosk', 'Wall mounted public user')
+INSERT INTO roles (name, description)
+VALUES ('admin', 'Administrator'),
+       ('user', 'Regular user'),
+       ('kiosk', 'Wall mounted public user')
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================================
 -- SEED PERMISSIONS (STATIC CONFIG)
 -- ============================================================================
 
-INSERT INTO permissions (name) VALUES
-    ('create_user'),
-    ('update_user'),
-    ('delete_user'),
-    ('create_certificate'),
-    ('view_audit_log'),
-    ('clear_audit_log')
+INSERT INTO permissions (name)
+VALUES ('create_user'),
+       ('update_user'),
+       ('delete_user'),
+       ('create_certificate'),
+       ('view_audit_log'),
+       ('clear_audit_log')
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================================
@@ -41,10 +41,10 @@ ON CONFLICT (name) DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id
 FROM roles r
-         JOIN permissions p
-              ON r.name = 'admin'
-                  AND p.name IN ('create_user', 'update_user', 'delete_user', 
-                  'create_certificate', 'view_audit_log', 'clear_audit_log')
+  JOIN permissions p ON r.name = 'admin'
+                    AND p.name IN ('create_user', 'update_user', 'delete_user',
+                                   'create_certificate', 'view_audit_log',
+                                   'clear_audit_log')
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
@@ -55,20 +55,8 @@ ON CONFLICT DO NOTHING;
 --  - password_hash must be injected via Flyway placeholder or environment
 --  - admin must rotate password on first login
 
-INSERT INTO users (
-    username,
-    password_hash,
-    force_password_reset,
-    created_at,
-    updated_at
-)
-VALUES (
-        'admin',
-         password_hash,  -- pre-hashed, injected securely
-         true,
-         NOW(),
-         NOW()
-       )
+INSERT INTO users (username, password_hash, force_password_reset, created_at, updated_at)
+VALUES ('admin', '${ADMIN_PASSWORD}', true, NOW(), NOW())
 ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================================
@@ -82,3 +70,4 @@ FROM users u
               ON u.username = 'admin'
                   AND r.name = 'admin'
 ON CONFLICT DO NOTHING;
+JOIN roles r ON u.username = 'admin'
