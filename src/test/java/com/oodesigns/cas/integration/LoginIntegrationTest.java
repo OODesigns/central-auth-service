@@ -69,7 +69,7 @@ public class LoginIntegrationTest {
 
         // 2. Execute: Login command
         LoginCommand loginCmd = new LoginCommand("alice_smith", "correct_password".toCharArray(), 
-            "192.168.1.100", "Mozilla/5.0 (Windows; Chrome)");
+            "192.168.1.100");
         
         LoginResult result = loginHandler.handle(loginCmd);
 
@@ -90,7 +90,7 @@ public class LoginIntegrationTest {
 
         // 2. Execute: Wrong password
         LoginCommand loginCmd = new LoginCommand("bob_jones", "wrong_password".toCharArray(), 
-            "192.168.1.101", "Firefox");
+            "192.168.1.101");
         
         LoginResult result = loginHandler.handle(loginCmd);
 
@@ -106,7 +106,7 @@ public class LoginIntegrationTest {
 
         // 2. Execute: Login for non-existent user
         LoginCommand loginCmd = new LoginCommand("nonexistent", "password".toCharArray(), 
-            "192.168.1.102", "Safari");
+            "192.168.1.102");
         
         LoginResult result = loginHandler.handle(loginCmd);
 
@@ -135,7 +135,7 @@ public class LoginIntegrationTest {
         LoginCommand bobCmd = new LoginCommand("bob", "correct_password".toCharArray(), 
             "192.168.1.101", "Chrome");
         LoginCommand charlieCmd = new LoginCommand("charlie", "correct_password".toCharArray(), 
-            "192.168.1.102", "Firefox");
+            "192.168.1.102");
 
         LoginResult aliceResult = loginHandler.handle(aliceCmd);
         LoginResult bobResult = loginHandler.handle(bobCmd);
@@ -293,7 +293,7 @@ public class LoginIntegrationTest {
 
         // 4. Execute: Second login
         LoginCommand cmd2 = new LoginCommand("clock_test", "correct_password".toCharArray(), 
-            "192.168.1.101", "Firefox");
+            "192.168.1.101");
         LoginResult result2 = loginHandler.handle(cmd2);
 
         // 5. Verify: Both successful, clock advanced
@@ -333,19 +333,19 @@ public class LoginIntegrationTest {
 
         // 2. Successful login
         LoginCommand correctCmd = new LoginCommand("secure_user", "MySecurePassword123".toCharArray(), 
-            "192.168.1.50", "Chrome/120");
+            "192.168.1.50");
         LoginResult correctResult = loginHandler.handle(correctCmd);
         assertTrue(correctResult.isSuccess());
 
         // 3. Failed login attempt
         LoginCommand wrongCmd = new LoginCommand("secure_user", "WrongPassword".toCharArray(), 
-            "192.168.1.50", "Chrome/120");
+            "192.168.1.50");
         LoginResult wrongResult = loginHandler.handle(wrongCmd);
         assertFalse(wrongResult.isSuccess());
 
         // 4. Verify rate limit not hit (different IP, new user)
         LoginCommand anotherUserCmd = new LoginCommand("secure_user", "MySecurePassword123".toCharArray(), 
-            "192.168.1.51", "Chrome/120");
+            "192.168.1.51");
         LoginResult anotherResult = loginHandler.handle(anotherUserCmd);
         assertTrue(anotherResult.isSuccess());
     }
@@ -367,7 +367,7 @@ public class LoginIntegrationTest {
 
         // 2. Execute: Login
         LoginCommand loginCmd = new LoginCommand("powerful_user", "super_secret".toCharArray(), 
-            "192.168.1.99", "Safari");
+            "192.168.1.99");
         
         LoginResult result = loginHandler.handle(loginCmd);
 

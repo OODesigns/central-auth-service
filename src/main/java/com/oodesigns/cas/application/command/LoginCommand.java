@@ -42,22 +42,6 @@ import java.util.Objects;
  * </ul>
  * Must not be null or blank.</p>
  * 
- * <h3>userAgent</h3>
- * <p>The HTTP User-Agent header from the client's browser (e.g., "Mozilla/5.0 (Windows NT 10.0; Win64; x64)").
- * <strong>Why it's needed:</strong>
- * <ul>
- *   <li><strong>Device Fingerprinting:</strong> Identifies the device/browser used for login.
- *       Unusual changes (user normally logs in from Chrome on Mac, suddenly from Safari on iPhone)
- *       may indicate account compromise</li>
- *   <li><strong>Anomaly Detection:</strong> Detects patterns like multiple logins from
- *       different user agents in a short time (account takeover sign)</li>
- *   <li><strong>Bot Detection:</strong> Helps identify automated attacks (bots often have
- *       suspicious or missing User-Agent headers)</li>
- *   <li><strong>Session Security:</strong> Can be included in session tokens to ensure
- *       the same device/browser is used for subsequent requests</li>
- *   <li><strong>Compliance:</strong> Some regulations require logging of access context</li>
- * </ul>
- * Must not be null or blank.</p>
  * 
  * <h2>Immutability & Security</h2>
  * <ul>
@@ -74,8 +58,7 @@ import java.util.Objects;
  *     LoginCommand cmd = new LoginCommand(
  *         "john_doe",
  *         password,
- *         "192.168.1.100",
- *         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+ *         "192.168.1.100"
  *     );
  *     // Use cmd in authentication flow
  * } finally {
@@ -86,9 +69,8 @@ import java.util.Objects;
  * @param username User's unique identifier for lookup in the system
  * @param passwordChars Plaintext password as char array for secure memory handling
  * @param ipAddress Client's IP address for rate limiting and fraud detection
- * @param userAgent Client's User-Agent header for device fingerprinting and anomaly detection
  */
-public record LoginCommand(String username, char[] passwordChars, String ipAddress, String userAgent) {
+public record LoginCommand(String username, char[] passwordChars, String ipAddress) {
     
     /**
      * Constructs a validated LoginCommand.
@@ -101,11 +83,9 @@ public record LoginCommand(String username, char[] passwordChars, String ipAddre
      *                      Will be cloned internally for security
      * @param ipAddress The client's source IP address; must not be null or blank.
      *                  Used for rate limiting and fraud detection
-     * @param userAgent The HTTP User-Agent header; must not be null or blank.
-     *                  Used for device fingerprinting and anomaly detection
      * @throws IllegalArgumentException if any parameter is null or blank
      */
-    public LoginCommand(final String username, final char[] passwordChars, final String ipAddress, final String userAgent) {
+    public LoginCommand(final String username, final char[] passwordChars, final String ipAddress) {
         if (username == null || username.isBlank()) {
             throw new IllegalArgumentException("Username is required");
         }
@@ -115,14 +95,10 @@ public record LoginCommand(String username, char[] passwordChars, String ipAddre
         if (ipAddress == null || ipAddress.isBlank()) {
             throw new IllegalArgumentException("IP address is required");
         }
-        if (userAgent == null || userAgent.isBlank()) {
-            throw new IllegalArgumentException("User agent is required");
-        }
 
         this.username = username;
         this.passwordChars = passwordChars.clone();
         this.ipAddress = ipAddress;
-        this.userAgent = userAgent;
     }
 
     /**
@@ -145,13 +121,12 @@ public record LoginCommand(String username, char[] passwordChars, String ipAddre
         final LoginCommand that = (LoginCommand) o;
         return Objects.equals(username, that.username)
                 && Arrays.equals(passwordChars, that.passwordChars)
-                && Objects.equals(ipAddress, that.ipAddress)
-                && Objects.equals(userAgent, that.userAgent);
+                && Objects.equals(ipAddress, that.ipAddress);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(username, Arrays.hashCode(passwordChars), ipAddress, userAgent);
+        return Objects.hash(username, Arrays.hashCode(passwordChars), ipAddress);
     }
 
     @Override
@@ -160,7 +135,6 @@ public record LoginCommand(String username, char[] passwordChars, String ipAddre
                 + "username='" + username + '\''
                 + ", passwordChars=***"
                 + ", ipAddress='" + ipAddress + '\''
-                + ", userAgent='" + userAgent + '\''
                 + '}';
     }
 }

@@ -12,7 +12,7 @@ participant "PasswordHasher" as PasswordHasher
 participant "Clock" as Clock
 
 Client ->> Handler: handle(LoginCommand)
-note right of Handler: username, password, IP, userAgent
+note right of Handler: username, password, ipAddress
 
 Handler ->> RateLimiter: checkLimit("login:" + ipAddress)
 alt Rate Limit Exceeded
