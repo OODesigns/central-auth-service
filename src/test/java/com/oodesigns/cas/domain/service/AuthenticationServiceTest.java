@@ -12,14 +12,13 @@ import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 /**
  * Unit tests for AuthenticationService domain service.
  * Validates: authentication logic, token generation, port usage.
  */
 @ExtendWith(MockitoExtension.class)
-public class AuthenticationServiceTest {
+class AuthenticationServiceTest {
 
     @Mock
     private Ports.PasswordHasher passwordHasher;
@@ -34,11 +33,11 @@ public class AuthenticationServiceTest {
     private User testUser;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
         
         // Mock token signer to return simple signed tokens for testing
-        when(tokenSigner.sign(anyString(), any(Instant.class)))
+        when(tokenSigner.sign(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Instant.class)))
             .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
         
         UserId userId = UserId.generate();
@@ -48,7 +47,7 @@ public class AuthenticationServiceTest {
     }
 
     @Test
-    public void testAuthenticateValidPassword() {
+    void testAuthenticateValidPassword() {
         when(passwordHasher.verify("password123", testUser.passwordHash())).thenReturn(true);
 
         var result = authService.getAuthenticatedUser(testUser, "password123".toCharArray());
@@ -59,7 +58,7 @@ public class AuthenticationServiceTest {
     }
 
     @Test
-    public void testAuthenticateInvalidPassword() {
+    void testAuthenticateInvalidPassword() {
         when(passwordHasher.verify("wrongpassword", testUser.passwordHash())).thenReturn(false);
 
         var result = authService.getAuthenticatedUser(testUser, "wrongpassword".toCharArray());
@@ -69,20 +68,19 @@ public class AuthenticationServiceTest {
     }
 
     @Test
-    public void testAuthenticateNullUserReturnsEmpty() {
+    void testAuthenticateNullUserReturnsEmpty() {
         // Null user returns empty Optional
         var result = authService.getAuthenticatedUser(null, "password".toCharArray());
         assertTrue(result.isEmpty());
     }
 
     @Test
-    public void testAuthenticateNullPasswordThrows() {
-        assertThrows(NullPointerException.class, 
-            () -> authService.getAuthenticatedUser(testUser, null));
+    void testAuthenticateNullPasswordThrows() {
+        assertThrows(NullPointerException.class, () -> authService.getAuthenticatedUser(testUser, null));
     }
 
     @Test
-    public void testGenerateTokensReturnsValidTokenPair() {
+    void testGenerateTokensReturnsValidTokenPair() {
         Instant now = Instant.now();
         when(clock.now()).thenReturn(now);
 
@@ -96,13 +94,13 @@ public class AuthenticationServiceTest {
     }
 
     @Test
-    public void testGenerateTokensNullUserReturnsEmpty() {
+    void testGenerateTokensNullUserReturnsEmpty() {
         var result = authService.generateTokens(null);
         assertTrue(result.isEmpty());
     }
 
     @Test
-    public void testGenerateTokensCreatesUniqueJti() {
+    void testGenerateTokensCreatesUniqueJti() {
         when(clock.now()).thenReturn(Instant.now());
 
         var tokens1Optional = authService.generateTokens(testUser);
@@ -114,7 +112,7 @@ public class AuthenticationServiceTest {
     }
 
     @Test
-    public void testTokenPairContainsAllComponents() {
+    void testTokenPairContainsAllComponents() {
         when(clock.now()).thenReturn(Instant.now());
 
         var tokensOptional = authService.generateTokens(testUser);
@@ -124,7 +122,7 @@ public class AuthenticationServiceTest {
         assertNotNull(tokens.getAccessToken());
         assertNotNull(tokens.getRefreshToken());
         assertNotNull(tokens.getJti());
-        assertTrue(tokens.getAccessToken().length() > 0);
-        assertTrue(tokens.getRefreshToken().length() > 0);
+        assertFalse(tokens.getAccessToken().isEmpty());
+        assertFalse(tokens.getRefreshToken().isEmpty());
     }
 }

@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 
  * All external dependencies are injected as ports; adapters handle specifics.
  */
-public class LoginIntegrationTest {
+class LoginIntegrationTest {
 
     private LoginCommandHandler loginHandler;
     private InMemoryUserRepository userRepository;
@@ -44,7 +44,7 @@ public class LoginIntegrationTest {
     private MockTokenSigner tokenSigner;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         // Initialize all adapters
         userRepository = new InMemoryUserRepository();
         passwordHasher = new MockPasswordHasher();
@@ -60,7 +60,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testCompleteLoginFlow() {
+    void testCompleteLoginFlow() {
         // 1. Setup: Create and persist a user
         UserId userId = UserId.generate();
         Username username = new Username("alice_smith");
@@ -81,7 +81,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testLoginWithInvalidPassword() {
+    void testLoginWithInvalidPassword() {
         // 1. Setup: Create user with specific password
         UserId userId = UserId.generate();
         Username username = new Username("bob_jones");
@@ -102,7 +102,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testLoginWithNonExistentUser() {
+    void testLoginWithNonExistentUser() {
         // 1. Setup: No users in repository
 
         // 2. Execute: Login for non-existent user
@@ -117,7 +117,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testMultipleUsersInSystem() {
+    void testMultipleUsersInSystem() {
         // 1. Setup: Create multiple users
         User alice = User.create(UserId.generate(), new Username("alice"), 
             passwordHasher.hash("correct_password"));
@@ -149,7 +149,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testRateLimitingPerIPAddress() {
+    void testRateLimitingPerIPAddress() {
         // 1. Setup: User
         User user = User.create(UserId.generate(), new Username("rate_test"), 
             passwordHasher.hash("correct_password"));
@@ -174,7 +174,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testDifferentIPsNotRateLimited() {
+    void testDifferentIPsNotRateLimited() {
         // 1. Setup: User
         User user = User.create(UserId.generate(), new Username("multi_ip_test"), 
             passwordHasher.hash("correct_password"));
@@ -191,18 +191,18 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testUserWithMultiplePermissions() {
+    void testUserWithMultiplePermissions() {
         // 1. Setup: User with multiple permissions
         UserId userId = UserId.generate();
         User user = User.create(userId, new Username("super_admin"), 
             passwordHasher.hash("correct_password"))
-            .grantPermission(Permission.MANAGE_USERS())
-            .grantPermission(Permission.DELETE_ACCOUNTS());
+            .grantPermission(Permission.of("manage_users"))
+            .grantPermission(Permission.of("delete_accounts"));
         userRepository.save(user);
 
         // 2. Verify: User has both permissions
-        assertTrue(user.permissions().contains(Permission.MANAGE_USERS()));
-        assertTrue(user.permissions().contains(Permission.DELETE_ACCOUNTS()));
+        assertTrue(user.permissions().contains(Permission.of("manage_users")));
+        assertTrue(user.permissions().contains(Permission.of("delete_accounts")));
 
         // 3. Execute: Login should work
         LoginCommand cmd = new LoginCommand("super_admin", "correct_password".toCharArray(), 
@@ -213,7 +213,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testImmutabilityOfUserAfterLogin() {
+    void testImmutabilityOfUserAfterLogin() {
         // 1. Setup: Create and persist user
         UserId userId = UserId.generate();
         User originalUser = User.create(userId, new Username("immutable_test"), 
@@ -231,7 +231,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testPasswordSecurityWithCharArrays() {
+    void testPasswordSecurityWithCharArrays() {
         // 1. Setup: User
         User user = User.create(UserId.generate(), new Username("security_test"), 
             passwordHasher.hash("correct_password"));
@@ -253,7 +253,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testValueObjectConsistency() {
+    void testValueObjectConsistency() {
         // 1. Setup: Create users with specific value objects
         Username username = new Username("VALUE_OBJECT_TEST");
         UserId userId = UserId.generate();
@@ -272,7 +272,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testClockAdvancement() {
+    void testClockAdvancement() {
         // 1. Setup: User with mock clock
         User user = User.create(UserId.generate(), new Username("clock_test"), 
             passwordHasher.hash("correct_password"));
@@ -301,7 +301,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testRepositoryPersistence() {
+    void testRepositoryPersistence() {
         // 1. Setup: Save multiple users
         User user1 = User.create(UserId.generate(), new Username("persist1"), 
             passwordHasher.hash("correct_password"));
@@ -318,7 +318,7 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testEndToEndSecurityFlow() {
+    void testEndToEndSecurityFlow() {
         // Complete realistic scenario:
         // 1. User registration
         UserId userId = UserId.generate();
@@ -347,16 +347,16 @@ public class LoginIntegrationTest {
     }
 
     @Test
-    public void testLoginResponseIncludesPermissions() {
+    void testLoginResponseIncludesPermissions() {
         // 1. Setup: Create user with permissions
         UserId userId = UserId.generate();
         Username username = new Username("powerful_user");
         PasswordHash passwordHash = passwordHasher.hash("super_secret");
         
         User user = User.create(userId, username, passwordHash)
-            .grantPermission(com.oodesigns.cas.domain.value.Permission.MANAGE_USERS())
-            .grantPermission(com.oodesigns.cas.domain.value.Permission.VIEW_REPORTS())
-            .grantPermission(com.oodesigns.cas.domain.value.Permission.DELETE_ACCOUNTS());
+            .grantPermission(com.oodesigns.cas.domain.value.Permission.of("manage_users"))
+            .grantPermission(com.oodesigns.cas.domain.value.Permission.of("view_reports"))
+            .grantPermission(com.oodesigns.cas.domain.value.Permission.of("delete_accounts"));
         
         userRepository.save(user);
 
@@ -369,13 +369,13 @@ public class LoginIntegrationTest {
         // 3. Verify: Permissions returned in response
         assertTrue(result.isSuccess());
         assertEquals(3, result.getPermissions().size());
-        assertTrue(result.getPermissions().contains(com.oodesigns.cas.domain.value.Permission.MANAGE_USERS()));
-        assertTrue(result.getPermissions().contains(com.oodesigns.cas.domain.value.Permission.VIEW_REPORTS()));
-        assertTrue(result.getPermissions().contains(com.oodesigns.cas.domain.value.Permission.DELETE_ACCOUNTS()));
+        assertTrue(result.getPermissions().contains(com.oodesigns.cas.domain.value.Permission.of("manage_users")));
+        assertTrue(result.getPermissions().contains(com.oodesigns.cas.domain.value.Permission.of("view_reports")));
+        assertTrue(result.getPermissions().contains(com.oodesigns.cas.domain.value.Permission.of("delete_accounts")));
     }
 
     @Test
-    public void testLoginWithNoPermissions() {
+    void testLoginWithNoPermissions() {
         // 1. Setup: Create user with no permissions
         UserId userId = UserId.generate();
         Username username = new Username("basic_user");

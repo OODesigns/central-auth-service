@@ -1,103 +1,68 @@
 package com.oodesigns.cas.application.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * Transport DTO for login response.
- * Shaped for REST API; includes permissions for UI and API access control.
+ * Sealed interface hierarchy providing type-safe success/failure variants.
+ * Shaped for REST API and gRPC serialization.
+ * Uses @JsonInclude to omit null fields from JSON output.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public sealed interface LoginResponse {
     boolean isSuccess();
 
-    String getAccessToken();
-
-    String getRefreshToken();
-
-    List<String> getPermissions();
-
-    String getErrorCode();
-
-    String getErrorMessage();
-
     static LoginResponse success(final String accessToken, final String refreshToken, final List<String> permissions) {
-        return new SuccessResponse(true, accessToken, refreshToken, permissions, null, null);
+        return new SuccessResponse(accessToken, refreshToken, 
+                                  permissions != null ? Collections.unmodifiableList(permissions) : Collections.emptyList());
     }
 
     static LoginResponse failure(final String errorCode, final String errorMessage) {
-        return new FailureResponse(false, null, null, null, errorCode, errorMessage);
+        return new FailureResponse(errorCode, errorMessage);
     }
 
     /**
-     * Successful login response.
+     * Successful login response - contains only relevant fields.
+     * Reduces serialization overhead and prevents null handling confusion.
      */
-    record SuccessResponse(boolean success, String accessToken, String refreshToken, List<String> permissions,
-                           String errorCode, String errorMessage) implements LoginResponse {
+    record SuccessResponse(String accessToken, String refreshToken, List<String> permissions) implements LoginResponse {
+        public SuccessResponse {
+            if (accessToken == null || accessToken.isBlank()) {
+                throw new IllegalArgumentException("accessToken cannot be null or blank");
+            }
+            if (refreshToken == null || refreshToken.isBlank()) {
+                throw new IllegalArgumentException("refreshToken cannot be null or blank");
+            }
+            if (permissions == null) {
+                throw new IllegalArgumentException("permissions cannot be null");
+            }
+        }
+
         @Override
         public boolean isSuccess() {
             return true;
         }
-
-        @Override
-        public String getAccessToken() {
-            return accessToken;
-        }
-
-        @Override
-        public String getRefreshToken() {
-            return refreshToken;
-        }
-
-        @Override
-        public List<String> getPermissions() {
-            return permissions;
-        }
-
-        @Override
-        public String getErrorCode() {
-            return null;
-        }
-
-        @Override
-        public String getErrorMessage() {
-            return null;
-        }
     }
 
     /**
-     * Failed login response.
+     * Failed login response - contains only error information.
+     * Reduces serialization overhead and prevents unnecessary token fields in error responses.
      */
-    record FailureResponse(boolean success, String accessToken, String refreshToken, List<String> permissions,
-                           String errorCode, String errorMessage) implements LoginResponse {
+    record FailureResponse(String errorCode, String errorMessage) implements LoginResponse {
+        public FailureResponse {
+            if (errorCode == null || errorCode.isBlank()) {
+                throw new IllegalArgumentException("errorCode cannot be null or blank");
+            }
+            if (errorMessage == null || errorMessage.isBlank()) {
+                throw new IllegalArgumentException("errorMessage cannot be null or blank");
+            }
+        }
+
         @Override
         public boolean isSuccess() {
             return false;
-        }
-
-        @Override
-        public String getAccessToken() {
-            return null;
-        }
-
-        @Override
-        public String getRefreshToken() {
-            return null;
-        }
-
-        @Override
-        public List<String> getPermissions() {
-            return null;
-        }
-
-        @Override
-        public String getErrorCode() {
-            return errorCode;
-        }
-
-        @Override
-        public String getErrorMessage() {
-            return errorMessage;
         }
     }
 }

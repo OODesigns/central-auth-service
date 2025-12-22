@@ -2,7 +2,14 @@ package com.oodesigns.cas.domain.value;
 
 /**
  * Value object representing a fine-grained permission.
- * Examples: view_users, edit_profile, delete_accounts, approve_transfers
+ * 
+ * Permissions are loaded from the database (permissions table) at runtime.
+ * This class represents those permissions in the domain model.
+ * 
+ * Database examples: create_user, update_user, delete_user, view_audit_log, etc.
+ * 
+ * The static factory methods are convenience shortcuts for common permissions,
+ * but the primary pattern is to load permissions from the database via repositories.
  */
 public record Permission(String value) {
     public Permission {
@@ -15,41 +22,28 @@ public record Permission(String value) {
         }
     }
 
+    /**
+     * Factory method to create a Permission from a database value.
+     * The permission name should match a row in the permissions table.
+     * 
+     * @param value the permission name from the database
+     * @return new Permission instance
+     */
     public static Permission of(final String value) {
         return new Permission(value);
     }
 
-    // Standard permissions for common operations
-    public static Permission VIEW_USERS() {
-        return new Permission("view_users");
-    }
-
-    public static Permission EDIT_PROFILE() {
-        return new Permission("edit_profile");
-    }
-
-    public static Permission VIEW_REPORTS() {
-        return new Permission("view_reports");
-    }
-
-    public static Permission MANAGE_USERS() {
-        return new Permission("manage_users");
-    }
-
-    public static Permission DELETE_ACCOUNTS() {
-        return new Permission("delete_accounts");
-    }
-
-    public static Permission APPROVE_TRANSFERS() {
-        return new Permission("approve_transfers");
-    }
-
+    /**
+     * Convert Permission to its string value for serialization.
+     * 
+     * @return the permission name (e.g., "create_user")
+     */
     public String asString() {
         return value;
     }
 
     @Override
     public String toString() {
-        return "Permission{" + value + '}';
+        return value;
     }
 }

@@ -16,14 +16,13 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 /**
  * Integration unit tests for LoginCommandHandler.
  * Validates: complete login flow, error handling, rate limiting, user authentication.
  */
 @ExtendWith(MockitoExtension.class)
-public class LoginCommandHandlerTest {
+class LoginCommandHandlerTest {
 
     @Mock
     private UserRepository userRepository;
@@ -45,9 +44,9 @@ public class LoginCommandHandlerTest {
     private LoginCommand validCommand;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         // Mock token signer to return simple signed tokens for testing
-        when(tokenSigner.sign(anyString(), any(Instant.class)))
+        when(tokenSigner.sign(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Instant.class)))
             .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
         
         AuthenticationService authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
@@ -64,10 +63,10 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testSuccessfulLogin() {
+    void testSuccessfulLogin() {
         doNothing().when(rateLimiter).checkLimit("login:192.168.1.1");
-        when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(anyString(), any(PasswordHash.class))).thenReturn(true);
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result = loginHandler.handle(validCommand);
@@ -82,10 +81,10 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testLoginWithInvalidCredentials() {
+    void testLoginWithInvalidCredentials() {
         doNothing().when(rateLimiter).checkLimit("login:192.168.1.1");
-        when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(anyString(), any(PasswordHash.class))).thenReturn(false);
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(false);
 
         LoginResult result = loginHandler.handle(validCommand);
 
@@ -94,9 +93,9 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testLoginWithUnknownUser() {
+    void testLoginWithUnknownUser() {
         doNothing().when(rateLimiter).checkLimit("login:192.168.1.1");
-        when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.empty());
 
         LoginResult result = loginHandler.handle(validCommand);
 
@@ -105,7 +104,7 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testLoginRateLimited() {
+    void testLoginRateLimited() {
         doThrow(new Ports.RateLimitExceededException("Too many attempts from this IP"))
             .when(rateLimiter).checkLimit("login:192.168.1.1");
 
@@ -116,24 +115,24 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testLoginWithInvalidUsername() {
-        // LoginCommand validates at construction time
-        assertThrows(IllegalArgumentException.class, 
-            () -> new LoginCommand("", "password".toCharArray(), "192.168.1.1"));
+    void testLoginWithInvalidUsername() {
+        // LoginCommand validates at construction time - empty username rejected
+        char[] password = "password".toCharArray();
+        assertThrows(IllegalArgumentException.class, () -> new LoginCommand("", password, "192.168.1.1"));
     }
 
     @Test
-    public void testLoginWithNullCommand() {
+    void testLoginWithNullCommand() {
         assertThrows(NullPointerException.class, () -> loginHandler.handle(null));
     }
 
     @Test
-    public void testDifferentIPAddressesTrackSeparately() {
+    void testDifferentIPAddressesTrackSeparately() {
         LoginCommand cmd2 = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.2");
 
-        doNothing().when(rateLimiter).checkLimit(anyString());
-        when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(anyString(), any(PasswordHash.class))).thenReturn(true);
+        doNothing().when(rateLimiter).checkLimit(org.mockito.ArgumentMatchers.anyString());
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result1 = loginHandler.handle(validCommand);
@@ -147,9 +146,9 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testRepositoryExceptionHandled() {
+    void testRepositoryExceptionHandled() {
         doNothing().when(rateLimiter).checkLimit("login:192.168.1.1");
-        when(userRepository.findByUsername(any(Username.class)))
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class)))
             .thenThrow(new RuntimeException("Database connection failed"));
 
         LoginResult result = loginHandler.handle(validCommand);
@@ -159,10 +158,10 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testPasswordHasherExceptionHandled() {
+    void testPasswordHasherExceptionHandled() {
         doNothing().when(rateLimiter).checkLimit("login:192.168.1.1");
-        when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(anyString(), any(PasswordHash.class)))
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class)))
             .thenThrow(new RuntimeException("Bcrypt error"));
 
         LoginResult result = loginHandler.handle(validCommand);
@@ -172,12 +171,12 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testCompleteFlowWithAdminUser() {
-        User adminUser = testUser.grantPermission(Permission.MANAGE_USERS());
+    void testCompleteFlowWithAdminUser() {
+        User adminUser = testUser.grantPermission(Permission.of("manage_users"));
 
         doNothing().when(rateLimiter).checkLimit("login:192.168.1.1");
-        when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(adminUser));
-        when(passwordHasher.verify(anyString(), any(PasswordHash.class))).thenReturn(true);
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(adminUser));
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result = loginHandler.handle(validCommand);
@@ -188,13 +187,13 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testLoginCommandViaHandler() {
+    void testLoginCommandViaHandler() {
         char[] password = "mypass".toCharArray();
         LoginCommand cmd = new LoginCommand("test_user", password, "10.0.0.1");
 
         doNothing().when(rateLimiter).checkLimit("login:10.0.0.1");
-        when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(anyString(), any(PasswordHash.class))).thenReturn(true);
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result = loginHandler.handle(cmd);
@@ -203,14 +202,14 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testMultipleLoginAttemptsWithRateLimiting() {
+    void testMultipleLoginAttemptsWithRateLimiting() {
         doNothing()
             .doNothing()
             .doThrow(new Ports.RateLimitExceededException("Rate limited"))
             .when(rateLimiter).checkLimit("login:192.168.1.1");
 
-        when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(anyString(), any(PasswordHash.class))).thenReturn(true);
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result1 = loginHandler.handle(validCommand);
@@ -225,9 +224,9 @@ public class LoginCommandHandlerTest {
     }
 
     @Test
-    public void testErrorMessagesAreSafe() {
+    void testErrorMessagesAreSafe() {
         doNothing().when(rateLimiter).checkLimit("login:192.168.1.1");
-        when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.empty());
 
         LoginResult result = loginHandler.handle(validCommand);
 
