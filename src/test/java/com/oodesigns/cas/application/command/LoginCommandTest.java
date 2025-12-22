@@ -16,12 +16,12 @@ public class LoginCommandTest {
         char[] password = "password123".toCharArray();
         LoginCommand cmd = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
 
-        assertEquals("john_doe", cmd.getUsername());
-        assertEquals("192.168.1.1", cmd.getIpAddress());
-        assertEquals("Mozilla/5.0", cmd.getUserAgent());
+        assertEquals("john_doe", cmd.username());
+        assertEquals("192.168.1.1", cmd.ipAddress());
+        assertEquals("Mozilla/5.0", cmd.userAgent());
         // Verify password is cloned
-        assertNotSame(password, cmd.getPasswordChars());
-        assertArrayEquals(password, cmd.getPasswordChars());
+        assertNotSame(password, cmd.passwordChars());
+        assertArrayEquals(password, cmd.passwordChars());
     }
 
     @Test
@@ -88,7 +88,7 @@ public class LoginCommandTest {
         original[0] = 'X';
         
         // Command's password unchanged
-        assertEquals('p', cmd.getPasswordChars()[0]);
+        assertEquals('p', cmd.passwordChars()[0]);
     }
 
     @Test
@@ -96,11 +96,11 @@ public class LoginCommandTest {
         char[] password = "password123".toCharArray();
         LoginCommand cmd = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
         
-        char[] retrieved = cmd.getPasswordChars();
+        char[] retrieved = cmd.passwordChars();
         retrieved[0] = 'X';
         
         // Original command password unchanged
-        assertEquals('p', cmd.getPasswordChars()[0]);
+        assertEquals('p', cmd.passwordChars()[0]);
     }
 
     @Test
@@ -109,10 +109,10 @@ public class LoginCommandTest {
         
         // All fields set correctly
         LoginCommand cmd = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
-        assertNotNull(cmd.getUsername());
-        assertNotNull(cmd.getPasswordChars());
-        assertNotNull(cmd.getIpAddress());
-        assertNotNull(cmd.getUserAgent());
+        assertNotNull(cmd.username());
+        assertNotNull(cmd.passwordChars());
+        assertNotNull(cmd.ipAddress());
+        assertNotNull(cmd.userAgent());
     }
 
     @Test
@@ -123,6 +123,113 @@ public class LoginCommandTest {
         LoginCommand cmd1 = new LoginCommand("user1", pass1, "192.168.1.1", "Mozilla");
         LoginCommand cmd2 = new LoginCommand("user2", pass2, "192.168.1.2", "Chrome");
         
-        assertFalse(Arrays.equals(cmd1.getPasswordChars(), cmd2.getPasswordChars()));
+        assertFalse(Arrays.equals(cmd1.passwordChars(), cmd2.passwordChars()));
+    }
+
+    @Test
+    public void testEqualsWithIdenticalContent() {
+        char[] password = "password123".toCharArray();
+        LoginCommand cmd1 = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
+        LoginCommand cmd2 = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.1", "Mozilla/5.0");
+        
+        assertEquals(cmd1, cmd2);
+    }
+
+    @Test
+    public void testEqualsWithDifferentUsername() {
+        char[] password = "password123".toCharArray();
+        LoginCommand cmd1 = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
+        LoginCommand cmd2 = new LoginCommand("jane_doe", "password123".toCharArray(), "192.168.1.1", "Mozilla/5.0");
+        
+        assertNotEquals(cmd1, cmd2);
+    }
+
+    @Test
+    public void testEqualsWithDifferentPassword() {
+        LoginCommand cmd1 = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.1", "Mozilla/5.0");
+        LoginCommand cmd2 = new LoginCommand("john_doe", "password456".toCharArray(), "192.168.1.1", "Mozilla/5.0");
+        
+        assertNotEquals(cmd1, cmd2);
+    }
+
+    @Test
+    public void testEqualsWithDifferentIpAddress() {
+        char[] password = "password123".toCharArray();
+        LoginCommand cmd1 = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
+        LoginCommand cmd2 = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.2", "Mozilla/5.0");
+        
+        assertNotEquals(cmd1, cmd2);
+    }
+
+    @Test
+    public void testEqualsWithDifferentUserAgent() {
+        char[] password = "password123".toCharArray();
+        LoginCommand cmd1 = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
+        LoginCommand cmd2 = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.1", "Chrome/5.0");
+        
+        assertNotEquals(cmd1, cmd2);
+    }
+
+    @Test
+    public void testEqualsWithSameInstance() {
+        char[] password = "password123".toCharArray();
+        LoginCommand cmd = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
+        
+        assertEquals(cmd, cmd);
+    }
+
+    @Test
+    public void testEqualsWithNull() {
+        char[] password = "password123".toCharArray();
+        LoginCommand cmd = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
+        
+        assertNotEquals(cmd, null);
+    }
+
+    @Test
+    public void testEqualsWithDifferentType() {
+        char[] password = "password123".toCharArray();
+        LoginCommand cmd = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
+        
+        assertNotEquals(cmd, "string");
+    }
+
+    @Test
+    public void testHashCodeWithIdenticalContent() {
+        char[] password = "password123".toCharArray();
+        LoginCommand cmd1 = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
+        LoginCommand cmd2 = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.1", "Mozilla/5.0");
+        
+        assertEquals(cmd1.hashCode(), cmd2.hashCode());
+    }
+
+    @Test
+    public void testHashCodeWithDifferentPassword() {
+        LoginCommand cmd1 = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.1", "Mozilla/5.0");
+        LoginCommand cmd2 = new LoginCommand("john_doe", "password456".toCharArray(), "192.168.1.1", "Mozilla/5.0");
+        
+        assertNotEquals(cmd1.hashCode(), cmd2.hashCode());
+    }
+
+    @Test
+    public void testToStringMasksPassword() {
+        char[] password = "password123".toCharArray();
+        LoginCommand cmd = new LoginCommand("john_doe", password, "192.168.1.1", "Mozilla/5.0");
+        String cmdString = cmd.toString();
+        
+        assertTrue(cmdString.contains("username='john_doe'"));
+        assertTrue(cmdString.contains("passwordChars=***"));
+        assertTrue(cmdString.contains("ipAddress='192.168.1.1'"));
+        assertTrue(cmdString.contains("userAgent='Mozilla/5.0'"));
+        assertFalse(cmdString.contains("password123"));
+    }
+
+    @Test
+    public void testToStringFormat() {
+        char[] password = "secret".toCharArray();
+        LoginCommand cmd = new LoginCommand("admin", password, "10.0.0.1", "Safari");
+        String result = cmd.toString();
+        
+        assertEquals("LoginCommand{username='admin', passwordChars=***, ipAddress='10.0.0.1', userAgent='Safari'}", result);
     }
 }

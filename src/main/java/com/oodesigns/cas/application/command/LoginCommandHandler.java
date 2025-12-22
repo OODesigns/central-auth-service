@@ -29,19 +29,19 @@ public final class LoginCommandHandler {
     public LoginResult handle(final LoginCommand command) {
         try {
             // Rate limiting by IP
-            rateLimiter.checkLimit("login:" + command.getIpAddress());
+            rateLimiter.checkLimit("login:" + command.ipAddress());
         } catch (Ports.RateLimitExceededException e) {
             return LoginResult.failure("RATE_LIMITED", "Too many login attempts. Try again later.");
         }
 
         try {
             // Find user by username
-            Username username = new Username(command.getUsername());
+            Username username = new Username(command.username());
             User user = userRepository.findByUsername(username).orElse(null);
 
             // Authenticate
             AuthenticationResult authResult = authService.authenticate(user, 
-                    new String(command.getPasswordChars()));
+                    new String(command.passwordChars()));
 
             if (!authResult.isSuccess()) {
                 // Don't expose which field is wrong

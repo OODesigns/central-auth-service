@@ -2,7 +2,6 @@ package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.value.Jti;
-import com.oodesigns.cas.domain.value.PasswordHash;
 import com.oodesigns.cas.domain.value.UserId;
 
 import java.time.Duration;

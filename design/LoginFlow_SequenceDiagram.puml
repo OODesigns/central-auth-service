@@ -1,0 +1,63 @@
+@startuml LoginSequenceDiagram
+!theme plain
+title Login Authentication Flow - Sequence Diagram
+
+actor Client
+participant "LoginCommandHandler" as Handler
+participant "RateLimiter" as RateLimiter
+participant "UserRepository" as Repository
+participant "User" as UserEntity
+participant "AuthenticationService" as AuthService
+participant "PasswordHasher" as PasswordHasher
+participant "Clock" as Clock
+
+Client ->> Handler: handle(LoginCommand)
+note right of Handler: username, password, IP, userAgent
+
+Handler ->> RateLimiter: checkLimit("login:" + ipAddress)
+alt Rate Limit Exceeded
+    RateLimiter -->> Handler: RateLimitExceededException
+    Handler -->> Client: LoginResult.failure("RATE_LIMITED", ...)
+else Limit OK
+    note right of RateLimiter: Check login attempts by IP
+    
+    Handler ->> Repository: findByUsername(username)
+    Repository -->> Handler: Optional<User>
+    
+    alt User Not Found
+        note right of Handler: user = null
+        Handler ->> AuthService: authenticate(null, password)
+        AuthService -->> Handler: AuthenticationResult.failed()
+        Handler -->> Client: LoginResult.failure("INVALID_CREDENTIALS", ...)
+    else User Found
+        note right of Handler: user exists
+        Handler ->> AuthService: authenticate(user, rawPassword)
+        
+        AuthService ->> AuthService: validate user != null
+        
+        AuthService ->> PasswordHasher: verify(rawPassword, passwordHash)
+        PasswordHasher -->> AuthService: boolean (matches)
+        
+        alt Password Invalid
+            AuthService -->> Handler: AuthenticationResult.failed()
+            Handler -->> Client: LoginResult.failure("INVALID_CREDENTIALS", ...)
+        else Password Valid
+            AuthService -->> Handler: AuthenticationResult.success(user)
+            
+            Handler ->> AuthService: generateTokens(user)
+            
+            AuthService ->> Clock: now()
+            Clock -->> AuthService: Instant
+            
+            AuthService ->> AuthService: generate JTI (Jti.generate())
+            AuthService ->> AuthService: createAccessToken(userId, jti, permissions, issuedAt)
+            AuthService ->> AuthService: createRefreshToken(userId, issuedAt)
+            
+            AuthService -->> Handler: TokenPair(accessToken, refreshToken, jti, permissions)
+            
+            Handler -->> Client: LoginResult.success(accessToken, refreshToken, permissions)
+        end
+    end
+end
+
+@enduml

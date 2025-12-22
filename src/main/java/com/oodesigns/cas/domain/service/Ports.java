@@ -1,7 +1,6 @@
 package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.value.PasswordHash;
-import com.oodesigns.cas.domain.value.Jti;
 import java.time.Instant;
 
 /**
