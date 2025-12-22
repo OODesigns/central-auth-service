@@ -6,7 +6,9 @@ import com.oodesigns.cas.domain.value.UserId;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -16,45 +18,51 @@ import java.util.stream.Collectors;
 public final class AuthenticationService {
     private final Ports.PasswordHasher passwordHasher;
     private final Ports.Clock clock;
+    private final Ports.TokenSigner tokenSigner;
     private static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
 
-    public AuthenticationService(final Ports.PasswordHasher passwordHasher, final Ports.Clock clock) {
+    public AuthenticationService(final Ports.PasswordHasher passwordHasher, final Ports.Clock clock, final Ports.TokenSigner tokenSigner) {
         this.passwordHasher = Objects.requireNonNull(passwordHasher);
         this.clock = Objects.requireNonNull(clock);
+        this.tokenSigner = Objects.requireNonNull(tokenSigner);
     }
 
     /**
      * Authenticate a user by verifying password.
-     * Returns AuthenticationResult with status.
+     * Returns Optional containing authenticated user if password matches, empty if invalid.
+     * Password char array is cleared after verification.
      */
-    public AuthenticationResult authenticate(final User user, final String rawPassword) {
+    public Optional<User> getAuthenticatedUser(final User user, final char[] rawPassword) {
         Objects.requireNonNull(rawPassword, "Password is required");
         
         if (user == null) {
-            return AuthenticationResult.failed("User not found");
+            Arrays.fill(rawPassword, '\0');
+            return Optional.empty();
         }
 
-        if (!passwordHasher.verify(rawPassword, user.getPasswordHash())) {
-            return AuthenticationResult.failed("Invalid password");
-        }
-
-        return AuthenticationResult.success(user);
+        boolean matches = passwordHasher.verify(new String(rawPassword), user.passwordHash());
+        Arrays.fill(rawPassword, '\0');
+        
+        return matches ? Optional.of(user) : Optional.empty();
     }
 
     /**
      * Generate tokens for authenticated user, including permissions as claims.
+     * @return Optional containing TokenPair if tokens generated, empty if user is null
      */
-    public TokenPair generateTokens(final User user) {
-        Objects.requireNonNull(user, "User is required");
+    public Optional<TokenPair> generateTokens(final User user) {
+        if (user == null) {
+            return Optional.empty();
+        }
         
         Instant now = clock.now();
         Jti jti = Jti.generate();
         
-        String accessToken = createAccessToken(user.getUserId(), jti, user.getPermissions(), now);
-        String refreshToken = createRefreshToken(user.getUserId(), now);
+        String accessToken = createAccessToken(user.userId(), jti, user.permissions(), now);
+        String refreshToken = createRefreshToken(user.userId(), now);
 
-        return new TokenPair(accessToken, refreshToken, jti, user.getPermissions());
+        return Optional.of(new TokenPair(accessToken, refreshToken, jti, user.permissions()));
     }
 
     private String createAccessToken(final UserId userId, final Jti jti, final java.util.Set<com.oodesigns.cas.domain.value.Permission> permissions, final Instant issuedAt) {
@@ -64,69 +72,31 @@ public final class AuthenticationService {
             .collect(Collectors.joining(",")) + "]";
         String payload = String.format("{\"sub\":\"%s\",\"jti\":\"%s\",\"permissions\":%s,\"iat\":%d,\"exp\":%d}",
                 userId.asString(), jti.asString(), permissionsList, issuedAt.getEpochSecond(), expiresAt.getEpochSecond());
-        // In real implementation, would use actual token signer
-        return "access." + payload;
+        // Sign the token using the injected TokenSigner port
+        return tokenSigner.sign(payload, expiresAt);
     }
 
     private String createRefreshToken(final UserId userId, final Instant issuedAt) {
         Instant expiresAt = issuedAt.plus(REFRESH_TOKEN_TTL);
         String payload = String.format("{\"sub\":\"%s\",\"iat\":%d,\"exp\":%d}",
                 userId.asString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond());
-        // In real implementation, would use actual token signer
-        return "refresh." + payload;
+        // Sign the token using the injected TokenSigner port
+        return tokenSigner.sign(payload, expiresAt);
     }
 
-    /**
-     * Result of authentication attempt.
-     */
-    public static class AuthenticationResult {
-        private final boolean success;
-        private final User user;
-        private final String errorMessage;
-
-        private AuthenticationResult(boolean success, User user, String errorMessage) {
-            this.success = success;
-            this.user = user;
-            this.errorMessage = errorMessage;
-        }
-
-        public static AuthenticationResult success(User user) {
-            return new AuthenticationResult(true, Objects.requireNonNull(user), null);
-        }
-
-        public static AuthenticationResult failed(String errorMessage) {
-            return new AuthenticationResult(false, null, Objects.requireNonNull(errorMessage));
-        }
-
-        public boolean isSuccess() {
-            return success;
-        }
-
-        public User getUser() {
-            if (!success) throw new IllegalStateException("Authentication failed: " + errorMessage);
-            return user;
-        }
-
-        public String getErrorMessage() {
-            if (success) throw new IllegalStateException("Authentication succeeded");
-            return errorMessage;
-        }
-    }
 
     /**
      * Token pair (access + refresh).
      */
-    public static class TokenPair {
-        private final String accessToken;
-        private final String refreshToken;
-        private final Jti jti;
-        private final java.util.Set<com.oodesigns.cas.domain.value.Permission> permissions;
-
-        public TokenPair(String accessToken, String refreshToken, Jti jti, java.util.Set<com.oodesigns.cas.domain.value.Permission> permissions) {
-            this.accessToken = Objects.requireNonNull(accessToken);
-            this.refreshToken = Objects.requireNonNull(refreshToken);
-            this.jti = Objects.requireNonNull(jti);
-            this.permissions = java.util.Collections.unmodifiableSet(new java.util.HashSet<>(Objects.requireNonNull(permissions)));
+    public record TokenPair(String accessToken, String refreshToken, Jti jti,
+                            java.util.Set<com.oodesigns.cas.domain.value.Permission> permissions) {
+        public TokenPair {
+            Objects.requireNonNull(accessToken);
+            Objects.requireNonNull(refreshToken);
+            Objects.requireNonNull(jti);
+            Objects.requireNonNull(permissions);
+            // Make permissions unmodifiable
+            permissions = java.util.Collections.unmodifiableSet(new java.util.HashSet<>(permissions));
         }
 
         public String getAccessToken() {

@@ -12,6 +12,7 @@ import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 /**
  * Unit tests for AuthenticationService domain service.
@@ -26,12 +27,19 @@ public class AuthenticationServiceTest {
     @Mock
     private Ports.Clock clock;
 
+    @Mock
+    private Ports.TokenSigner tokenSigner;
+
     private AuthenticationService authService;
     private User testUser;
 
     @BeforeEach
     public void setUp() {
-        authService = new AuthenticationService(passwordHasher, clock);
+        authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
+        
+        // Mock token signer to return simple signed tokens for testing
+        when(tokenSigner.sign(anyString(), any(Instant.class)))
+            .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
         
         UserId userId = UserId.generate();
         Username username = new Username("test_user");
@@ -41,39 +49,36 @@ public class AuthenticationServiceTest {
 
     @Test
     public void testAuthenticateValidPassword() {
-        when(passwordHasher.verify("password123", testUser.getPasswordHash())).thenReturn(true);
+        when(passwordHasher.verify("password123", testUser.passwordHash())).thenReturn(true);
 
-        AuthenticationService.AuthenticationResult result = authService.authenticate(testUser, "password123");
+        var result = authService.getAuthenticatedUser(testUser, "password123".toCharArray());
 
-        assertTrue(result.isSuccess());
-        assertEquals(testUser, result.getUser());
-        verify(passwordHasher).verify("password123", testUser.getPasswordHash());
+        assertTrue(result.isPresent());
+        assertEquals(testUser, result.get());
+        verify(passwordHasher).verify("password123", testUser.passwordHash());
     }
 
     @Test
     public void testAuthenticateInvalidPassword() {
-        when(passwordHasher.verify("wrongpassword", testUser.getPasswordHash())).thenReturn(false);
+        when(passwordHasher.verify("wrongpassword", testUser.passwordHash())).thenReturn(false);
 
-        AuthenticationService.AuthenticationResult result = authService.authenticate(testUser, "wrongpassword");
+        var result = authService.getAuthenticatedUser(testUser, "wrongpassword".toCharArray());
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getErrorMessage().contains("Invalid password"));
-        verify(passwordHasher).verify("wrongpassword", testUser.getPasswordHash());
+        assertTrue(result.isEmpty());
+        verify(passwordHasher).verify("wrongpassword", testUser.passwordHash());
     }
 
     @Test
-    public void testAuthenticateNullUserReturnsFailedResult() {
-        // Null user is allowed and returns failed result
-        AuthenticationService.AuthenticationResult result = authService.authenticate(null, "password");
-
-        assertFalse(result.isSuccess());
-        assertTrue(result.getErrorMessage().contains("User not found"));
+    public void testAuthenticateNullUserReturnsEmpty() {
+        // Null user returns empty Optional
+        var result = authService.getAuthenticatedUser(null, "password".toCharArray());
+        assertTrue(result.isEmpty());
     }
 
     @Test
     public void testAuthenticateNullPasswordThrows() {
         assertThrows(NullPointerException.class, 
-            () -> authService.authenticate(testUser, null));
+            () -> authService.getAuthenticatedUser(testUser, null));
     }
 
     @Test
@@ -81,66 +86,41 @@ public class AuthenticationServiceTest {
         Instant now = Instant.now();
         when(clock.now()).thenReturn(now);
 
-        AuthenticationService.TokenPair tokens = authService.generateTokens(testUser);
-
+        var tokensOptional = authService.generateTokens(testUser);
+        
+        assertTrue(tokensOptional.isPresent());
+        AuthenticationService.TokenPair tokens = tokensOptional.get();
         assertNotNull(tokens.getAccessToken());
         assertNotNull(tokens.getRefreshToken());
         assertNotNull(tokens.getJti());
     }
 
     @Test
-    public void testGenerateTokensNullUserThrows() {
-        assertThrows(NullPointerException.class, 
-            () -> authService.generateTokens(null));
+    public void testGenerateTokensNullUserReturnsEmpty() {
+        var result = authService.generateTokens(null);
+        assertTrue(result.isEmpty());
     }
 
     @Test
     public void testGenerateTokensCreatesUniqueJti() {
         when(clock.now()).thenReturn(Instant.now());
 
-        AuthenticationService.TokenPair tokens1 = authService.generateTokens(testUser);
-        AuthenticationService.TokenPair tokens2 = authService.generateTokens(testUser);
-
-        assertNotEquals(tokens1.getJti(), tokens2.getJti());
-    }
-
-    @Test
-    public void testAuthenticationResultSuccessState() {
-        AuthenticationService.AuthenticationResult result = AuthenticationService.AuthenticationResult.success(testUser);
-
-        assertTrue(result.isSuccess());
-        assertEquals(testUser, result.getUser());
-    }
-
-    @Test
-    public void testAuthenticationResultFailureState() {
-        String errorMsg = "Authentication failed";
-        AuthenticationService.AuthenticationResult result = AuthenticationService.AuthenticationResult.failed(errorMsg);
-
-        assertFalse(result.isSuccess());
-        assertEquals(errorMsg, result.getErrorMessage());
-    }
-
-    @Test
-    public void testAccessingSuccessResultErrorThrows() {
-        AuthenticationService.AuthenticationResult result = AuthenticationService.AuthenticationResult.success(testUser);
-
-        assertThrows(IllegalStateException.class, result::getErrorMessage);
-    }
-
-    @Test
-    public void testAccessingFailureResultUserThrows() {
-        AuthenticationService.AuthenticationResult result = AuthenticationService.AuthenticationResult.failed("error");
-
-        assertThrows(IllegalStateException.class, result::getUser);
+        var tokens1Optional = authService.generateTokens(testUser);
+        var tokens2Optional = authService.generateTokens(testUser);
+        
+        assertTrue(tokens1Optional.isPresent());
+        assertTrue(tokens2Optional.isPresent());
+        assertNotEquals(tokens1Optional.get().getJti(), tokens2Optional.get().getJti());
     }
 
     @Test
     public void testTokenPairContainsAllComponents() {
         when(clock.now()).thenReturn(Instant.now());
 
-        AuthenticationService.TokenPair tokens = authService.generateTokens(testUser);
-
+        var tokensOptional = authService.generateTokens(testUser);
+        assertTrue(tokensOptional.isPresent());
+        
+        AuthenticationService.TokenPair tokens = tokensOptional.get();
         assertNotNull(tokens.getAccessToken());
         assertNotNull(tokens.getRefreshToken());
         assertNotNull(tokens.getJti());

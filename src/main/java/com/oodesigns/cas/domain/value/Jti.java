@@ -7,11 +7,9 @@ import java.util.UUID;
  * Value object representing a JWT ID (jti claim).
  * Used to track and revoke individual access tokens.
  */
-public final class Jti {
-    private final UUID value;
-
-    public Jti(final UUID value) {
-        this.value = Objects.requireNonNull(value, "JTI cannot be null");
+public record Jti(UUID value) {
+    public Jti {
+        Objects.requireNonNull(value, "JTI cannot be null");
     }
 
     public static Jti generate() {
@@ -33,19 +31,6 @@ public final class Jti {
 
     public String asString() {
         return value.toString();
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Jti)) return false;
-        Jti jti = (Jti) o;
-        return Objects.equals(value, jti.value);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(value);
     }
 
     @Override

@@ -3,12 +3,11 @@ package com.oodesigns.cas.application.command;
 import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.repository.UserRepository;
 import com.oodesigns.cas.domain.service.AuthenticationService;
-import com.oodesigns.cas.domain.service.AuthenticationService.AuthenticationResult;
-import com.oodesigns.cas.domain.service.AuthenticationService.TokenPair;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Username;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Application command handler for login.
@@ -27,38 +26,58 @@ public final class LoginCommandHandler {
     }
 
     public LoginResult handle(final LoginCommand command) {
+        return checkRateLimit(command)
+            .orElseGet(() -> authenticateUser(command));
+    }
+
+    /**
+     * Check if the login attempt from this IP address exceeds rate limit.
+     * @return Optional containing failure result if rate limited, empty if OK
+     */
+    private Optional<LoginResult> checkRateLimit(final LoginCommand command) {
         try {
-            // Rate limiting by IP
             rateLimiter.checkLimit("login:" + command.ipAddress());
+            return Optional.empty();
         } catch (Ports.RateLimitExceededException e) {
-            return LoginResult.failure("RATE_LIMITED", "Too many login attempts. Try again later.");
+            return Optional.of(LoginResult.failure("RATE_LIMITED", "Too many login attempts. Try again later."));
         }
+    }
 
-        try {
-            // Find user by username
-            Username username = new Username(command.username());
-            User user = userRepository.findByUsername(username).orElse(null);
+    /**
+     * Authenticate user by finding, verifying password, and generating tokens.
+     * @return LoginResult with success or failure
+     */
+    private LoginResult authenticateUser(final LoginCommand command) {
+        return findUserByUsername(command)
+            .map(user -> verifyPasswordAndGenerateTokens(user, command))
+            .orElseGet(() -> LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password."));
+    }
 
-            // Authenticate
-            AuthenticationResult authResult = authService.authenticate(user, 
-                    new String(command.passwordChars()));
+    /**
+     * Verify user password and generate tokens if valid.
+     * @return LoginResult with success or failure
+     */
+    private LoginResult verifyPasswordAndGenerateTokens(final User user, final LoginCommand command) {
+        return authService.getAuthenticatedUser(user, command.passwordChars())
+            .flatMap(this::generateSuccessResult)
+            .orElseGet(() -> LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password."));
+    }
 
-            if (!authResult.isSuccess()) {
-                // Don't expose which field is wrong
-                return LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password.");
-            }
+    /**
+     * Find user by username from the command.
+     * @return Optional containing User if found, empty Optional otherwise
+     */
+    private Optional<User> findUserByUsername(final LoginCommand command) {
+        return userRepository.findByUsername(Username.of(command.username()));
+    }
 
-            User authenticatedUser = authResult.getUser();
-
-            // Generate tokens (includes permissions as JWT claims)
-            TokenPair tokens = authService.generateTokens(authenticatedUser);
-
-            return LoginResult.success(tokens.getAccessToken(), tokens.getRefreshToken(), authenticatedUser.getPermissions());
-
-        } catch (IllegalArgumentException e) {
-            return LoginResult.failure("INVALID_REQUEST", "Invalid username or password.");
-        } catch (Exception e) {
-            return LoginResult.failure("INTERNAL_ERROR", "An unexpected error occurred.");
-        }
+    /**
+     * Generate tokens and build success result for authenticated user.
+     * @return Optional containing LoginResult.success if tokens generated, empty if failed
+     */
+    private Optional<LoginResult> generateSuccessResult(final User authenticatedUser) {
+        return authService.generateTokens(authenticatedUser)
+            .map(tokens -> LoginResult.success(tokens.getAccessToken(), tokens.getRefreshToken(), 
+                                              authenticatedUser.permissions()));
     }
 }

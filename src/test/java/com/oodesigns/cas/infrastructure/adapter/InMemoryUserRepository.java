@@ -21,8 +21,8 @@ public class InMemoryUserRepository implements UserRepository {
         if (user == null) {
             throw new IllegalArgumentException("User cannot be null");
         }
-        usersById.put(user.getUserId(), user);
-        usersByUsername.put(user.getUsername().asString(), user);
+        usersById.put(user.userId(), user);
+        usersByUsername.put(user.username().asString(), user);
     }
 
     @Override

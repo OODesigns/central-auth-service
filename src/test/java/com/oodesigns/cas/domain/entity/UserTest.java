@@ -4,14 +4,13 @@ import com.oodesigns.cas.domain.value.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 
-import java.time.Instant;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for User domain entity.
- * Validates: factory methods, immutability, state changes return new instances, roles management.
+ * Validates: factory methods, immutability, permissions management.
  */
 public class UserTest {
 
@@ -30,13 +29,10 @@ public class UserTest {
     public void testCreateNewUser() {
         User user = User.create(userId, username, passwordHash);
         
-        assertEquals(userId, user.getUserId());
-        assertEquals(username, user.getUsername());
-        assertEquals(passwordHash, user.getPasswordHash());
-        assertTrue(user.getRoles().isEmpty());
-        assertTrue(user.isForcePasswordReset());  // New users must change password
-        assertNotNull(user.getCreatedAt());
-        assertNotNull(user.getUpdatedAt());
+        assertEquals(userId, user.userId());
+        assertEquals(username, user.username());
+        assertEquals(passwordHash, user.passwordHash());
+        assertTrue(user.permissions().isEmpty());
     }
 
     @Test
@@ -58,96 +54,31 @@ public class UserTest {
     }
 
     @Test
-    public void testRestoreUser() {
-        Set<Role> roles = new HashSet<>();
-        roles.add(Role.user());
-        Instant createdAt = Instant.now().minusSeconds(3600);
-        Instant updatedAt = Instant.now();
-
-        User user = User.restore(userId, username, passwordHash, roles, new java.util.HashSet<>(), true, createdAt, updatedAt);
-
-        assertEquals(userId, user.getUserId());
-        assertEquals(username, user.getUsername());
-        assertEquals(passwordHash, user.getPasswordHash());
-        assertEquals(roles, user.getRoles());
-        assertTrue(user.isForcePasswordReset());
-        assertEquals(createdAt, user.getCreatedAt());
-        assertEquals(updatedAt, user.getUpdatedAt());
-    }
-
-    @Test
-    public void testAssignRoleReturnsNewInstance() {
+    public void testGrantPermissionReturnsNewInstance() {
         User user1 = User.create(userId, username, passwordHash);
-        User user2 = user1.assignRole(Role.user());
+        User user2 = user1.grantPermission(Permission.VIEW_USERS());
 
         // Both users are the same entity (same userId) but different instances
         assertEquals(user1, user2);  // Same user ID = equal
         assertNotSame(user1, user2);  // But different objects
         
         // Original state unchanged
-        assertTrue(user1.getRoles().isEmpty());
+        assertTrue(user1.permissions().isEmpty());
         
-        // New instance has role
-        assertEquals(1, user2.getRoles().size());
-        assertTrue(user2.hasRole(Role.user()));
+        // New instance has permission
+        assertEquals(1, user2.permissions().size());
+        assertTrue(user2.permissions().contains(Permission.VIEW_USERS()));
     }
 
     @Test
-    public void testAssignRoleIdempotent() {
-        User user1 = User.create(userId, username, passwordHash).assignRole(Role.user());
-        User user2 = user1.assignRole(Role.user());
-
-        // Same size (role not duplicated)
-        assertEquals(1, user2.getRoles().size());
-    }
-
-    @Test
-    public void testAssignMultipleRoles() {
+    public void testGrantMultiplePermissions() {
         User user = User.create(userId, username, passwordHash)
-            .assignRole(Role.user())
-            .assignRole(Role.admin());
+            .grantPermission(Permission.VIEW_USERS())
+            .grantPermission(Permission.EDIT_PROFILE());
 
-        assertEquals(2, user.getRoles().size());
-        assertTrue(user.hasRole(Role.user()));
-        assertTrue(user.hasRole(Role.admin()));
-    }
-
-    @Test
-    public void testHasRoleFalse() {
-        User user = User.create(userId, username, passwordHash);
-        assertFalse(user.hasRole(Role.admin()));
-    }
-
-    @Test
-    public void testIsAdminTrue() {
-        User user = User.create(userId, username, passwordHash)
-            .assignRole(Role.admin());
-        assertTrue(user.isAdmin());
-    }
-
-    @Test
-    public void testIsAdminFalse() {
-        User user = User.create(userId, username, passwordHash)
-            .assignRole(Role.user());
-        assertFalse(user.isAdmin());
-    }
-
-    @Test
-    public void testClearForcePasswordResetReturnsNewInstance() {
-        Instant createdAt = Instant.now();
-        Instant updatedAt = Instant.now();
-        User user1 = User.restore(userId, username, passwordHash, new HashSet<>(), new java.util.HashSet<>(), true, createdAt, updatedAt);
-        User user2 = user1.clearForcePasswordReset();
-
-        // Both users are the same entity (same userId) but different instances
-        assertEquals(user1, user2);  // Same user ID = equal
-        assertNotSame(user1, user2);  // But different objects
-        
-        // Original state unchanged
-        assertTrue(user1.isForcePasswordReset());
-        
-        // New instance cleared
-        assertFalse(user2.isForcePasswordReset());
+        assertEquals(2, user.permissions().size());
+        assertTrue(user.permissions().contains(Permission.VIEW_USERS()));
+        assertTrue(user.permissions().contains(Permission.EDIT_PROFILE()));
     }
 
     @Test
@@ -175,24 +106,17 @@ public class UserTest {
     }
 
     @Test
-    public void testImmutabilityGetRolesReturnsNewSet() {
+    public void testImmutabilityGetPermissionsReturnsUnmodifiable() {
         User user = User.create(userId, username, passwordHash)
-            .assignRole(Role.user());
+            .grantPermission(Permission.VIEW_USERS());
         
-        Set<Role> roles = user.getRoles();
+        Set<Permission> permissions = user.permissions();
         
-        // getRoles returns unmodifiable set
-        assertThrows(UnsupportedOperationException.class, () -> roles.add(Role.admin()));
+        // permissions returns unmodifiable set
+        assertThrows(UnsupportedOperationException.class, () -> permissions.add(Permission.EDIT_PROFILE()));
 
         // Original user unchanged
-        assertEquals(1, user.getRoles().size());
-    }
-
-    @Test
-    public void testCreatedAtAndUpdatedAtNeverNull() {
-        User user = User.create(userId, username, passwordHash);
-        assertNotNull(user.getCreatedAt());
-        assertNotNull(user.getUpdatedAt());
+        assertEquals(1, user.permissions().size());
     }
 
     @Test

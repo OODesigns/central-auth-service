@@ -7,11 +7,9 @@ import java.util.UUID;
  * Value object representing a user identifier.
  * Immutable and validated at construction.
  */
-public final class UserId {
-    private final UUID value;
-
-    public UserId(final UUID value) {
-        this.value = Objects.requireNonNull(value, "User ID cannot be null");
+public record UserId(UUID value) {
+    public UserId {
+        Objects.requireNonNull(value, "User ID cannot be null");
     }
 
     public static UserId of(final String value) {
@@ -33,19 +31,6 @@ public final class UserId {
 
     public String asString() {
         return value.toString();
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (this == o) return true;
-        if (!(o instanceof UserId)) return false;
-        UserId userId = (UserId) o;
-        return Objects.equals(value, userId.value);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(value);
     }
 
     @Override

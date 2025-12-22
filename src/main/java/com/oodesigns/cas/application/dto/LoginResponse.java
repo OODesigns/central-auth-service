@@ -8,56 +8,96 @@ import java.util.List;
  * Shaped for REST API; includes permissions for UI and API access control.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public final class LoginResponse {
-    private boolean success;
-    private String accessToken;
-    private String refreshToken;
-    private List<String> permissions;
-    private String errorCode;
-    private String errorMessage;
+public sealed interface LoginResponse {
+    boolean isSuccess();
 
-    private LoginResponse() {
+    String getAccessToken();
+
+    String getRefreshToken();
+
+    List<String> getPermissions();
+
+    String getErrorCode();
+
+    String getErrorMessage();
+
+    static LoginResponse success(final String accessToken, final String refreshToken, final List<String> permissions) {
+        return new SuccessResponse(true, accessToken, refreshToken, permissions, null, null);
     }
 
-    public static LoginResponse success(final String accessToken, final String refreshToken, final List<String> permissions) {
-        LoginResponse dto = new LoginResponse();
-        dto.success = true;
-        dto.accessToken = accessToken;
-        dto.refreshToken = refreshToken;
-        dto.permissions = permissions;
-        return dto;
+    static LoginResponse failure(final String errorCode, final String errorMessage) {
+        return new FailureResponse(false, null, null, null, errorCode, errorMessage);
     }
 
-    public static LoginResponse failure(final String errorCode, final String errorMessage) {
-        LoginResponse dto = new LoginResponse();
-        dto.success = false;
-        dto.errorCode = errorCode;
-        dto.errorMessage = errorMessage;
-        return dto;
+    /**
+     * Successful login response.
+     */
+    record SuccessResponse(boolean success, String accessToken, String refreshToken, List<String> permissions,
+                           String errorCode, String errorMessage) implements LoginResponse {
+        @Override
+        public boolean isSuccess() {
+            return true;
+        }
+
+        @Override
+        public String getAccessToken() {
+            return accessToken;
+        }
+
+        @Override
+        public String getRefreshToken() {
+            return refreshToken;
+        }
+
+        @Override
+        public List<String> getPermissions() {
+            return permissions;
+        }
+
+        @Override
+        public String getErrorCode() {
+            return null;
+        }
+
+        @Override
+        public String getErrorMessage() {
+            return null;
+        }
     }
 
-    // Getters
-    public boolean isSuccess() {
-        return success;
-    }
+    /**
+     * Failed login response.
+     */
+    record FailureResponse(boolean success, String accessToken, String refreshToken, List<String> permissions,
+                           String errorCode, String errorMessage) implements LoginResponse {
+        @Override
+        public boolean isSuccess() {
+            return false;
+        }
 
-    public String getAccessToken() {
-        return accessToken;
-    }
+        @Override
+        public String getAccessToken() {
+            return null;
+        }
 
-    public String getRefreshToken() {
-        return refreshToken;
-    }
+        @Override
+        public String getRefreshToken() {
+            return null;
+        }
 
-    public List<String> getPermissions() {
-        return permissions;
-    }
+        @Override
+        public List<String> getPermissions() {
+            return null;
+        }
 
-    public String getErrorCode() {
-        return errorCode;
-    }
+        @Override
+        public String getErrorCode() {
+            return errorCode;
+        }
 
-    public String getErrorMessage() {
-        return errorMessage;
+        @Override
+        public String getErrorMessage() {
+            return errorMessage;
+        }
     }
 }

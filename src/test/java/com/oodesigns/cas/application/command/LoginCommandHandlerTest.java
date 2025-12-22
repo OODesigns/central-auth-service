@@ -16,6 +16,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 /**
  * Integration unit tests for LoginCommandHandler.
@@ -34,6 +35,9 @@ public class LoginCommandHandlerTest {
     private Ports.Clock clock;
 
     @Mock
+    private Ports.TokenSigner tokenSigner;
+
+    @Mock
     private Ports.RateLimiter rateLimiter;
 
     private LoginCommandHandler loginHandler;
@@ -42,17 +46,21 @@ public class LoginCommandHandlerTest {
 
     @BeforeEach
     public void setUp() {
-        AuthenticationService authService = new AuthenticationService(passwordHasher, clock);
+        // Mock token signer to return simple signed tokens for testing
+        when(tokenSigner.sign(anyString(), any(Instant.class)))
+            .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
+        
+        AuthenticationService authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
         loginHandler = new LoginCommandHandler(userRepository, authService, rateLimiter);
 
         // Create test user
         UserId userId = UserId.generate();
         Username username = new Username("john_doe");
         PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
-        testUser = User.create(userId, username, passwordHash).assignRole(Role.user());
+        testUser = User.create(userId, username, passwordHash);
 
         // Create valid command
-        validCommand = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.1", "Mozilla/5.0");
+        validCommand = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.1");
     }
 
     @Test
@@ -111,7 +119,7 @@ public class LoginCommandHandlerTest {
     public void testLoginWithInvalidUsername() {
         // LoginCommand validates at construction time
         assertThrows(IllegalArgumentException.class, 
-            () -> new LoginCommand("", "password".toCharArray(), "192.168.1.1", "Mozilla"));
+            () -> new LoginCommand("", "password".toCharArray(), "192.168.1.1"));
     }
 
     @Test
@@ -121,7 +129,7 @@ public class LoginCommandHandlerTest {
 
     @Test
     public void testDifferentIPAddressesTrackSeparately() {
-        LoginCommand cmd2 = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.2", "Mozilla");
+        LoginCommand cmd2 = new LoginCommand("john_doe", "password123".toCharArray(), "192.168.1.2");
 
         doNothing().when(rateLimiter).checkLimit(anyString());
         when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(testUser));
@@ -165,7 +173,7 @@ public class LoginCommandHandlerTest {
 
     @Test
     public void testCompleteFlowWithAdminUser() {
-        User adminUser = testUser.assignRole(Role.admin());
+        User adminUser = testUser.grantPermission(Permission.MANAGE_USERS());
 
         doNothing().when(rateLimiter).checkLimit("login:192.168.1.1");
         when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(adminUser));
@@ -182,7 +190,7 @@ public class LoginCommandHandlerTest {
     @Test
     public void testLoginCommandViaHandler() {
         char[] password = "mypass".toCharArray();
-        LoginCommand cmd = new LoginCommand("test_user", password, "10.0.0.1", "Safari");
+        LoginCommand cmd = new LoginCommand("test_user", password, "10.0.0.1");
 
         doNothing().when(rateLimiter).checkLimit("login:10.0.0.1");
         when(userRepository.findByUsername(any(Username.class))).thenReturn(Optional.of(testUser));

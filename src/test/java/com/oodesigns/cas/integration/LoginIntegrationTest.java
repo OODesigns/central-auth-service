@@ -41,6 +41,7 @@ public class LoginIntegrationTest {
     private MockPasswordHasher passwordHasher;
     private MockClock clock;
     private MockRateLimiter rateLimiter;
+    private MockTokenSigner tokenSigner;
 
     @BeforeEach
     public void setUp() {
@@ -49,9 +50,10 @@ public class LoginIntegrationTest {
         passwordHasher = new MockPasswordHasher();
         clock = new MockClock(Instant.now());
         rateLimiter = new MockRateLimiter(5); // Allow 5 attempts per IP
+        tokenSigner = new MockTokenSigner();
 
         // Create domain service with injected ports
-        AuthenticationService authService = new AuthenticationService(passwordHasher, clock);
+        AuthenticationService authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
 
         // Create command handler with injected dependencies
         loginHandler = new LoginCommandHandler(userRepository, authService, rateLimiter);
@@ -63,8 +65,7 @@ public class LoginIntegrationTest {
         UserId userId = UserId.generate();
         Username username = new Username("alice_smith");
         PasswordHash passwordHash = passwordHasher.hash("correct_password");
-        User user = User.create(userId, username, passwordHash)
-            .assignRole(Role.user());
+        User user = User.create(userId, username, passwordHash);
         userRepository.save(user);
 
         // 2. Execute: Login command
@@ -119,11 +120,11 @@ public class LoginIntegrationTest {
     public void testMultipleUsersInSystem() {
         // 1. Setup: Create multiple users
         User alice = User.create(UserId.generate(), new Username("alice"), 
-            passwordHasher.hash("correct_password")).assignRole(Role.user());
+            passwordHasher.hash("correct_password"));
         User bob = User.create(UserId.generate(), new Username("bob"), 
-            passwordHasher.hash("correct_password")).assignRole(Role.admin());
+            passwordHasher.hash("correct_password"));
         User charlie = User.create(UserId.generate(), new Username("charlie"), 
-            passwordHasher.hash("correct_password")).assignRole(Role.kiosk());
+            passwordHasher.hash("correct_password"));
 
         userRepository.save(alice);
         userRepository.save(bob);
@@ -131,9 +132,9 @@ public class LoginIntegrationTest {
 
         // 2. Execute: Login as each user
         LoginCommand aliceCmd = new LoginCommand("alice", "correct_password".toCharArray(), 
-            "192.168.1.100", "Mozilla");
+            "192.168.1.100");
         LoginCommand bobCmd = new LoginCommand("bob", "correct_password".toCharArray(), 
-            "192.168.1.101", "Chrome");
+            "192.168.1.101");
         LoginCommand charlieCmd = new LoginCommand("charlie", "correct_password".toCharArray(), 
             "192.168.1.102");
 
@@ -158,14 +159,14 @@ public class LoginIntegrationTest {
         String testIP = "10.0.0.5";
         for (int i = 0; i < 5; i++) {
             LoginCommand cmd = new LoginCommand("rate_test", "correct_password".toCharArray(), 
-                testIP, "Mozilla");
+                testIP);
             LoginResult result = loginHandler.handle(cmd);
             assertTrue(result.isSuccess(), "Attempt " + (i+1) + " should succeed");
         }
 
         // 3. Verify: 6th attempt is rate limited
         LoginCommand blockedCmd = new LoginCommand("rate_test", "correct_password".toCharArray(), 
-            testIP, "Mozilla");
+            testIP);
         LoginResult blockedResult = loginHandler.handle(blockedCmd);
         
         assertFalse(blockedResult.isSuccess());
@@ -183,30 +184,29 @@ public class LoginIntegrationTest {
         String[] ips = {"10.0.0.1", "10.0.0.2", "10.0.0.3"};
         for (String ip : ips) {
             LoginCommand cmd = new LoginCommand("multi_ip_test", "correct_password".toCharArray(), 
-                ip, "Mozilla");
+                ip);
             LoginResult result = loginHandler.handle(cmd);
             assertTrue(result.isSuccess(), "Login from IP " + ip + " should succeed");
         }
     }
 
     @Test
-    public void testUserWithMultipleRoles() {
-        // 1. Setup: User with admin and user roles
+    public void testUserWithMultiplePermissions() {
+        // 1. Setup: User with multiple permissions
         UserId userId = UserId.generate();
         User user = User.create(userId, new Username("super_admin"), 
             passwordHasher.hash("correct_password"))
-            .assignRole(Role.admin())
-            .assignRole(Role.user());
+            .grantPermission(Permission.MANAGE_USERS())
+            .grantPermission(Permission.DELETE_ACCOUNTS());
         userRepository.save(user);
 
-        // 2. Verify: User has both roles
-        assertTrue(user.hasRole(Role.admin()));
-        assertTrue(user.hasRole(Role.user()));
-        assertTrue(user.isAdmin());
+        // 2. Verify: User has both permissions
+        assertTrue(user.permissions().contains(Permission.MANAGE_USERS()));
+        assertTrue(user.permissions().contains(Permission.DELETE_ACCOUNTS()));
 
         // 3. Execute: Login should work
         LoginCommand cmd = new LoginCommand("super_admin", "correct_password".toCharArray(), 
-            "192.168.1.100", "Mozilla");
+            "192.168.1.100");
         LoginResult result = loginHandler.handle(cmd);
 
         assertTrue(result.isSuccess());
@@ -217,19 +217,17 @@ public class LoginIntegrationTest {
         // 1. Setup: Create and persist user
         UserId userId = UserId.generate();
         User originalUser = User.create(userId, new Username("immutable_test"), 
-            passwordHasher.hash("correct_password")).assignRole(Role.user());
+            passwordHasher.hash("correct_password"));
         userRepository.save(originalUser);
 
         // 2. Execute: Login (which uses the user from repository)
         LoginCommand cmd = new LoginCommand("immutable_test", "correct_password".toCharArray(), 
-            "192.168.1.100", "Mozilla");
+            "192.168.1.100");
         LoginResult result = loginHandler.handle(cmd);
 
         // 3. Verify: Original user object unchanged
         assertTrue(result.isSuccess());
-        assertEquals(1, originalUser.getRoles().size());
-        assertTrue(originalUser.hasRole(Role.user()));
-        assertFalse(originalUser.hasRole(Role.admin()));
+        assertTrue(originalUser.permissions().isEmpty());
     }
 
     @Test
@@ -242,7 +240,7 @@ public class LoginIntegrationTest {
         // 2. Execute: Login with char array password
         char[] password = "correct_password".toCharArray();
         LoginCommand cmd = new LoginCommand("security_test", password, 
-            "192.168.1.100", "Mozilla");
+            "192.168.1.100");
         
         // Clear the original char array after command creation
         for (int i = 0; i < password.length; i++) {
@@ -266,7 +264,7 @@ public class LoginIntegrationTest {
 
         // 2. Execute: Login with normalized username
         LoginCommand cmd = new LoginCommand("value_object_test", "correct_password".toCharArray(), 
-            "192.168.1.100", "Mozilla");
+            "192.168.1.100");
         LoginResult result = loginHandler.handle(cmd);
 
         // 3. Verify: Username normalization works (case-insensitive matching)
@@ -284,7 +282,7 @@ public class LoginIntegrationTest {
 
         // 2. Execute: First login
         LoginCommand cmd1 = new LoginCommand("clock_test", "correct_password".toCharArray(), 
-            "192.168.1.100", "Mozilla");
+            "192.168.1.100");
         LoginResult result1 = loginHandler.handle(cmd1);
 
         // 3. Advance clock
@@ -326,9 +324,7 @@ public class LoginIntegrationTest {
         UserId userId = UserId.generate();
         Username username = new Username("secure_user");
         PasswordHash hash = passwordHasher.hash("MySecurePassword123");
-        User user = User.create(userId, username, hash)
-            .assignRole(Role.user())
-            .assignRole(Role.kiosk());
+        User user = User.create(userId, username, hash);
         userRepository.save(user);
 
         // 2. Successful login
@@ -358,7 +354,6 @@ public class LoginIntegrationTest {
         PasswordHash passwordHash = passwordHasher.hash("super_secret");
         
         User user = User.create(userId, username, passwordHash)
-            .assignRole(Role.admin())
             .grantPermission(com.oodesigns.cas.domain.value.Permission.MANAGE_USERS())
             .grantPermission(com.oodesigns.cas.domain.value.Permission.VIEW_REPORTS())
             .grantPermission(com.oodesigns.cas.domain.value.Permission.DELETE_ACCOUNTS());
@@ -385,13 +380,12 @@ public class LoginIntegrationTest {
         UserId userId = UserId.generate();
         Username username = new Username("basic_user");
         PasswordHash passwordHash = passwordHasher.hash("basic_pass");
-        User user = User.create(userId, username, passwordHash)
-            .assignRole(Role.user());
+        User user = User.create(userId, username, passwordHash);
         userRepository.save(user);
 
         // 2. Execute: Login
         LoginCommand loginCmd = new LoginCommand("basic_user", "basic_pass".toCharArray(), 
-            "192.168.1.88", "Chrome");
+            "192.168.1.88");
         
         LoginResult result = loginHandler.handle(loginCmd);
 

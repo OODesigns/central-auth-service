@@ -7,25 +7,20 @@ import java.util.Set;
 /**
  * Result of login command execution.
  */
-public final class LoginResult {
-    private final boolean success;
-    private final String accessToken;
-    private final String refreshToken;
-    private final Set<Permission> permissions;
-    private final String errorCode;
-    private final String errorMessage;
+public sealed interface LoginResult {
+    boolean isSuccess();
 
-    private LoginResult(final boolean success, final String accessToken, final String refreshToken, final Set<Permission> permissions,
-                       final String errorCode, final String errorMessage) {
-        this.success = success;
-        this.accessToken = accessToken;
-        this.refreshToken = refreshToken;
-        this.permissions = permissions;
-        this.errorCode = errorCode;
-        this.errorMessage = errorMessage;
-    }
+    String getAccessToken();
 
-    public static LoginResult success(final String accessToken, final String refreshToken, final Set<Permission> permissions) {
+    String getRefreshToken();
+
+    Set<Permission> getPermissions();
+
+    String getErrorCode();
+
+    String getErrorMessage();
+
+    static LoginResult success(final String accessToken, final String refreshToken, final Set<Permission> permissions) {
         if (accessToken == null || accessToken.isBlank()) {
             throw new IllegalArgumentException("Access token is required");
         }
@@ -35,45 +30,86 @@ public final class LoginResult {
         if (permissions == null) {
             throw new IllegalArgumentException("Permissions cannot be null");
         }
-        return new LoginResult(true, accessToken, refreshToken, Collections.unmodifiableSet(permissions), null, null);
+        return new SuccessResult(accessToken, refreshToken, Collections.unmodifiableSet(permissions));
     }
 
-    public static LoginResult failure(final String errorCode, final String errorMessage) {
+    static LoginResult failure(final String errorCode, final String errorMessage) {
         if (errorCode == null || errorCode.isBlank()) {
             throw new IllegalArgumentException("Error code is required");
         }
         if (errorMessage == null || errorMessage.isBlank()) {
             throw new IllegalArgumentException("Error message is required");
         }
-        return new LoginResult(false, null, null, Collections.emptySet(), errorCode, errorMessage);
+        return new FailureResult(errorCode, errorMessage);
     }
 
-    public boolean isSuccess() {
-        return success;
+    /**
+     * Successful login result.
+     */
+    record SuccessResult(String accessToken, String refreshToken, Set<Permission> permissions) implements LoginResult {
+        @Override
+        public boolean isSuccess() {
+            return true;
+        }
+
+        @Override
+        public String getAccessToken() {
+            return accessToken;
+        }
+
+        @Override
+        public String getRefreshToken() {
+            return refreshToken;
+        }
+
+        @Override
+        public Set<Permission> getPermissions() {
+            return permissions;
+        }
+
+        @Override
+        public String getErrorCode() {
+            throw new IllegalStateException("Login succeeded");
+        }
+
+        @Override
+        public String getErrorMessage() {
+            throw new IllegalStateException("Login succeeded");
+        }
     }
 
-    public String getAccessToken() {
-        if (!success) throw new IllegalStateException("Login failed");
-        return accessToken;
-    }
+    /**
+     * Failed login result.
+     */
+    record FailureResult(String errorCode, String errorMessage) implements LoginResult {
+        @Override
+        public boolean isSuccess() {
+            return false;
+        }
 
-    public String getRefreshToken() {
-        if (!success) throw new IllegalStateException("Login failed");
-        return refreshToken;
-    }
+        @Override
+        public String getAccessToken() {
+            throw new IllegalStateException("Login failed");
+        }
 
-    public Set<Permission> getPermissions() {
-        if (!success) throw new IllegalStateException("Login failed");
-        return permissions;
-    }
+        @Override
+        public String getRefreshToken() {
+            throw new IllegalStateException("Login failed");
+        }
 
-    public String getErrorCode() {
-        if (success) throw new IllegalStateException("Login succeeded");
-        return errorCode;
-    }
+        @Override
+        public Set<Permission> getPermissions() {
+            throw new IllegalStateException("Login failed");
+        }
 
-    public String getErrorMessage() {
-        if (success) throw new IllegalStateException("Login succeeded");
-        return errorMessage;
+        @Override
+        public String getErrorCode() {
+            return errorCode;
+        }
+
+        @Override
+        public String getErrorMessage() {
+            return errorMessage;
+        }
     }
 }
