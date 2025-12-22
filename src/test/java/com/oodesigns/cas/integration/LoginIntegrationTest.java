@@ -56,7 +56,7 @@ class LoginIntegrationTest {
         AuthenticationService authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
 
         // Create command handler with injected dependencies
-        loginHandler = new LoginCommandHandler(userRepository, authService, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, userRepository, rateLimiter);
     }
 
     /**

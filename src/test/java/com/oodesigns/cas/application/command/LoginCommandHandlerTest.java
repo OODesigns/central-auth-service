@@ -49,7 +49,7 @@ class LoginCommandHandlerTest {
             .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
         
         AuthenticationService authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
-        loginHandler = new LoginCommandHandler(userRepository, authService, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, userRepository, rateLimiter);
 
         // Create test user
         UserId userId = UserId.generate();

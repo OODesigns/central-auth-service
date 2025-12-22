@@ -13,14 +13,15 @@ import java.util.Optional;
  * Orchestrates domain services and repositories.
  */
 public final class LoginCommandHandler {
-    private final Ports.UserRepositoryReader userRepository;
     private final AuthenticationService authService;
+    private final Ports.UserRepositoryReader userRepository;
     private final Ports.RateLimiter rateLimiter;
 
-    public LoginCommandHandler(final Ports.UserRepositoryReader userRepository, final AuthenticationService authService,
+    public LoginCommandHandler(final AuthenticationService authService,
+                              final Ports.UserRepositoryReader userRepository, 
                               final Ports.RateLimiter rateLimiter) {
-        this.userRepository = Objects.requireNonNull(userRepository);
         this.authService = Objects.requireNonNull(authService);
+        this.userRepository = Objects.requireNonNull(userRepository);
         this.rateLimiter = Objects.requireNonNull(rateLimiter);
     }
 
