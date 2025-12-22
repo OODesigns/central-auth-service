@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *   ↓
  *   Ports (UserRepository, PasswordHasher, Clock, RateLimiter)
  *   ↓
- *   Adapters (InMemoryUserRepository, MockPasswordHasher, MockClock, MockRateLimiter)
+ *   Adapters (InMemoryUserRepository, MockPasswordHasher, MockClock, Bucket4jRateLimiter, MockTokenSigner)
  *   ↓
  *   Result (LoginResult)
  * 
@@ -40,7 +40,7 @@ class LoginIntegrationTest {
     private InMemoryUserRepository userRepository;
     private MockPasswordHasher passwordHasher;
     private MockClock clock;
-    private MockRateLimiter rateLimiter;
+    private Bucket4jRateLimiter rateLimiter;
     private MockTokenSigner tokenSigner;
 
     @BeforeEach
@@ -49,7 +49,7 @@ class LoginIntegrationTest {
         userRepository = new InMemoryUserRepository();
         passwordHasher = new MockPasswordHasher();
         clock = new MockClock(Instant.now());
-        rateLimiter = new MockRateLimiter(5); // Allow 5 attempts per IP
+        rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1)); // Allow 5 attempts per minute per IP
         tokenSigner = new MockTokenSigner();
 
         // Create domain service with injected ports
@@ -57,6 +57,15 @@ class LoginIntegrationTest {
 
         // Create command handler with injected dependencies
         loginHandler = new LoginCommandHandler(userRepository, authService, rateLimiter);
+    }
+
+    /**
+     * Clean up rate limiter state between tests.
+     */
+    void cleanUp() {
+        rateLimiter.reset();
+        userRepository.clear();
+        tokenSigner.reset();
     }
 
     @Test
