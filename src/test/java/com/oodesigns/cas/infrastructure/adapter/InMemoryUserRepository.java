@@ -1,7 +1,7 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.entity.User;
-import com.oodesigns.cas.domain.repository.UserRepository;
+import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.domain.value.UserId;
 
@@ -9,14 +9,18 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory test implementation of UserRepository.
+ * In-memory test implementation of UserRepositoryReader.
  * Used for testing without database dependencies.
+ * Includes a save() method for test fixture setup (not part of the port).
  */
-public class InMemoryUserRepository implements UserRepository {
+public class InMemoryUserRepository implements Ports.UserRepositoryReader {
     private final Map<UserId, User> usersById = new ConcurrentHashMap<>();
     private final Map<String, User> usersByUsername = new ConcurrentHashMap<>();
 
-    @Override
+    /**
+     * Test fixture helper to populate the repository.
+     * Not part of the UserRepositoryReader port contract.
+     */
     public void save(User user) {
         if (user == null) {
             throw new IllegalArgumentException("User cannot be null");
@@ -26,27 +30,11 @@ public class InMemoryUserRepository implements UserRepository {
     }
 
     @Override
-    public Optional<User> findById(UserId userId) {
-        if (userId == null) {
-            throw new IllegalArgumentException("UserId cannot be null");
-        }
-        return Optional.ofNullable(usersById.get(userId));
-    }
-
-    @Override
     public Optional<User> findByUsername(Username username) {
         if (username == null) {
             throw new IllegalArgumentException("Username cannot be null");
         }
         return Optional.ofNullable(usersByUsername.get(username.asString()));
-    }
-
-    @Override
-    public boolean existsByUsername(Username username) {
-        if (username == null) {
-            throw new IllegalArgumentException("Username cannot be null");
-        }
-        return usersByUsername.containsKey(username.asString());
     }
 
     public void clear() {

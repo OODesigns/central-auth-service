@@ -22,8 +22,6 @@ public class Ports {
      */
     public interface TokenSigner {
         String sign(final String payload, final Instant expiresAt);
-        boolean verify(final String token);
-        String getPayload(final String token);
     }
 
     /**
@@ -35,14 +33,18 @@ public class Ports {
 
     /**
      * Port for rate limiting.
+     * Returns Optional containing error message if limit exceeded, empty if OK.
      */
     public interface RateLimiter {
-        void checkLimit(final String key) throws RateLimitExceededException;
+        java.util.Optional<String> checkLimit(final String key);
     }
 
-    public static class RateLimitExceededException extends RuntimeException {
-        public RateLimitExceededException(final String message) {
-            super(message);
-        }
+    /**
+     * Port for reading user data.
+     * Implementations handle DB/cache details.
+     * Note: User creation/modification is outside the scope of authentication.
+     */
+    public interface UserRepositoryReader {
+        java.util.Optional<com.oodesigns.cas.domain.entity.User> findByUsername(final com.oodesigns.cas.domain.value.Username username);
     }
 }

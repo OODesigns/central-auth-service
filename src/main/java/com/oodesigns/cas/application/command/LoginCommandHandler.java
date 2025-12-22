@@ -1,7 +1,6 @@
 package com.oodesigns.cas.application.command;
 
 import com.oodesigns.cas.domain.entity.User;
-import com.oodesigns.cas.domain.repository.UserRepository;
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Username;
@@ -14,11 +13,11 @@ import java.util.Optional;
  * Orchestrates domain services and repositories.
  */
 public final class LoginCommandHandler {
-    private final UserRepository userRepository;
+    private final Ports.UserRepositoryReader userRepository;
     private final AuthenticationService authService;
     private final Ports.RateLimiter rateLimiter;
 
-    public LoginCommandHandler(final UserRepository userRepository, final AuthenticationService authService,
+    public LoginCommandHandler(final Ports.UserRepositoryReader userRepository, final AuthenticationService authService,
                               final Ports.RateLimiter rateLimiter) {
         this.userRepository = Objects.requireNonNull(userRepository);
         this.authService = Objects.requireNonNull(authService);
@@ -35,12 +34,8 @@ public final class LoginCommandHandler {
      * @return Optional containing failure result if rate limited, empty if OK
      */
     private Optional<LoginResult> checkRateLimit(final LoginCommand command) {
-        try {
-            rateLimiter.checkLimit("login:" + command.ipAddress());
-            return Optional.empty();
-        } catch (Ports.RateLimitExceededException e) {
-            return Optional.of(LoginResult.failure("RATE_LIMITED", "Too many login attempts. Try again later."));
-        }
+        return rateLimiter.checkLimit("login:" + command.ipAddress())
+            .map(errorMsg -> LoginResult.failure("RATE_LIMITED", errorMsg));
     }
 
     /**

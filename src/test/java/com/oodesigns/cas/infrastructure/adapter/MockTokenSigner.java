@@ -3,16 +3,14 @@ package com.oodesigns.cas.infrastructure.adapter;
 import com.oodesigns.cas.domain.service.Ports;
 
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Mock implementation of TokenSigner for testing.
- * Signs tokens by prefixing them and stores them for verification.
+ * Signs tokens by prefixing them with a counter for test verification.
  */
 public class MockTokenSigner implements Ports.TokenSigner {
-    private final Map<String, SignedToken> signedTokens = new HashMap<>();
-    private long tokenCounter = 0;
+    private final AtomicLong tokenCounter = new AtomicLong(0);
 
     /**
      * Sign a token payload and return a signed token string.
@@ -27,63 +25,20 @@ public class MockTokenSigner implements Ports.TokenSigner {
             throw new IllegalArgumentException("ExpiresAt cannot be null");
         }
         
-        String token = "mock." + (++tokenCounter) + "." + payload;
-        signedTokens.put(token, new SignedToken(payload, expiresAt));
-        return token;
+        return "mock." + tokenCounter.incrementAndGet() + "." + payload;
     }
 
     /**
-     * Verify a token's signature.
-     */
-    @Override
-    public boolean verify(final String token) {
-        if (token == null || !token.startsWith("mock.")) {
-            return false;
-        }
-        
-        SignedToken signedToken = signedTokens.get(token);
-        if (signedToken == null) {
-            return false;
-        }
-        
-        // Check if token has expired
-        return Instant.now().isBefore(signedToken.expiresAt);
-    }
-
-    /**
-     * Get the payload from a signed token.
-     */
-    @Override
-    public String getPayload(final String token) {
-        SignedToken signedToken = signedTokens.get(token);
-        if (signedToken == null) {
-            throw new IllegalArgumentException("Token not found or invalid");
-        }
-        return signedToken.payload;
-    }
-
-    /**
-     * Reset all signed tokens (useful for test cleanup).
+     * Reset token counter (useful for test cleanup).
      */
     public void reset() {
-        signedTokens.clear();
-        tokenCounter = 0;
+        tokenCounter.set(0);
     }
 
     /**
      * Get number of tokens signed (useful for assertions in tests).
      */
-    public int getSignedTokenCount() {
-        return signedTokens.size();
-    }
-
-    private static class SignedToken {
-        final String payload;
-        final Instant expiresAt;
-
-        SignedToken(String payload, Instant expiresAt) {
-            this.payload = payload;
-            this.expiresAt = expiresAt;
-        }
+    public long getSignedTokenCount() {
+        return tokenCounter.get();
     }
 }

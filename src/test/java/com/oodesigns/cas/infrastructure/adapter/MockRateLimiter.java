@@ -24,13 +24,13 @@ public class MockRateLimiter implements Ports.RateLimiter {
     }
 
     @Override
-    public void checkLimit(String key) throws Ports.RateLimitExceededException {
+    public Optional<String> checkLimit(String key) {
         if (key == null || key.isEmpty()) {
             throw new IllegalArgumentException("Key cannot be null or empty");
         }
 
         if (blockedKeys.contains(key)) {
-            throw new Ports.RateLimitExceededException("Rate limit exceeded for: " + key);
+            return Optional.of("Rate limit exceeded for: " + key);
         }
 
         AtomicInteger count = callCounts.computeIfAbsent(key, k -> new AtomicInteger(0));
@@ -38,8 +38,10 @@ public class MockRateLimiter implements Ports.RateLimiter {
 
         if (currentCount > maxAttempts) {
             blockedKeys.add(key);
-            throw new Ports.RateLimitExceededException("Rate limit exceeded for: " + key);
+            return Optional.of("Rate limit exceeded for: " + key);
         }
+
+        return Optional.empty();
     }
 
     public int getCallCount(String key) {
