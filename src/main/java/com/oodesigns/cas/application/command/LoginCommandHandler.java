@@ -18,8 +18,8 @@ public final class LoginCommandHandler {
     private final Ports.RateLimiter rateLimiter;
 
     public LoginCommandHandler(final AuthenticationService authService,
-                              final Ports.UserRepositoryReader userRepository, 
-                              final Ports.RateLimiter rateLimiter) {
+                               final Ports.UserRepositoryReader userRepository,
+                               final Ports.RateLimiter rateLimiter) {
         this.authService = Objects.requireNonNull(authService);
         this.userRepository = Objects.requireNonNull(userRepository);
         this.rateLimiter = Objects.requireNonNull(rateLimiter);
@@ -73,7 +73,8 @@ public final class LoginCommandHandler {
      */
     private Optional<LoginResult> generateSuccessResult(final User authenticatedUser) {
         return authService.generateTokens(authenticatedUser)
-            .map(tokens -> LoginResult.success(tokens.getAccessToken(), tokens.getRefreshToken(), 
-                                              authenticatedUser.permissions()));
+            .map(tokens -> LoginResult.success(tokens.getAccessToken(), 
+                                               tokens.getRefreshToken(), 
+                                               authenticatedUser.permissions()));
     }
 }
