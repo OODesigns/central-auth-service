@@ -3,7 +3,6 @@ package com.oodesigns.cas.infrastructure.adapter;
 import com.oodesigns.cas.domain.service.Ports;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Bucket4j;
 import io.github.bucket4j.Refill;
 
 import java.time.Duration;
@@ -40,29 +39,58 @@ public class Bucket4jRateLimiter implements Ports.RateLimiter {
         if (duration == null || duration.isNegative() || duration.isZero()) {
             throw new IllegalArgumentException("duration must be positive");
         }
-        this.bandwidth = Bandwidth.classic(maxAttempts, Refill.intervally(maxAttempts, duration));
+        @SuppressWarnings("deprecation")
+        final Bandwidth createdBandwidth = Bandwidth.classic(maxAttempts, Refill.intervally(maxAttempts, duration));
+        this.bandwidth = createdBandwidth;
     }
 
     @Override
-    public Optional<String> checkLimit(final String key) {
+    public Ports.RateLimitResult checkLimit(final String key) {
         if (key == null || key.isEmpty()) {
             throw new IllegalArgumentException("Key cannot be null or empty");
         }
 
-        @SuppressWarnings("deprecation")
-        Bucket bucket = buckets.computeIfAbsent(key, k -> Bucket4j.builder()
-            .addLimit(bandwidth)
-            .build());
+        Bucket bucket = buckets.computeIfAbsent(key, k -> createBucket());
 
         if (bucket.tryConsume(1)) {
-            return Optional.empty();
+            return new RateLimitResult(true, Optional.empty());
         }
 
-        String errorMsg = String.format(
-            "Rate limit exceeded for '%s'. Try again later.",
-            key
-        );
-        return Optional.of(errorMsg);
+        return new RateLimitResult(false, Optional.of(
+            String.format("Rate limit exceeded for '%s'. Try again later.", key)
+        ));
+    }
+
+    /**
+     * Create a new bucket with the configured bandwidth.
+     */
+    private Bucket createBucket() {
+        return Bucket.builder()
+            .addLimit(bandwidth)
+            .build();
+    }
+
+    /**
+     * Implementation of RateLimitResult.
+     */
+    private static class RateLimitResult implements Ports.RateLimitResult {
+        private final boolean allowed;
+        private final Optional<String> errorMessage;
+
+        RateLimitResult(final boolean allowed, final Optional<String> errorMessage) {
+            this.allowed = allowed;
+            this.errorMessage = errorMessage;
+        }
+
+        @Override
+        public boolean isAllowed() {
+            return allowed;
+        }
+
+        @Override
+        public Optional<String> getErrorMessage() {
+            return errorMessage;
+        }
     }
 
     /**

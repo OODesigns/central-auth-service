@@ -2,6 +2,7 @@ package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.value.PasswordHash;
 import java.time.Instant;
+import java.util.Optional;
 
 /**
  * Port interfaces for domain services.
@@ -33,10 +34,17 @@ public class Ports {
 
     /**
      * Port for rate limiting.
-     * Returns Optional containing error message if limit exceeded, empty if OK.
      */
     public interface RateLimiter {
-        java.util.Optional<String> checkLimit(final String key);
+        RateLimitResult checkLimit(final String key);
+    }
+
+    /**
+     * Result of a rate limit check.
+     */
+    public interface RateLimitResult {
+        boolean isAllowed();
+        Optional<String> getErrorMessage();
     }
 
     /**

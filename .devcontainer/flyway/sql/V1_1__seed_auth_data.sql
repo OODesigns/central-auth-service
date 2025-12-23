@@ -35,6 +35,7 @@ VALUES ('create_user'),
        ('update_user'),
        ('delete_user'),
        ('create_certificate'),
+       ('revoke_certificate'),
        ('view_audit_log'),
        ('clear_audit_log')
 ON CONFLICT (name) DO NOTHING;
@@ -50,7 +51,7 @@ FROM roles r
   CROSS JOIN permissions p
 WHERE r.name = 'admin'
   AND p.name IN ('create_user', 'update_user', 'delete_user',
-                 'create_certificate', 'view_audit_log',
+                 'create_certificate', 'revoke_certificate', 'view_audit_log',
                  'clear_audit_log')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 

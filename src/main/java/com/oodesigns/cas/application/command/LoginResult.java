@@ -1,7 +1,7 @@
 package com.oodesigns.cas.application.command;
 
+import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.value.Permission;
-import java.util.Collections;
 import java.util.Set;
 
 /**
@@ -20,17 +20,11 @@ public sealed interface LoginResult {
 
     String getErrorMessage();
 
-    static LoginResult success(final String accessToken, final String refreshToken, final Set<Permission> permissions) {
-        if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalArgumentException("Access token is required");
+    static LoginResult success(final AuthenticationService.TokenPair tokenPair) {
+        if (tokenPair == null) {
+            throw new IllegalArgumentException("Token pair is required");
         }
-        if (refreshToken == null || refreshToken.isBlank()) {
-            throw new IllegalArgumentException("Refresh token is required");
-        }
-        if (permissions == null) {
-            throw new IllegalArgumentException("Permissions cannot be null");
-        }
-        return new SuccessResult(accessToken, refreshToken, Collections.unmodifiableSet(permissions));
+        return new SuccessResult(tokenPair);
     }
 
     static LoginResult failure(final String errorCode, final String errorMessage) {
@@ -46,7 +40,7 @@ public sealed interface LoginResult {
     /**
      * Successful login result.
      */
-    record SuccessResult(String accessToken, String refreshToken, Set<Permission> permissions) implements LoginResult {
+    record SuccessResult(AuthenticationService.TokenPair tokenPair) implements LoginResult {
         @Override
         public boolean isSuccess() {
             return true;
@@ -54,17 +48,17 @@ public sealed interface LoginResult {
 
         @Override
         public String getAccessToken() {
-            return accessToken;
+            return tokenPair.accessToken();
         }
 
         @Override
         public String getRefreshToken() {
-            return refreshToken;
+            return tokenPair.refreshToken();
         }
 
         @Override
         public Set<Permission> getPermissions() {
-            return permissions;
+            return tokenPair.permissions();
         }
 
         @Override

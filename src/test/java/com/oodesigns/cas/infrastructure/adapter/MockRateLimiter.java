@@ -24,24 +24,46 @@ public class MockRateLimiter implements Ports.RateLimiter {
     }
 
     @Override
-    public Optional<String> checkLimit(String key) {
+    public Ports.RateLimitResult checkLimit(String key) {
         if (key == null || key.isEmpty()) {
             throw new IllegalArgumentException("Key cannot be null or empty");
         }
 
         if (blockedKeys.contains(key)) {
-            return Optional.of("Rate limit exceeded for: " + key);
+            return new RateLimitResultImpl(false, Optional.of("Rate limit exceeded for: " + key));
         }
 
-        AtomicInteger count = callCounts.computeIfAbsent(key, k -> new AtomicInteger(0));
-        int currentCount = count.incrementAndGet();
+        int currentCount = callCounts.computeIfAbsent(key, k -> new AtomicInteger(0)).incrementAndGet();
 
         if (currentCount > maxAttempts) {
             blockedKeys.add(key);
-            return Optional.of("Rate limit exceeded for: " + key);
+            return new RateLimitResultImpl(false, Optional.of("Rate limit exceeded for: " + key));
         }
 
-        return Optional.empty();
+        return new RateLimitResultImpl(true, Optional.empty());
+    }
+
+    /**
+     * Implementation of RateLimitResult for testing.
+     */
+    private static class RateLimitResultImpl implements Ports.RateLimitResult {
+        private final boolean allowed;
+        private final Optional<String> errorMessage;
+
+        RateLimitResultImpl(final boolean allowed, final Optional<String> errorMessage) {
+            this.allowed = allowed;
+            this.errorMessage = errorMessage;
+        }
+
+        @Override
+        public boolean isAllowed() {
+            return allowed;
+        }
+
+        @Override
+        public Optional<String> getErrorMessage() {
+            return errorMessage;
+        }
     }
 
     public int getCallCount(String key) {

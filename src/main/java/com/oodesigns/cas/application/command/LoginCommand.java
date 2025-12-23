@@ -1,6 +1,8 @@
 package com.oodesigns.cas.application.command;
 
-import java.util.Arrays;
+import com.oodesigns.cas.domain.value.IpAddress;
+import com.oodesigns.cas.domain.value.Password;
+import com.oodesigns.cas.domain.value.Username;
 import java.util.Objects;
 
 /**
@@ -70,70 +72,31 @@ import java.util.Objects;
  * @param passwordChars Plaintext password as char array for secure memory handling
  * @param ipAddress Client's IP address for rate limiting and fraud detection
  */
-public record LoginCommand(String username, char[] passwordChars, String ipAddress) {
+public record LoginCommand(Username username, Password password, IpAddress ipAddress) {
     
     /**
-     * Constructs a validated LoginCommand.
+     * Constructs a validated LoginCommand using value objects.
      * 
-     * <p>All parameters are validated to ensure they are non-null and non-blank.
-     * The password char array is cloned to prevent external modification.</p>
+     * <p>Username, Password, and IpAddress are validated at construction
+     * of their respective value objects, ensuring all constraints are met
+     * before the LoginCommand is created.</p>
      * 
-     * @param username The user's login identifier; must not be null or blank
-     * @param passwordChars The password as char array; must not be null or empty.
-     *                      Will be cloned internally for security
-     * @param ipAddress The client's source IP address; must not be null or blank.
-     *                  Used for rate limiting and fraud detection
-     * @throws IllegalArgumentException if any parameter is null or blank
+     * @param username The user's validated login identifier
+     * @param password The user's validated password
+     * @param ipAddress The client's validated IP address
+     * @throws IllegalArgumentException if any parameter is null
      */
-    public LoginCommand(final String username, final char[] passwordChars, final String ipAddress) {
-        if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("Username is required");
-        }
-        if (passwordChars == null || passwordChars.length == 0) {
-            throw new IllegalArgumentException("Password is required");
-        }
-        if (ipAddress == null || ipAddress.isBlank()) {
-            throw new IllegalArgumentException("IP address is required");
-        }
-
-        this.username = username;
-        this.passwordChars = passwordChars.clone();
-        this.ipAddress = ipAddress;
-    }
-
-    /**
-     * Returns a clone of the password char array.
-     * 
-     * <p>The array is cloned on each access to prevent callers from modifying
-     * the internal password representation, ensuring immutability.</p>
-     * 
-     * @return A copy of the password char array
-     */
-    @Override
-    public char[] passwordChars() {
-        return passwordChars.clone();
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        final LoginCommand that = (LoginCommand) o;
-        return Objects.equals(username, that.username)
-                && Arrays.equals(passwordChars, that.passwordChars)
-                && Objects.equals(ipAddress, that.ipAddress);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(username, Arrays.hashCode(passwordChars), ipAddress);
+    public LoginCommand {
+        Objects.requireNonNull(username, "Username is required");
+        Objects.requireNonNull(password, "Password is required");
+        Objects.requireNonNull(ipAddress, "IP address is required");
     }
 
     @Override
     public String toString() {
         return "LoginCommand{"
                 + "username='" + username + '\''
-                + ", passwordChars=***"
+                + ", password=***"
                 + ", ipAddress='" + ipAddress + '\''
                 + '}';
     }

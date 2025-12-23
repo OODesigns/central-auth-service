@@ -4,6 +4,9 @@ import com.oodesigns.cas.application.command.*;
 import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.value.*;
+import com.oodesigns.cas.domain.value.IpAddress;
+import com.oodesigns.cas.domain.value.Password;
+import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.infrastructure.adapter.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,8 +81,8 @@ class LoginIntegrationTest {
         userRepository.save(user);
 
         // 2. Execute: Login command
-        LoginCommand loginCmd = new LoginCommand("alice_smith", "correct_password".toCharArray(), 
-            "192.168.1.100");
+        LoginCommand loginCmd = new LoginCommand(Username.of("alice_smith"), new Password("correct_password".toCharArray()), 
+            IpAddress.of("192.168.1.100"));
         
         LoginResult result = loginHandler.handle(loginCmd);
 
@@ -99,8 +102,8 @@ class LoginIntegrationTest {
         userRepository.save(user);
 
         // 2. Execute: Wrong password
-        LoginCommand loginCmd = new LoginCommand("bob_jones", "wrong_password".toCharArray(), 
-            "192.168.1.101");
+        LoginCommand loginCmd = new LoginCommand(Username.of("bob_jones"), new Password("wrong_password".toCharArray()), 
+            IpAddress.of("192.168.1.101"));
         
         LoginResult result = loginHandler.handle(loginCmd);
 
@@ -115,8 +118,8 @@ class LoginIntegrationTest {
         // 1. Setup: No users in repository
 
         // 2. Execute: Login for non-existent user
-        LoginCommand loginCmd = new LoginCommand("nonexistent", "password".toCharArray(), 
-            "192.168.1.102");
+        LoginCommand loginCmd = new LoginCommand(Username.of("nonexistent"), new Password("password".toCharArray()), 
+            IpAddress.of("192.168.1.102"));
         
         LoginResult result = loginHandler.handle(loginCmd);
 
@@ -140,12 +143,12 @@ class LoginIntegrationTest {
         userRepository.save(charlie);
 
         // 2. Execute: Login as each user
-        LoginCommand aliceCmd = new LoginCommand("alice", "correct_password".toCharArray(), 
-            "192.168.1.100");
-        LoginCommand bobCmd = new LoginCommand("bob", "correct_password".toCharArray(), 
-            "192.168.1.101");
-        LoginCommand charlieCmd = new LoginCommand("charlie", "correct_password".toCharArray(), 
-            "192.168.1.102");
+        LoginCommand aliceCmd = new LoginCommand(Username.of("alice"), new Password("correct_password".toCharArray()), 
+            IpAddress.of("192.168.1.100"));
+        LoginCommand bobCmd = new LoginCommand(Username.of("bob"), new Password("correct_password".toCharArray()), 
+            IpAddress.of("192.168.1.101"));
+        LoginCommand charlieCmd = new LoginCommand(Username.of("charlie"), new Password("correct_password".toCharArray()), 
+            IpAddress.of("192.168.1.102"));
 
         LoginResult aliceResult = loginHandler.handle(aliceCmd);
         LoginResult bobResult = loginHandler.handle(bobCmd);
@@ -167,15 +170,15 @@ class LoginIntegrationTest {
         // 2. Execute: Multiple login attempts from same IP
         String testIP = "10.0.0.5";
         for (int i = 0; i < 5; i++) {
-            LoginCommand cmd = new LoginCommand("rate_test", "correct_password".toCharArray(), 
-                testIP);
+            LoginCommand cmd = new LoginCommand(Username.of("rate_test"), new Password("correct_password".toCharArray()), 
+                IpAddress.of(testIP));
             LoginResult result = loginHandler.handle(cmd);
             assertTrue(result.isSuccess(), "Attempt " + (i+1) + " should succeed");
         }
 
         // 3. Verify: 6th attempt is rate limited
-        LoginCommand blockedCmd = new LoginCommand("rate_test", "correct_password".toCharArray(), 
-            testIP);
+        LoginCommand blockedCmd = new LoginCommand(Username.of("rate_test"), new Password("correct_password".toCharArray()), 
+            IpAddress.of(testIP));
         LoginResult blockedResult = loginHandler.handle(blockedCmd);
         
         assertFalse(blockedResult.isSuccess());
@@ -192,8 +195,8 @@ class LoginIntegrationTest {
         // 2. Execute: Attempts from different IPs should succeed independently
         String[] ips = {"10.0.0.1", "10.0.0.2", "10.0.0.3"};
         for (String ip : ips) {
-            LoginCommand cmd = new LoginCommand("multi_ip_test", "correct_password".toCharArray(), 
-                ip);
+            LoginCommand cmd = new LoginCommand(Username.of("multi_ip_test"), new Password("correct_password".toCharArray()), 
+                IpAddress.of(ip));
             LoginResult result = loginHandler.handle(cmd);
             assertTrue(result.isSuccess(), "Login from IP " + ip + " should succeed");
         }
@@ -214,8 +217,8 @@ class LoginIntegrationTest {
         assertTrue(user.permissions().contains(Permission.of("delete_accounts")));
 
         // 3. Execute: Login should work
-        LoginCommand cmd = new LoginCommand("super_admin", "correct_password".toCharArray(), 
-            "192.168.1.100");
+        LoginCommand cmd = new LoginCommand(Username.of("super_admin"), new Password("correct_password".toCharArray()), 
+            IpAddress.of("192.168.1.100"));
         LoginResult result = loginHandler.handle(cmd);
 
         assertTrue(result.isSuccess());
@@ -230,8 +233,8 @@ class LoginIntegrationTest {
         userRepository.save(originalUser);
 
         // 2. Execute: Login (which uses the user from repository)
-        LoginCommand cmd = new LoginCommand("immutable_test", "correct_password".toCharArray(), 
-            "192.168.1.100");
+        LoginCommand cmd = new LoginCommand(Username.of("immutable_test"), new Password("correct_password".toCharArray()), 
+            IpAddress.of("192.168.1.100"));
         LoginResult result = loginHandler.handle(cmd);
 
         // 3. Verify: Original user object unchanged
@@ -248,8 +251,8 @@ class LoginIntegrationTest {
 
         // 2. Execute: Login with char array password
         char[] password = "correct_password".toCharArray();
-        LoginCommand cmd = new LoginCommand("security_test", password, 
-            "192.168.1.100");
+        LoginCommand cmd = new LoginCommand(Username.of("security_test"), new Password(password), 
+            IpAddress.of("192.168.1.100"));
         
         // Clear the original char array after command creation
         for (int i = 0; i < password.length; i++) {
@@ -272,8 +275,8 @@ class LoginIntegrationTest {
         userRepository.save(user);
 
         // 2. Execute: Login with normalized username
-        LoginCommand cmd = new LoginCommand("value_object_test", "correct_password".toCharArray(), 
-            "192.168.1.100");
+        LoginCommand cmd = new LoginCommand(Username.of("value_object_test"), new Password("correct_password".toCharArray()), 
+            IpAddress.of("192.168.1.100"));
         LoginResult result = loginHandler.handle(cmd);
 
         // 3. Verify: Username normalization works (case-insensitive matching)
@@ -290,8 +293,8 @@ class LoginIntegrationTest {
         Instant t1 = clock.now();
 
         // 2. Execute: First login
-        LoginCommand cmd1 = new LoginCommand("clock_test", "correct_password".toCharArray(), 
-            "192.168.1.100");
+        LoginCommand cmd1 = new LoginCommand(Username.of("clock_test"), new Password("correct_password".toCharArray()), 
+            IpAddress.of("192.168.1.100"));
         LoginResult result1 = loginHandler.handle(cmd1);
 
         // 3. Advance clock
@@ -299,8 +302,8 @@ class LoginIntegrationTest {
         Instant t2 = clock.now();
 
         // 4. Execute: Second login
-        LoginCommand cmd2 = new LoginCommand("clock_test", "correct_password".toCharArray(), 
-            "192.168.1.101");
+        LoginCommand cmd2 = new LoginCommand(Username.of("clock_test"), new Password("correct_password".toCharArray()), 
+            IpAddress.of("192.168.1.101"));
         LoginResult result2 = loginHandler.handle(cmd2);
 
         // 5. Verify: Both successful, clock advanced
@@ -337,20 +340,20 @@ class LoginIntegrationTest {
         userRepository.save(user);
 
         // 2. Successful login
-        LoginCommand correctCmd = new LoginCommand("secure_user", "MySecurePassword123".toCharArray(), 
-            "192.168.1.50");
+        LoginCommand correctCmd = new LoginCommand(Username.of("secure_user"), new Password("MySecurePassword123".toCharArray()), 
+            IpAddress.of("192.168.1.50"));
         LoginResult correctResult = loginHandler.handle(correctCmd);
         assertTrue(correctResult.isSuccess());
 
         // 3. Failed login attempt
-        LoginCommand wrongCmd = new LoginCommand("secure_user", "WrongPassword".toCharArray(), 
-            "192.168.1.50");
+        LoginCommand wrongCmd = new LoginCommand(Username.of("secure_user"), new Password("WrongPassword".toCharArray()), 
+            IpAddress.of("192.168.1.50"));
         LoginResult wrongResult = loginHandler.handle(wrongCmd);
         assertFalse(wrongResult.isSuccess());
 
         // 4. Verify rate limit not hit (different IP, new user)
-        LoginCommand anotherUserCmd = new LoginCommand("secure_user", "MySecurePassword123".toCharArray(), 
-            "192.168.1.51");
+        LoginCommand anotherUserCmd = new LoginCommand(Username.of("secure_user"), new Password("MySecurePassword123".toCharArray()), 
+            IpAddress.of("192.168.1.51"));
         LoginResult anotherResult = loginHandler.handle(anotherUserCmd);
         assertTrue(anotherResult.isSuccess());
     }
@@ -370,8 +373,8 @@ class LoginIntegrationTest {
         userRepository.save(user);
 
         // 2. Execute: Login
-        LoginCommand loginCmd = new LoginCommand("powerful_user", "super_secret".toCharArray(), 
-            "192.168.1.99");
+        LoginCommand loginCmd = new LoginCommand(Username.of("powerful_user"), new Password("super_secret".toCharArray()), 
+            IpAddress.of("192.168.1.99"));
         
         LoginResult result = loginHandler.handle(loginCmd);
 
@@ -393,8 +396,8 @@ class LoginIntegrationTest {
         userRepository.save(user);
 
         // 2. Execute: Login
-        LoginCommand loginCmd = new LoginCommand("basic_user", "basic_pass".toCharArray(), 
-            "192.168.1.88");
+        LoginCommand loginCmd = new LoginCommand(Username.of("basic_user"), new Password("basic_pass".toCharArray()), 
+            IpAddress.of("192.168.1.88"));
         
         LoginResult result = loginHandler.handle(loginCmd);
 

@@ -57,12 +57,12 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ============================================================================
 
 CREATE TABLE users (
-  user_id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  username             VARCHAR(50) UNIQUE NOT NULL,
-  password_hash        VARCHAR(255) NOT NULL,
-  force_password_reset BOOLEAN NOT NULL DEFAULT true,
-  created_at           TIMESTAMPTZ DEFAULT now(),
-  updated_at           TIMESTAMPTZ DEFAULT now()
+  user_id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  username                   VARCHAR(50) UNIQUE NOT NULL,
+  password_hash              VARCHAR(255) NOT NULL,
+  password_reset_required_at TIMESTAMPTZ DEFAULT now(),
+  created_at                 TIMESTAMPTZ DEFAULT now(),
+  updated_at                 TIMESTAMPTZ DEFAULT now()
 );
 
 COMMENT ON TABLE users IS
@@ -73,8 +73,8 @@ COMMENT ON COLUMN users.username IS
   'Unique login name';
 COMMENT ON COLUMN users.password_hash IS
   'Hashed user password (never store plaintext)';
-COMMENT ON COLUMN users.force_password_reset IS
-  'When true, user must change password on next successful authentication. Default true for admin-created users';
+COMMENT ON COLUMN users.password_reset_required_at IS
+  'Timestamp when password reset was required; NULL if password reset is not required';
 COMMENT ON COLUMN users.created_at IS
   'Timestamp when the user record was created';
 COMMENT ON COLUMN users.updated_at IS
@@ -106,6 +106,7 @@ COMMENT ON COLUMN roles.description IS
 CREATE TABLE user_roles (
   user_id UUID NOT NULL,
   role_id UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
   PRIMARY KEY (user_id, role_id),
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
   FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE
@@ -117,6 +118,8 @@ COMMENT ON COLUMN user_roles.user_id IS
   'References users.user_id. ON DELETE CASCADE removes all role assignments when a user is deleted';
 COMMENT ON COLUMN user_roles.role_id IS
   'References roles.role_id. ON DELETE CASCADE removes mappings when a role is deleted';
+COMMENT ON COLUMN user_roles.created_at IS
+  'Timestamp when the role assignment was created';
 
 -- ============================================================================
 -- PERMISSIONS
@@ -141,6 +144,7 @@ COMMENT ON COLUMN permissions.name IS
 CREATE TABLE role_permissions (
   role_id       UUID NOT NULL,
   permission_id UUID NOT NULL,
+  created_at    TIMESTAMPTZ DEFAULT now(),
   PRIMARY KEY (role_id, permission_id),
   FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE,
   FOREIGN KEY (permission_id) REFERENCES permissions(permission_id) ON DELETE CASCADE
@@ -152,6 +156,8 @@ COMMENT ON COLUMN role_permissions.role_id IS
   'References roles.role_id. ON DELETE CASCADE removes permission mappings when a role is deleted';
 COMMENT ON COLUMN role_permissions.permission_id IS
   'References permissions.permission_id. ON DELETE CASCADE removes mappings when a permission is deleted';
+COMMENT ON COLUMN role_permissions.created_at IS
+  'Timestamp when the permission was assigned to the role';
 
 -- ============================================================================
 -- INVALIDATED JWTs
@@ -199,7 +205,8 @@ CREATE TABLE refresh_tokens (
   rotated_at            TIMESTAMPTZ,
   issued_ip             INET,
   issued_user_agent     TEXT,
-  last_used_at          TIMESTAMPTZ
+  last_used_at          TIMESTAMPTZ,
+  created_at            TIMESTAMPTZ DEFAULT now()
 );
 
 COMMENT ON TABLE refresh_tokens IS
@@ -232,6 +239,8 @@ COMMENT ON COLUMN refresh_tokens.issued_user_agent IS
   'User agent associated with refresh token issuance';
 COMMENT ON COLUMN refresh_tokens.last_used_at IS
   'Timestamp when the refresh token was last successfully used';
+COMMENT ON COLUMN refresh_tokens.created_at IS
+  'Timestamp when the refresh token record was created';
 
 -- ============================================================================
 -- TRUSTED CLIENTS
@@ -246,7 +255,8 @@ CREATE TABLE trusted_clients (
   issued_by   TEXT,
   issued_at   TIMESTAMPTZ DEFAULT now(),
   expires_at  TIMESTAMPTZ,
-  revoked     BOOLEAN DEFAULT false,
+  revoked_at  TIMESTAMPTZ,
+  revoke_reason TEXT,
   created_at  TIMESTAMPTZ DEFAULT now(),
   updated_at  TIMESTAMPTZ DEFAULT now()
 );
@@ -269,8 +279,10 @@ COMMENT ON COLUMN trusted_clients.issued_at IS
   'Timestamp when the certificate was issued';
 COMMENT ON COLUMN trusted_clients.expires_at IS
   'Certificate expiration timestamp';
-COMMENT ON COLUMN trusted_clients.revoked IS
-  'Whether the client certificate has been revoked';
+COMMENT ON COLUMN trusted_clients.revoked_at IS
+  'Timestamp when the client certificate was revoked; NULL if not revoked';
+COMMENT ON COLUMN trusted_clients.revoke_reason IS
+  'Reason the client certificate was revoked';
 COMMENT ON COLUMN trusted_clients.created_at IS
   'Timestamp when the client record was created';
 COMMENT ON COLUMN trusted_clients.updated_at IS
@@ -303,7 +315,6 @@ CREATE TABLE audit_logs (
       'REFRESH_TOKEN_ROTATED',
       'REFRESH_TOKEN_REVOKED',
       'TRUSTED_CLIENT_CREATED',
-      'TRUSTED_CLIENT_UPDATED',
       'TRUSTED_CLIENT_REVOKED',
       'ROLE_PERMISSION_ASSIGNED',
       'ROLE_PERMISSION_REMOVED'
@@ -349,7 +360,7 @@ CREATE INDEX idx_refresh_tokens_active ON refresh_tokens(user_id) WHERE revoked_
 CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
 CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
 
-CREATE INDEX idx_trusted_clients_revoked ON trusted_clients(revoked);
+CREATE INDEX idx_trusted_clients_revoked ON trusted_clients(revoked_at);
 
 CREATE INDEX idx_audit_logs_actor ON audit_logs(actor_id);
 CREATE INDEX idx_audit_logs_action ON audit_logs(action);
@@ -500,7 +511,7 @@ BEGIN
     CASE TG_OP
       WHEN 'INSERT' THEN 'TRUSTED_CLIENT_CREATED'
       WHEN 'UPDATE' THEN
-        CASE WHEN NEW.revoked = true
+        CASE WHEN NEW.revoked_at IS NOT NULL AND OLD.revoked_at IS NULL
           THEN 'TRUSTED_CLIENT_REVOKED'
           ELSE 'TRUSTED_CLIENT_UPDATED'
         END

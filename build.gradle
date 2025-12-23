@@ -18,7 +18,7 @@ dependencies {
     
     // Main dependencies
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
-    implementation 'com.github.vladimir-bukhtoyarov:bucket4j-core:7.6.0'
+    implementation 'com.bucket4j:bucket4j-core:8.10.1'
 }
 
 test {
