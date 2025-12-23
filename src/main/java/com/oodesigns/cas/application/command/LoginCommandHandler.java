@@ -23,9 +23,14 @@ public final class LoginCommandHandler {
     }
 
     public LoginResult handle(final LoginCommand command) {
-        return checkRateLimit(command)
-            .map(this::authenticateUser)
-            .orElseGet(() -> LoginResult.failure("RATE_LIMITED", "Rate limit exceeded"));
+        Objects.requireNonNull(command, "LoginCommand cannot be null");
+        try {
+            return checkRateLimit(command)
+                .map(this::authenticateUser)
+                .orElseGet(() -> LoginResult.failure("RATE_LIMITED", "Rate limit exceeded"));
+        } catch (final RuntimeException e) {
+            return LoginResult.failure("INTERNAL_ERROR", "An internal error occurred during authentication");
+        }
     }
 
     /**

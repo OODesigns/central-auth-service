@@ -47,10 +47,6 @@ class LoginCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        // Mock token signer to return simple signed tokens for testing
-        when(tokenSigner.sign(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Instant.class)))
-            .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
-        
         AuthenticationService authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
         loginHandler = new LoginCommandHandler(authService, userRepository, rateLimiter);
 
@@ -64,8 +60,15 @@ class LoginCommandHandlerTest {
         validCommand = new LoginCommand(Username.of("john_doe"), new Password("password123".toCharArray()), IpAddress.of("192.168.1.1"));
     }
 
+    private void setupTokenSignerMock() {
+        // Mock token signer to return simple signed tokens for testing
+        when(tokenSigner.sign(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Instant.class)))
+            .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
+    }
+
     @Test
     void testSuccessfulLogin() {
+        setupTokenSignerMock();
         when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
         when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
         when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
@@ -162,6 +165,7 @@ class LoginCommandHandlerTest {
 
     @Test
     void testDifferentIPAddressesTrackSeparately() {
+        setupTokenSignerMock();
         LoginCommand cmd2 = new LoginCommand(Username.of("john_doe"), new Password("password123".toCharArray()), IpAddress.of("192.168.1.2"));
 
         when(rateLimiter.checkLimit(org.mockito.ArgumentMatchers.anyString())).thenReturn(createAllowedResult());
@@ -228,6 +232,7 @@ class LoginCommandHandlerTest {
 
     @Test
     void testCompleteFlowWithAdminUser() {
+        setupTokenSignerMock();
         User adminUser = testUser.grantPermission(Permission.of("manage_users"));
 
         when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
@@ -253,6 +258,7 @@ class LoginCommandHandlerTest {
 
     @Test
     void testLoginCommandViaHandler() {
+        setupTokenSignerMock();
         char[] password = "mypass".toCharArray();
         LoginCommand cmd = new LoginCommand(Username.of("test_user"), new Password(password), IpAddress.of("10.0.0.1"));
 
@@ -277,6 +283,7 @@ class LoginCommandHandlerTest {
 
     @Test
     void testMultipleLoginAttemptsWithRateLimiting() {
+        setupTokenSignerMock();
         when(rateLimiter.checkLimit("login:192.168.1.1"))
             .thenReturn(createAllowedResult())
             .thenReturn(createAllowedResult())

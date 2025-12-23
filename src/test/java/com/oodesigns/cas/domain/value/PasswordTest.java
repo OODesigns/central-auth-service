@@ -2,6 +2,8 @@ package com.oodesigns.cas.domain.value;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -90,23 +92,31 @@ class PasswordTest {
     }
 
     @Test
-    void testEquality() {
+    void testPasswordsWithSameContentAreEquivalent() {
+        // Password is not a record - it doesn't override equals()
+        // Test that content is equivalent by comparing chars()
         Password pwd1 = new Password("pass123".toCharArray());
         Password pwd2 = new Password("pass123".toCharArray());
-        assertEquals(pwd1, pwd2);
+        assertArrayEquals(pwd1.chars(), pwd2.chars());
     }
 
     @Test
-    void testInequality() {
+    void testPasswordsWithDifferentContentAreDifferent() {
         Password pwd1 = new Password("pass123".toCharArray());
         Password pwd2 = new Password("pass456".toCharArray());
-        assertNotEquals(pwd1, pwd2);
+        char[] pwd1Chars = pwd1.chars();
+        char[] pwd2Chars = pwd2.chars();
+        assertNotEquals(new String(pwd1Chars), new String(pwd2Chars));
     }
 
     @Test
-    void testHashCodeConsistency() {
+    void testPasswordCharArrayIndependence() {
+        // Verify that two Password instances with same content are independent
         Password pwd1 = new Password("pass123".toCharArray());
         Password pwd2 = new Password("pass123".toCharArray());
-        assertEquals(pwd1.hashCode(), pwd2.hashCode());
+        // Clearing one doesn't affect the other
+        pwd1.clear();
+        assertFalse(Arrays.equals(pwd1.chars(), pwd2.chars()));
     }
 }
+

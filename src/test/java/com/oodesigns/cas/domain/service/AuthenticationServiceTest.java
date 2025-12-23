@@ -28,7 +28,7 @@ class AuthenticationServiceTest {
 
     @Mock
     private Ports.TokenSigner tokenSigner;
-
+    
     private AuthenticationService authService;
     private User testUser;
 
@@ -36,14 +36,16 @@ class AuthenticationServiceTest {
     void setUp() {
         authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
         
-        // Mock token signer to return simple signed tokens for testing
-        when(tokenSigner.sign(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Instant.class)))
-            .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
-        
         UserId userId = UserId.generate();
         Username username = new Username("test_user");
         PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
         testUser = User.create(userId, username, passwordHash);
+    }
+
+    private void setupTokenSignerMock() {
+        // Mock token signer to return simple signed tokens for testing
+        when(tokenSigner.sign(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Instant.class)))
+            .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
     }
 
     @Test
@@ -81,6 +83,7 @@ class AuthenticationServiceTest {
 
     @Test
     void testGenerateTokensReturnsValidTokenPair() {
+        setupTokenSignerMock();
         Instant now = Instant.now();
         when(clock.now()).thenReturn(now);
 
@@ -101,6 +104,7 @@ class AuthenticationServiceTest {
 
     @Test
     void testGenerateTokensCreatesUniqueJti() {
+        setupTokenSignerMock();
         when(clock.now()).thenReturn(Instant.now());
 
         var tokens1Optional = authService.generateTokens(testUser);
@@ -113,6 +117,7 @@ class AuthenticationServiceTest {
 
     @Test
     void testTokenPairContainsAllComponents() {
+        setupTokenSignerMock();
         when(clock.now()).thenReturn(Instant.now());
 
         var tokensOptional = authService.generateTokens(testUser);

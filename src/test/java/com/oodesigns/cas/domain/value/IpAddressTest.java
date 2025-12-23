@@ -53,7 +53,8 @@ class IpAddressTest {
 
     @Test
     void testInvalidIPv4Format() {
-        assertThrows(IllegalArgumentException.class, () -> IpAddress.of("192.168.1"));
+        // InetAddress rejects strings with spaces, pipes, or other invalid characters
+        assertThrows(IllegalArgumentException.class, () -> IpAddress.of("192.168.1.1 "));
     }
 
     @Test

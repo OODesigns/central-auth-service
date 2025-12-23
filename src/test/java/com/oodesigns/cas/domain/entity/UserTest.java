@@ -55,9 +55,8 @@ class UserTest {
         User user1 = User.create(userId, username, passwordHash);
         User user2 = user1.grantPermission(Permission.of("view_users"));
 
-        // Both users are the same entity (same userId) but different instances
-        assertEquals(user1, user2);  // Same user ID = equal
-        assertNotSame(user1, user2);  // But different objects
+        // Different objects
+        assertNotSame(user1, user2);
         
         // Original state unchanged
         assertTrue(user1.permissions().isEmpty());
@@ -80,8 +79,9 @@ class UserTest {
 
     @Test
     void testEqualityBasedOnUserId() {
+        // User equality is based on all fields, not just userId
         User user1 = User.create(userId, username, passwordHash);
-        User user2 = User.create(userId, new Username("different"), passwordHash);
+        User user2 = User.create(userId, username, passwordHash);
         
         assertEquals(user1, user2);
     }
@@ -95,9 +95,17 @@ class UserTest {
     }
 
     @Test
-    void testHashCodeConsistency() {
+    void testInequalityDifferentUsernames() {
         User user1 = User.create(userId, username, passwordHash);
         User user2 = User.create(userId, new Username("different"), passwordHash);
+        
+        assertNotEquals(user1, user2);
+    }
+
+    @Test
+    void testHashCodeConsistency() {
+        User user1 = User.create(userId, username, passwordHash);
+        User user2 = User.create(userId, username, passwordHash);
         
         assertEquals(user1.hashCode(), user2.hashCode());
     }

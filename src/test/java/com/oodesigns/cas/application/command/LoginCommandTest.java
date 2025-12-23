@@ -148,7 +148,9 @@ class LoginCommandTest {
         
         String cmdString = cmd.toString();
         
-        assertTrue(cmdString.contains("password=***"));
+        // Record's toString delegates to field's toString()
+        // Password.toString() returns "Password{***}"
+        assertTrue(cmdString.contains("Password{***}"));
         assertFalse(cmdString.contains("password123"));
     }
 
