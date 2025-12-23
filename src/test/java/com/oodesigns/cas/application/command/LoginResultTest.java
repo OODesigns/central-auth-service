@@ -22,27 +22,56 @@ class LoginResultTest {
             "access_token_123", "refresh_token_456", Jti.generate(), permissions);
         LoginResult result = LoginResult.success(tokenPair);
 
-        assertTrue(result.isSuccess());
-        assertEquals("access_token_123", result.getAccessToken());
-        assertEquals("refresh_token_456", result.getRefreshToken());
-        assertEquals(0, result.getPermissions().size());
+        result.fold(
+            success -> {
+                assertEquals("access_token_123", success.tokenPair().accessToken());
+                assertEquals("refresh_token_456", success.tokenPair().refreshToken());
+                assertEquals(0, success.tokenPair().permissions().size());
+                return null;
+            },
+            failure -> {
+                fail("Expected success result but got failure");
+                return null;
+            }
+        );
     }
 
     @Test
     void testFailureResult() {
         LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
 
-        assertFalse(result.isSuccess());
-        assertEquals("INVALID_CREDENTIALS", result.getErrorCode());
-        assertEquals("Invalid username or password", result.getErrorMessage());
+        result.fold(
+            success -> {
+                fail("Expected failure result but got success");
+                return null;
+            },
+            failure -> {
+                assertEquals("INVALID_CREDENTIALS", failure.errorCode());
+                assertEquals("Invalid username or password", failure.errorMessage());
+                return null;
+            }
+        );
     }
 
     @Test
     void testAccessingTokenOnFailureThrows() {
+        // With fold pattern, failure results never have token access - type-safe at compile time
         LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
 
-        assertThrows(IllegalStateException.class, result::getAccessToken);
-        assertThrows(IllegalStateException.class, result::getRefreshToken);
+        // This test verifies that FailureResult doesn't expose token methods
+        result.fold(
+            success -> {
+                fail("FailureResult should never match success case");
+                return null;
+            },
+            failure -> {
+                // Only error-related methods are available
+                assertNotNull(failure.errorCode());
+                assertNotNull(failure.errorMessage());
+                // Token methods are not available on FailureResult - verified at compile time
+                return null;
+            }
+        );
     }
 
     @Test
@@ -52,8 +81,17 @@ class LoginResultTest {
             "access_token", "refresh_token", Jti.generate(), permissions);
         LoginResult result = LoginResult.success(tokenPair);
 
-        assertThrows(IllegalStateException.class, result::getErrorCode);
-        assertThrows(IllegalStateException.class, result::getErrorMessage);
+        result.fold(
+            success -> {
+                assertEquals("access_token", success.tokenPair().accessToken());
+                assertEquals("refresh_token", success.tokenPair().refreshToken());
+                return null;
+            },
+            failure -> {
+                fail("Expected success result but got failure");
+                return null;
+            }
+        );
     }
 
     @Test
@@ -130,9 +168,25 @@ class LoginResultTest {
         LoginResult result1 = LoginResult.success(tokenPair1);
         LoginResult result2 = LoginResult.success(tokenPair2);
 
-        assertTrue(result1.isSuccess());
-        assertTrue(result2.isSuccess());
-        assertNotEquals(result1.getAccessToken(), result2.getAccessToken());
+        result1.fold(
+            success1 -> {
+                result2.fold(
+                    success2 -> {
+                        assertNotEquals(success1.tokenPair().accessToken(), success2.tokenPair().accessToken());
+                        return null;
+                    },
+                    failure2 -> {
+                        fail("Expected success result for result2 but got failure");
+                        return null;
+                    }
+                );
+                return null;
+            },
+            failure1 -> {
+                fail("Expected success result for result1 but got failure");
+                return null;
+            }
+        );
     }
 
     @Test
@@ -140,9 +194,25 @@ class LoginResultTest {
         LoginResult result1 = LoginResult.failure("ERROR_1", "message 1");
         LoginResult result2 = LoginResult.failure("ERROR_2", "message 2");
 
-        assertFalse(result1.isSuccess());
-        assertFalse(result2.isSuccess());
-        assertNotEquals(result1.getErrorCode(), result2.getErrorCode());
+        result1.fold(
+            success1 -> {
+                fail("Expected failure result for result1 but got success");
+                return null;
+            },
+            failure1 -> {
+                result2.fold(
+                    success2 -> {
+                        fail("Expected failure result for result2 but got success");
+                        return null;
+                    },
+                    failure2 -> {
+                        assertNotEquals(failure1.errorCode(), failure2.errorCode());
+                        return null;
+                    }
+                );
+                return null;
+            }
+        );
     }
 
     @Test
@@ -154,7 +224,26 @@ class LoginResultTest {
         LoginResult failure = LoginResult.failure("CODE", "message");
 
         // Success cannot be failed and vice versa
-        assertTrue(success.isSuccess());
-        assertFalse(failure.isSuccess());
+        success.fold(
+            s -> {
+                assertTrue(true); // Success case verified
+                return null;
+            },
+            f -> {
+                fail("Expected success but got failure");
+                return null;
+            }
+        );
+
+        failure.fold(
+            s -> {
+                fail("Expected failure but got success");
+                return null;
+            },
+            f -> {
+                assertTrue(true); // Failure case verified
+                return null;
+            }
+        );
     }
 }

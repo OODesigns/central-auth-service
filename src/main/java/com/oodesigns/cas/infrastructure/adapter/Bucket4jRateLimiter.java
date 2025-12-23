@@ -1,9 +1,7 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
-import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 
 import java.time.Duration;
 import java.util.Map;
@@ -18,7 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Bucket4jRateLimiter implements Ports.RateLimiter {
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
-    private final Bandwidth bandwidth;
+    private final int maxAttempts;
+    private final Duration duration;
 
     /**
      * Create a rate limiter with default limits (5 attempts per minute per key).
@@ -39,9 +38,8 @@ public class Bucket4jRateLimiter implements Ports.RateLimiter {
         if (duration == null || duration.isNegative() || duration.isZero()) {
             throw new IllegalArgumentException("duration must be positive");
         }
-        @SuppressWarnings("deprecation")
-        final Bandwidth createdBandwidth = Bandwidth.classic(maxAttempts, Refill.intervally(maxAttempts, duration));
-        this.bandwidth = createdBandwidth;
+        this.maxAttempts = maxAttempts;
+        this.duration = duration;
     }
 
     @Override
@@ -62,11 +60,11 @@ public class Bucket4jRateLimiter implements Ports.RateLimiter {
     }
 
     /**
-     * Create a new bucket with the configured bandwidth.
+     * Create a new bucket with the configured limits.
      */
     private Bucket createBucket() {
         return Bucket.builder()
-            .addLimit(bandwidth)
+            .addLimit(limit -> limit.capacity(maxAttempts).refillGreedy(maxAttempts, duration))
             .build();
     }
 

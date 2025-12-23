@@ -73,9 +73,18 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        assertTrue(result.isSuccess());
-        assertNotNull(result.getAccessToken());
-        assertNotNull(result.getRefreshToken());
+        result.fold(
+            success -> {
+                assertNotNull(success.tokenPair());
+                assertNotNull(success.tokenPair().accessToken());
+                assertNotNull(success.tokenPair().refreshToken());
+                return null;
+            },
+            failure -> {
+                fail("Login should have succeeded");
+                return null;
+            }
+        );
         
         verify(rateLimiter).checkLimit("login:192.168.1.1");
         verify(userRepository).findByUsername(any(Username.class));
@@ -90,8 +99,16 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        assertFalse(result.isSuccess());
-        assertEquals("INVALID_CREDENTIALS", result.getErrorCode());
+        result.fold(
+            success -> {
+                fail("Login should have failed");
+                return null;
+            },
+            failure -> {
+                assertEquals("INVALID_CREDENTIALS", failure.errorCode());
+                return null;
+            }
+        );
     }
 
     @Test
@@ -101,8 +118,16 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        assertFalse(result.isSuccess());
-        assertEquals("INVALID_CREDENTIALS", result.getErrorCode());
+        result.fold(
+            success -> {
+                fail("Login should have failed");
+                return null;
+            },
+            failure -> {
+                assertEquals("INVALID_CREDENTIALS", failure.errorCode());
+                return null;
+            }
+        );
     }
 
     @Test
@@ -111,8 +136,16 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        assertFalse(result.isSuccess());
-        assertEquals("RATE_LIMITED", result.getErrorCode());
+        result.fold(
+            success -> {
+                fail("Login should have been rate limited");
+                return null;
+            },
+            failure -> {
+                assertEquals("RATE_LIMITED", failure.errorCode());
+                return null;
+            }
+        );
     }
 
     @Test
@@ -139,8 +172,14 @@ class LoginCommandHandlerTest {
         LoginResult result1 = loginHandler.handle(validCommand);
         LoginResult result2 = loginHandler.handle(cmd2);
 
-        assertTrue(result1.isSuccess());
-        assertTrue(result2.isSuccess());
+        result1.fold(
+            success -> { assertNotNull(success); return null; },
+            failure -> { fail("First result should succeed"); return null; }
+        );
+        result2.fold(
+            success -> { assertNotNull(success); return null; },
+            failure -> { fail("Second result should succeed"); return null; }
+        );
         
         verify(rateLimiter).checkLimit("login:192.168.1.1");
         verify(rateLimiter).checkLimit("login:192.168.1.2");
@@ -154,8 +193,16 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        assertFalse(result.isSuccess());
-        assertEquals("INTERNAL_ERROR", result.getErrorCode());
+        result.fold(
+            success -> {
+                fail("Login should have failed");
+                return null;
+            },
+            failure -> {
+                assertEquals("INTERNAL_ERROR", failure.errorCode());
+                return null;
+            }
+        );
     }
 
     @Test
@@ -167,8 +214,16 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        assertFalse(result.isSuccess());
-        assertEquals("INTERNAL_ERROR", result.getErrorCode());
+        result.fold(
+            success -> {
+                fail("Login should have failed");
+                return null;
+            },
+            failure -> {
+                assertEquals("INTERNAL_ERROR", failure.errorCode());
+                return null;
+            }
+        );
     }
 
     @Test
@@ -182,9 +237,18 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        assertTrue(result.isSuccess());
-        assertNotNull(result.getAccessToken());
-        assertNotNull(result.getRefreshToken());
+        result.fold(
+            success -> {
+                assertNotNull(success.tokenPair());
+                assertNotNull(success.tokenPair().accessToken());
+                assertNotNull(success.tokenPair().refreshToken());
+                return null;
+            },
+            failure -> {
+                fail("Login should have succeeded");
+                return null;
+            }
+        );
     }
 
     @Test
@@ -199,7 +263,16 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(cmd);
 
-        assertTrue(result.isSuccess());
+        result.fold(
+            success -> {
+                assertNotNull(success.tokenPair());
+                return null;
+            },
+            failure -> {
+                fail("Login should have succeeded");
+                return null;
+            }
+        );
     }
 
     @Test
@@ -214,14 +287,25 @@ class LoginCommandHandlerTest {
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result1 = loginHandler.handle(validCommand);
-        assertTrue(result1.isSuccess());
+        result1.fold(
+            success -> { assertNotNull(success); return null; },
+            failure -> { fail("Should have succeeded"); return null; }
+        );
 
         LoginResult result2 = loginHandler.handle(validCommand);
-        assertTrue(result2.isSuccess());
+        result2.fold(
+            success -> { assertNotNull(success); return null; },
+            failure -> { fail("Should have succeeded"); return null; }
+        );
 
         LoginResult result3 = loginHandler.handle(validCommand);
-        assertFalse(result3.isSuccess());
-        assertEquals("RATE_LIMITED", result3.getErrorCode());
+        result3.fold(
+            success -> { fail("Should have been rate limited"); return null; },
+            failure -> {
+                assertEquals("RATE_LIMITED", failure.errorCode());
+                return null;
+            }
+        );
     }
 
     @Test
@@ -231,11 +315,16 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        assertFalse(result.isSuccess());
-        String errorMsg = result.getErrorMessage();
-        assertFalse(errorMsg.contains("Optional.empty"));
-        assertFalse(errorMsg.contains("null"));
-        assertTrue(errorMsg.contains("Invalid username or password"));
+        result.fold(
+            success -> { fail("Login should have failed"); return null; },
+            failure -> {
+                String errorMsg = failure.errorMessage();
+                assertFalse(errorMsg.contains("Optional.empty"));
+                assertFalse(errorMsg.contains("null"));
+                assertTrue(errorMsg.contains("Invalid username or password"));
+                return null;
+            }
+        );
     }
 
     /**
