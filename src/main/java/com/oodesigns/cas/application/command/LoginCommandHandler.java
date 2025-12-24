@@ -50,6 +50,7 @@ public final class LoginCommandHandler {
         return userRepository.findByUsername(command.username())
             .flatMap(foundUser -> authService.getAuthenticatedUser(foundUser, command.password().chars()))
             .flatMap(authService::generateTokens)
+            // Type witness keeps Optional<LoginResult> so failure branch fits
             .<LoginResult>map(LoginResult::success)
             .orElseGet(() -> LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password."));
     }
