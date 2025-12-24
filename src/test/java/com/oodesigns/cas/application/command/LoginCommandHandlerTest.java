@@ -152,7 +152,17 @@ class LoginCommandHandlerTest {
 
     @Test
     void testLoginWithNullCommand() {
-        assertThrows(NullPointerException.class, () -> loginHandler.handle(null));
+        LoginResult result = loginHandler.handle(null);
+
+        result.mapTo(success -> {
+                fail("Expected failure for null command");
+                return null;
+            })
+            .orElse(failure -> {
+                assertEquals("INVALID_REQUEST", failure.errorCode());
+                assertEquals("LoginCommand cannot be null", failure.errorMessage());
+                return null;
+            });
     }
 
     @Test
