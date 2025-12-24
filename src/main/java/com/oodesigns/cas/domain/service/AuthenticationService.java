@@ -34,19 +34,25 @@ public final class AuthenticationService {
      * Password char array is cleared after verification.
      */
     public Optional<User> getAuthenticatedUser(final User user, final char[] rawPassword) {
-        Objects.requireNonNull(rawPassword, "Password is required");
-        
-        if (user == null) {
-            Arrays.fill(rawPassword, '\0');
-            return Optional.empty();
+        try {
+            return Optional.ofNullable(rawPassword)
+                    .flatMap(pwd -> Optional.ofNullable(user))
+                    .flatMap(u -> verifyPasswordMatch(rawPassword, u));
+        } finally {
+            clearPassword(rawPassword);
         }
-
-        boolean matches = passwordHasher.verify(new String(rawPassword), user.passwordHash());
-        Arrays.fill(rawPassword, '\0');
-        
-        return matches ? Optional.of(user) : Optional.empty();
     }
 
+    private void clearPassword(final char[] rawPassword) {
+        Optional.ofNullable(rawPassword)
+                .ifPresent(pwd -> Arrays.fill(pwd, '\0'));
+    }
+
+    private Optional<User> verifyPasswordMatch(final char[] rawPassword, final User user) {
+        return passwordHasher.verify(rawPassword, user.passwordHash())
+            ? Optional.of(user)
+            : Optional.empty();
+    }
     /**
      * Generate tokens for authenticated user, including permissions as claims.
      * @return Optional containing TokenPair if tokens generated, empty if user is null

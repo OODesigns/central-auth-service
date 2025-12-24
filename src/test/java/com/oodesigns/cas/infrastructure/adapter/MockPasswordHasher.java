@@ -14,8 +14,8 @@ public class MockPasswordHasher implements Ports.PasswordHasher {
     private int hashCounter = 0;
 
     @Override
-    public PasswordHash hash(String rawPassword) {
-        if (rawPassword == null || rawPassword.isEmpty()) {
+    public PasswordHash hash(char[] rawPassword) {
+        if (rawPassword == null || rawPassword.length == 0) {
             throw new IllegalArgumentException("Password cannot be null or empty");
         }
         // Generate bcrypt-formatted mock hash: $2a$12$<random 53 chars>
@@ -25,20 +25,20 @@ public class MockPasswordHasher implements Ports.PasswordHasher {
         String hashValue = String.format("$2a$12$%s", salt);
         
         // Store mapping for verification
-        passwordMap.put(hashValue, rawPassword);
+        passwordMap.put(hashValue, new String(rawPassword));
         hashCounter++;
         
         return new PasswordHash(hashValue);
     }
 
     @Override
-    public boolean verify(String rawPassword, PasswordHash hash) {
+    public boolean verify(char[] rawPassword, PasswordHash hash) {
         if (rawPassword == null || hash == null) {
             throw new IllegalArgumentException("Password and hash cannot be null");
         }
         // Look up the original password that was hashed
         String storedPassword = passwordMap.get(hash.asString());
-        return storedPassword != null && storedPassword.equals(rawPassword);
+        return storedPassword != null && storedPassword.equals(new String(rawPassword));
     }
 
     public void clear() {

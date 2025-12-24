@@ -50,23 +50,23 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateValidPassword() {
-        when(passwordHasher.verify("password123", testUser.passwordHash())).thenReturn(true);
+        when(passwordHasher.verify(any(char[].class), eq(testUser.passwordHash()))).thenReturn(true);
 
         var result = authService.getAuthenticatedUser(testUser, "password123".toCharArray());
 
         assertTrue(result.isPresent());
         assertEquals(testUser, result.get());
-        verify(passwordHasher).verify("password123", testUser.passwordHash());
+        verify(passwordHasher).verify(any(char[].class), eq(testUser.passwordHash()));
     }
 
     @Test
     void testAuthenticateInvalidPassword() {
-        when(passwordHasher.verify("wrongpassword", testUser.passwordHash())).thenReturn(false);
+        when(passwordHasher.verify(any(char[].class), eq(testUser.passwordHash()))).thenReturn(false);
 
         var result = authService.getAuthenticatedUser(testUser, "wrongpassword".toCharArray());
 
         assertTrue(result.isEmpty());
-        verify(passwordHasher).verify("wrongpassword", testUser.passwordHash());
+        verify(passwordHasher).verify(any(char[].class), eq(testUser.passwordHash()));
     }
 
     @Test
@@ -77,8 +77,9 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void testAuthenticateNullPasswordThrows() {
-        assertThrows(NullPointerException.class, () -> authService.getAuthenticatedUser(testUser, null));
+    void testAuthenticateNullPasswordReturnsEmpty() {
+        var result = authService.getAuthenticatedUser(testUser, null);
+        assertTrue(result.isEmpty());
     }
 
     @Test

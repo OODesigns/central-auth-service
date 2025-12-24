@@ -71,7 +71,7 @@ class LoginCommandHandlerTest {
         setupTokenSignerMock();
         when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
         when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(char[].class), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result = loginHandler.handle(validCommand);
@@ -89,14 +89,14 @@ class LoginCommandHandlerTest {
         
         verify(rateLimiter).checkLimit("login:192.168.1.1");
         verify(userRepository).findByUsername(any(Username.class));
-        verify(passwordHasher).verify(anyString(), any(PasswordHash.class));
+        verify(passwordHasher).verify(any(char[].class), any(PasswordHash.class));
     }
 
     @Test
     void testLoginWithInvalidCredentials() {
         when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
         when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(false);
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(char[].class), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(false);
 
         LoginResult result = loginHandler.handle(validCommand);
 
@@ -172,7 +172,7 @@ class LoginCommandHandlerTest {
 
         when(rateLimiter.checkLimit(org.mockito.ArgumentMatchers.anyString())).thenReturn(createAllowedResult());
         when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(char[].class), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result1 = loginHandler.handle(validCommand);
@@ -209,7 +209,7 @@ class LoginCommandHandlerTest {
     void testPasswordHasherExceptionHandled() {
         when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
         when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class)))
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(char[].class), org.mockito.ArgumentMatchers.any(PasswordHash.class)))
             .thenThrow(new RuntimeException("Bcrypt error"));
 
         LoginResult result = loginHandler.handle(validCommand);
@@ -231,7 +231,7 @@ class LoginCommandHandlerTest {
 
         when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
         when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(adminUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(char[].class), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result = loginHandler.handle(validCommand);
@@ -256,7 +256,7 @@ class LoginCommandHandlerTest {
 
         when(rateLimiter.checkLimit("login:10.0.0.1")).thenReturn(createAllowedResult());
         when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(char[].class), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result = loginHandler.handle(cmd);
@@ -280,7 +280,7 @@ class LoginCommandHandlerTest {
             .thenReturn(createDeniedResult("Rate limited"));
 
         when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
+        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(char[].class), org.mockito.ArgumentMatchers.any(PasswordHash.class))).thenReturn(true);
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result1 = loginHandler.handle(validCommand);

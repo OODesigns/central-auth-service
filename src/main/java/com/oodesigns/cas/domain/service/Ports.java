@@ -13,8 +13,8 @@ public class Ports {
      * Port for password hashing operations.
      */
     public interface PasswordHasher {
-        PasswordHash hash(final String rawPassword);
-        boolean verify(final String rawPassword, final PasswordHash hash);
+        PasswordHash hash(final char[] rawPassword);
+        boolean verify(final char[] rawPassword, final PasswordHash hash);
     }
 
     /**
