@@ -2,7 +2,6 @@ package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.value.PasswordHash;
 import java.time.Instant;
-import java.util.Optional;
 
 /**
  * Port interfaces for domain services.
@@ -40,11 +39,70 @@ public class Ports {
     }
 
     /**
-     * Result of a rate limit check.
+     * Result of a rate limit check using fluent mapTo(...).orElse(...) pattern.
      */
-    public interface RateLimitResult {
-        boolean isAllowed();
-        Optional<String> getErrorMessage();
+    public sealed interface RateLimitResult
+        permits RateLimitResult.Allowed, RateLimitResult.Blocked {
+
+        <T> Mapper<T> mapTo(java.util.function.Function<Allowed, T> onAllowed);
+
+        static Allowed allowed() {
+            return new Allowed();
+        }
+
+        static Blocked blocked(final String message) {
+            return new Blocked(message);
+        }
+
+        record Allowed() implements RateLimitResult {
+            @Override
+            public <T> Mapper<T> mapTo(java.util.function.Function<Allowed, T> onAllowed) {
+                return new MapperAllowed<>(onAllowed.apply(this));
+            }
+
+            static final class MapperAllowed<T> implements Mapper<T> {
+                private final T value;
+
+                MapperAllowed(T value) {
+                    this.value = value;
+                }
+
+                @Override
+                public T orElse(java.util.function.Function<Blocked, T> onBlocked) {
+                    return value;
+                }
+            }
+        }
+
+        record Blocked(String message) implements RateLimitResult {
+            public Blocked {
+                if (message == null || message.isBlank()) {
+                    throw new IllegalArgumentException("Blocked message is required");
+                }
+            }
+
+            @Override
+            public <T> Mapper<T> mapTo(java.util.function.Function<Allowed, T> onAllowed) {
+                return new MapperBlocked<>(this);
+            }
+
+            static final class MapperBlocked<T> implements Mapper<T> {
+                private final Blocked blocked;
+
+                MapperBlocked(Blocked blocked) {
+                    this.blocked = blocked;
+                }
+
+                @Override
+                public T orElse(java.util.function.Function<Blocked, T> onBlocked) {
+                    return onBlocked.apply(blocked);
+                }
+            }
+        }
+
+        interface Mapper<T> {
+            T orElse(java.util.function.Function<Blocked, T> onBlocked);
+        }
     }
 
     /**

@@ -33,18 +33,9 @@ public final class LoginCommandHandler {
     }
 
     private LoginResult handleCommand(final LoginCommand command) {
-        return checkRateLimit(command)
-            .map(this::authenticateUser)
-            .orElseGet(() -> LoginResult.failure("RATE_LIMITED", "Rate limit exceeded"));
-    }
-
-    /**
-     * Check if the login attempt from this IP address exceeds rate limit.
-     * @return Optional containing the command if allowed, empty if rate limited
-     */
-    private Optional<LoginCommand> checkRateLimit(final LoginCommand command) {
-        return Optional.of(command)
-            .filter(cmd -> rateLimiter.checkLimit("login:" + cmd.ipAddress().asString()).isAllowed());
+        return rateLimiter.checkLimit("login:" + command.ipAddress().asString())
+            .mapTo(allowed -> authenticateUser(command))
+            .orElse(blocked -> LoginResult.failure("RATE_LIMITED", blocked.message()));
     }
 
     /**

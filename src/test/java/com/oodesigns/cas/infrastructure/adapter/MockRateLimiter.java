@@ -30,40 +30,17 @@ public class MockRateLimiter implements Ports.RateLimiter {
         }
 
         if (blockedKeys.contains(key)) {
-            return new RateLimitResultImpl(false, Optional.of("Rate limit exceeded for: " + key));
+            return Ports.RateLimitResult.blocked("Rate limit exceeded for: " + key);
         }
 
         int currentCount = callCounts.computeIfAbsent(key, k -> new AtomicInteger(0)).incrementAndGet();
 
         if (currentCount > maxAttempts) {
             blockedKeys.add(key);
-            return new RateLimitResultImpl(false, Optional.of("Rate limit exceeded for: " + key));
+            return Ports.RateLimitResult.blocked("Rate limit exceeded for: " + key);
         }
 
-        return new RateLimitResultImpl(true, Optional.empty());
-    }
-
-    /**
-     * Implementation of RateLimitResult for testing.
-     */
-    private static class RateLimitResultImpl implements Ports.RateLimitResult {
-        private final boolean allowed;
-        private final Optional<String> errorMessage;
-
-        RateLimitResultImpl(final boolean allowed, final Optional<String> errorMessage) {
-            this.allowed = allowed;
-            this.errorMessage = errorMessage;
-        }
-
-        @Override
-        public boolean isAllowed() {
-            return allowed;
-        }
-
-        @Override
-        public Optional<String> getErrorMessage() {
-            return errorMessage;
-        }
+        return Ports.RateLimitResult.allowed();
     }
 
     public int getCallCount(String key) {

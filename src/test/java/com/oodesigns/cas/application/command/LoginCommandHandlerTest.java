@@ -320,36 +320,13 @@ class LoginCommandHandlerTest {
      * Helper to create a RateLimitResult for testing.
      */
     private Ports.RateLimitResult createAllowedResult() {
-        return new TestRateLimitResult(true, Optional.empty());
+        return Ports.RateLimitResult.allowed();
     }
 
     /**
      * Helper to create a denied RateLimitResult for testing.
      */
     private Ports.RateLimitResult createDeniedResult(String message) {
-        return new TestRateLimitResult(false, Optional.of(message));
-    }
-
-    /**
-     * Test implementation of RateLimitResult.
-     */
-    private static class TestRateLimitResult implements Ports.RateLimitResult {
-        private final boolean allowed;
-        private final Optional<String> errorMessage;
-
-        TestRateLimitResult(final boolean allowed, final Optional<String> errorMessage) {
-            this.allowed = allowed;
-            this.errorMessage = errorMessage;
-        }
-
-        @Override
-        public boolean isAllowed() {
-            return allowed;
-        }
-
-        @Override
-        public Optional<String> getErrorMessage() {
-            return errorMessage;
-        }
+        return Ports.RateLimitResult.blocked(message);
     }
 }

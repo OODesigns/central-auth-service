@@ -5,7 +5,6 @@ import io.github.bucket4j.Bucket;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -51,12 +50,12 @@ public class Bucket4jRateLimiter implements Ports.RateLimiter {
         Bucket bucket = buckets.computeIfAbsent(key, k -> createBucket());
 
         if (bucket.tryConsume(1)) {
-            return new RateLimitResult(true, Optional.empty());
+            return Ports.RateLimitResult.allowed();
         }
 
-        return new RateLimitResult(false, Optional.of(
+        return Ports.RateLimitResult.blocked(
             String.format("Rate limit exceeded for '%s'. Try again later.", key)
-        ));
+        );
     }
 
     /**
@@ -66,29 +65,6 @@ public class Bucket4jRateLimiter implements Ports.RateLimiter {
         return Bucket.builder()
             .addLimit(limit -> limit.capacity(maxAttempts).refillGreedy(maxAttempts, duration))
             .build();
-    }
-
-    /**
-     * Implementation of RateLimitResult.
-     */
-    private static class RateLimitResult implements Ports.RateLimitResult {
-        private final boolean allowed;
-        private final Optional<String> errorMessage;
-
-        RateLimitResult(final boolean allowed, final Optional<String> errorMessage) {
-            this.allowed = allowed;
-            this.errorMessage = errorMessage;
-        }
-
-        @Override
-        public boolean isAllowed() {
-            return allowed;
-        }
-
-        @Override
-        public Optional<String> getErrorMessage() {
-            return errorMessage;
-        }
     }
 
     /**
