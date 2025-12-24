@@ -86,19 +86,17 @@ class LoginIntegrationTest {
         
         LoginResult result = loginHandler.handle(loginCmd);
 
-        // 3. Verify: Successful login using fold pattern
-        result.fold(
-            success -> {
+        // 3. Verify: Successful login using fluent mapTo/orElse
+        result.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 assertNotNull(success.tokenPair().accessToken());
                 assertNotNull(success.tokenPair().refreshToken());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -117,17 +115,15 @@ class LoginIntegrationTest {
         LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Failed login with generic error
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 fail("Login should have failed");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("INVALID_CREDENTIALS", failure.errorCode());
                 assertTrue(failure.errorMessage().contains("Invalid username or password"));
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -141,16 +137,14 @@ class LoginIntegrationTest {
         LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Generic error (no "user not found")
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 fail("Login should have failed");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("INVALID_CREDENTIALS", failure.errorCode());
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -180,38 +174,32 @@ class LoginIntegrationTest {
         LoginResult charlieResult = loginHandler.handle(charlieCmd);
 
         // 3. Verify: All users can login
-        aliceResult.fold(
-            success -> {
+        aliceResult.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Alice login should have succeeded");
                 return null;
-            }
-        );
+            });
 
-        bobResult.fold(
-            success -> {
+        bobResult.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Bob login should have succeeded");
                 return null;
-            }
-        );
+            });
 
-        charlieResult.fold(
-            success -> {
+        charlieResult.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Charlie login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -228,16 +216,14 @@ class LoginIntegrationTest {
                 IpAddress.of(testIP));
             LoginResult result = loginHandler.handle(cmd);
             final int attempt = i + 1;
-            result.fold(
-                success -> {
+            result.mapTo(success -> {
                     assertNotNull(success.tokenPair());
                     return null;
-                },
-                failure -> {
+                })
+                .orElse(failure -> {
                     fail("Attempt " + attempt + " should succeed");
                     return null;
-                }
-            );
+                });
         }
 
         // 3. Verify: 6th attempt is rate limited
@@ -245,16 +231,14 @@ class LoginIntegrationTest {
             IpAddress.of(testIP));
         LoginResult blockedResult = loginHandler.handle(blockedCmd);
         
-        blockedResult.fold(
-            success -> {
+        blockedResult.mapTo(success -> {
                 fail("Should have been rate limited");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("RATE_LIMITED", failure.errorCode());
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -270,16 +254,14 @@ class LoginIntegrationTest {
             LoginCommand cmd = new LoginCommand(Username.of("multi_ip_test"), new Password("correct_password".toCharArray()), 
                 IpAddress.of(ip));
             LoginResult result = loginHandler.handle(cmd);
-            result.fold(
-                success -> {
+            result.mapTo(success -> {
                     assertNotNull(success.tokenPair());
                     return null;
-                },
-                failure -> {
+                })
+                .orElse(failure -> {
                     fail("Login from IP " + ip + " should succeed");
                     return null;
-                }
-            );
+                });
         }
     }
 
@@ -302,16 +284,14 @@ class LoginIntegrationTest {
             IpAddress.of("192.168.1.100"));
         LoginResult result = loginHandler.handle(cmd);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -328,16 +308,14 @@ class LoginIntegrationTest {
         LoginResult result = loginHandler.handle(cmd);
 
         // 3. Verify: Original user object unchanged
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertTrue(originalUser.permissions().isEmpty());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -359,16 +337,14 @@ class LoginIntegrationTest {
 
         // 3. Verify: Command still has the correct password (cloned)
         LoginResult result = loginHandler.handle(cmd);
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -387,16 +363,14 @@ class LoginIntegrationTest {
         LoginResult result = loginHandler.handle(cmd);
 
         // 3. Verify: Username normalization works (case-insensitive matching)
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -423,27 +397,23 @@ class LoginIntegrationTest {
         LoginResult result2 = loginHandler.handle(cmd2);
 
         // 5. Verify: Both successful, clock advanced
-        result1.fold(
-            success -> {
+        result1.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("First login should have succeeded");
                 return null;
-            }
-        );
+            });
 
-        result2.fold(
-            success -> {
+        result2.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Second login should have succeeded");
                 return null;
-            }
-        );
+            });
 
         assertTrue(t2.isAfter(t1));
     }
@@ -479,46 +449,40 @@ class LoginIntegrationTest {
         LoginCommand correctCmd = new LoginCommand(Username.of("secure_user"), new Password("MySecurePassword123".toCharArray()), 
             IpAddress.of("192.168.1.50"));
         LoginResult correctResult = loginHandler.handle(correctCmd);
-        correctResult.fold(
-            success -> {
+        correctResult.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Correct login should have succeeded");
                 return null;
-            }
-        );
+            });
 
         // 3. Failed login attempt
         LoginCommand wrongCmd = new LoginCommand(Username.of("secure_user"), new Password("WrongPassword".toCharArray()), 
             IpAddress.of("192.168.1.50"));
         LoginResult wrongResult = loginHandler.handle(wrongCmd);
-        wrongResult.fold(
-            success -> {
+        wrongResult.mapTo(success -> {
                 fail("Wrong password login should have failed");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("INVALID_CREDENTIALS", failure.errorCode());
                 return null;
-            }
-        );
+            });
 
         // 4. Verify rate limit not hit (different IP, new user)
         LoginCommand anotherUserCmd = new LoginCommand(Username.of("secure_user"), new Password("MySecurePassword123".toCharArray()), 
             IpAddress.of("192.168.1.51"));
         LoginResult anotherResult = loginHandler.handle(anotherUserCmd);
-        anotherResult.fold(
-            success -> {
+        anotherResult.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Another login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -542,19 +506,17 @@ class LoginIntegrationTest {
         LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Permissions returned in response
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertEquals(3, success.tokenPair().permissions().size());
                 assertTrue(success.tokenPair().permissions().contains(com.oodesigns.cas.domain.value.Permission.of("manage_users")));
                 assertTrue(success.tokenPair().permissions().contains(com.oodesigns.cas.domain.value.Permission.of("view_reports")));
                 assertTrue(success.tokenPair().permissions().contains(com.oodesigns.cas.domain.value.Permission.of("delete_accounts")));
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -573,15 +535,13 @@ class LoginIntegrationTest {
         LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Empty permissions set returned
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertEquals(0, success.tokenPair().permissions().size());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 }

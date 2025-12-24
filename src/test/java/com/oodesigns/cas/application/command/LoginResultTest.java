@@ -22,35 +22,31 @@ class LoginResultTest {
             "access_token_123", "refresh_token_456", Jti.generate(), permissions);
         LoginResult result = LoginResult.success(tokenPair);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertEquals("access_token_123", success.tokenPair().accessToken());
                 assertEquals("refresh_token_456", success.tokenPair().refreshToken());
                 assertEquals(0, success.tokenPair().permissions().size());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Expected success result but got failure");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
     void testFailureResult() {
         LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 fail("Expected failure result but got success");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("INVALID_CREDENTIALS", failure.errorCode());
                 assertEquals("Invalid username or password", failure.errorMessage());
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -59,19 +55,17 @@ class LoginResultTest {
         LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
 
         // This test verifies that FailureResult doesn't expose token methods
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 fail("FailureResult should never match success case");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 // Only error-related methods are available
                 assertNotNull(failure.errorCode());
                 assertNotNull(failure.errorMessage());
                 // Token methods are not available on FailureResult - verified at compile time
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -81,17 +75,15 @@ class LoginResultTest {
             "access_token", "refresh_token", Jti.generate(), permissions);
         LoginResult result = LoginResult.success(tokenPair);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertEquals("access_token", success.tokenPair().accessToken());
                 assertEquals("refresh_token", success.tokenPair().refreshToken());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Expected success result but got failure");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -168,25 +160,21 @@ class LoginResultTest {
         LoginResult result1 = LoginResult.success(tokenPair1);
         LoginResult result2 = LoginResult.success(tokenPair2);
 
-        result1.fold(
-            success1 -> {
-                result2.fold(
-                    success2 -> {
+        result1.mapTo(success1 -> {
+                result2.mapTo(success2 -> {
                         assertNotEquals(success1.tokenPair().accessToken(), success2.tokenPair().accessToken());
                         return null;
-                    },
-                    failure2 -> {
+                    })
+                    .orElse(failure2 -> {
                         fail("Expected success result for result2 but got failure");
                         return null;
-                    }
-                );
+                    });
                 return null;
-            },
-            failure1 -> {
+            })
+            .orElse(failure1 -> {
                 fail("Expected success result for result1 but got failure");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -194,25 +182,21 @@ class LoginResultTest {
         LoginResult result1 = LoginResult.failure("ERROR_1", "message 1");
         LoginResult result2 = LoginResult.failure("ERROR_2", "message 2");
 
-        result1.fold(
-            success1 -> {
+        result1.mapTo(success1 -> {
                 fail("Expected failure result for result1 but got success");
                 return null;
-            },
-            failure1 -> {
-                result2.fold(
-                    success2 -> {
+            })
+            .orElse(failure1 -> {
+                result2.mapTo(success2 -> {
                         fail("Expected failure result for result2 but got success");
                         return null;
-                    },
-                    failure2 -> {
+                    })
+                    .orElse(failure2 -> {
                         assertNotEquals(failure1.errorCode(), failure2.errorCode());
                         return null;
-                    }
-                );
+                    });
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -224,26 +208,22 @@ class LoginResultTest {
         LoginResult failure = LoginResult.failure("CODE", "message");
 
         // Success cannot be failed and vice versa
-        success.fold(
-            s -> {
+        success.mapTo(s -> {
                 assertTrue(true); // Success case verified
                 return null;
-            },
-            f -> {
+            })
+            .orElse(f -> {
                 fail("Expected success but got failure");
                 return null;
-            }
-        );
+            });
 
-        failure.fold(
-            s -> {
+        failure.mapTo(s -> {
                 fail("Expected failure but got success");
                 return null;
-            },
-            f -> {
+            })
+            .orElse(f -> {
                 assertTrue(true); // Failure case verified
                 return null;
-            }
-        );
+            });
     }
 }

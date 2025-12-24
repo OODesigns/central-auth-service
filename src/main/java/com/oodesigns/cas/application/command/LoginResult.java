@@ -4,24 +4,22 @@ import com.oodesigns.cas.domain.service.AuthenticationService;
 import java.util.function.Function;
 
 /**
- * Result of login command execution using the fold pattern.
- * Clients apply lambdas to handle success or failure cases.
- * No type-checking needed - type-safe at compile time.
+ * Result of login command execution using a fluent mapTo(...).orElse(...) pattern.
+ * Implementations provide their own mapping without runtime type checks.
  */
-public sealed interface LoginResult {
+public sealed interface LoginResult
+    permits LoginResult.SuccessResult, LoginResult.FailureResult {
+
     /**
-     * Applies different functions based on success or failure.
-     * This is the fold/visitor pattern - clients provide handlers for each case.
-     * 
-     * @param onSuccess function to call if login succeeded, receives SuccessResult
-     * @param onFailure function to call if login failed, receives FailureResult
-     * @return the result of the applied function
-     * @param <T> return type
+     * Fluent mapping API: map success, then provide fallback for failure.
+     * Usage:
+     * <pre>
+     * LoginResponseDTO dto = result
+     *     .mapTo(success -> ...)
+     *     .orElse(failure -> ...);
+     * </pre>
      */
-    <T> T fold(
-        Function<SuccessResult, T> onSuccess,
-        Function<FailureResult, T> onFailure
-    );
+    <T> Mapper<T> mapTo(Function<SuccessResult, T> successMapper);
 
     static SuccessResult success(final AuthenticationService.TokenPair tokenPair) {
         return new SuccessResult(tokenPair);
@@ -35,6 +33,7 @@ public sealed interface LoginResult {
      * Successful login result containing token information.
      */
     record SuccessResult(AuthenticationService.TokenPair tokenPair) implements LoginResult {
+
         public SuccessResult {
             if (tokenPair == null) {
                 throw new IllegalArgumentException("Token pair is required");
@@ -42,11 +41,24 @@ public sealed interface LoginResult {
         }
 
         @Override
-        public <T> T fold(
-            Function<SuccessResult, T> onSuccess,
-            Function<FailureResult, T> onFailure
-        ) {
-            return onSuccess.apply(this);
+        public <T> Mapper<T> mapTo(Function<SuccessResult, T> successMapper) {
+            return new MapperSuccess<>(successMapper.apply(this));
+        }
+
+        /**
+         * Mapper returned when the result is a success.
+         */
+        static final class MapperSuccess<T> implements Mapper<T> {
+            private final T value;
+
+            MapperSuccess(T value) {
+                this.value = value;
+            }
+
+            @Override
+            public T orElse(Function<FailureResult, T> failureMapper) {
+                return value;
+            }
         }
     }
 
@@ -54,6 +66,7 @@ public sealed interface LoginResult {
      * Failed login result containing error details.
      */
     record FailureResult(String errorCode, String errorMessage) implements LoginResult {
+
         public FailureResult {
             if (errorCode == null || errorCode.isBlank()) {
                 throw new IllegalArgumentException("Error code is required");
@@ -64,11 +77,33 @@ public sealed interface LoginResult {
         }
 
         @Override
-        public <T> T fold(
-            Function<SuccessResult, T> onSuccess,
-            Function<FailureResult, T> onFailure
-        ) {
-            return onFailure.apply(this);
+        public <T> Mapper<T> mapTo(Function<SuccessResult, T> successMapper) {
+            // Success mapper intentionally ignored for failures
+            return new MapperFailure<>(this);
+        }
+
+        /**
+         * Mapper returned when the result is a failure.
+         */
+        static final class MapperFailure<T> implements Mapper<T> {
+            private final FailureResult failure;
+
+            MapperFailure(FailureResult failure) {
+                this.failure = failure;
+            }
+
+            @Override
+            public T orElse(Function<FailureResult, T> failureMapper) {
+                return failureMapper.apply(failure);
+            }
         }
     }
+
+    /**
+     * Common mapper contract for the fluent API.
+     */
+    interface Mapper<T> {
+        T orElse(Function<FailureResult, T> failureMapper);
+    }
+
 }

@@ -76,18 +76,16 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 assertNotNull(success.tokenPair().accessToken());
                 assertNotNull(success.tokenPair().refreshToken());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
         
         verify(rateLimiter).checkLimit("login:192.168.1.1");
         verify(userRepository).findByUsername(any(Username.class));
@@ -102,16 +100,14 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 fail("Login should have failed");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("INVALID_CREDENTIALS", failure.errorCode());
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -121,16 +117,14 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 fail("Login should have failed");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("INVALID_CREDENTIALS", failure.errorCode());
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -139,16 +133,14 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 fail("Login should have been rate limited");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("RATE_LIMITED", failure.errorCode());
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -176,14 +168,10 @@ class LoginCommandHandlerTest {
         LoginResult result1 = loginHandler.handle(validCommand);
         LoginResult result2 = loginHandler.handle(cmd2);
 
-        result1.fold(
-            success -> { assertNotNull(success); return null; },
-            failure -> { fail("First result should succeed"); return null; }
-        );
-        result2.fold(
-            success -> { assertNotNull(success); return null; },
-            failure -> { fail("Second result should succeed"); return null; }
-        );
+        result1.mapTo(success -> { assertNotNull(success); return null; })
+            .orElse(failure -> { fail("First result should succeed"); return null; });
+        result2.mapTo(success -> { assertNotNull(success); return null; })
+            .orElse(failure -> { fail("Second result should succeed"); return null; });
         
         verify(rateLimiter).checkLimit("login:192.168.1.1");
         verify(rateLimiter).checkLimit("login:192.168.1.2");
@@ -197,16 +185,14 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 fail("Login should have failed");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("INTERNAL_ERROR", failure.errorCode());
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -218,16 +204,14 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 fail("Login should have failed");
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 assertEquals("INTERNAL_ERROR", failure.errorCode());
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -242,18 +226,16 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 assertNotNull(success.tokenPair().accessToken());
                 assertNotNull(success.tokenPair().refreshToken());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -269,16 +251,14 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(cmd);
 
-        result.fold(
-            success -> {
+        result.mapTo(success -> {
                 assertNotNull(success.tokenPair());
                 return null;
-            },
-            failure -> {
+            })
+            .orElse(failure -> {
                 fail("Login should have succeeded");
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -294,25 +274,19 @@ class LoginCommandHandlerTest {
         when(clock.now()).thenReturn(Instant.now());
 
         LoginResult result1 = loginHandler.handle(validCommand);
-        result1.fold(
-            success -> { assertNotNull(success); return null; },
-            failure -> { fail("Should have succeeded"); return null; }
-        );
+        result1.mapTo(success -> { assertNotNull(success); return null; })
+            .orElse(failure -> { fail("Should have succeeded"); return null; });
 
         LoginResult result2 = loginHandler.handle(validCommand);
-        result2.fold(
-            success -> { assertNotNull(success); return null; },
-            failure -> { fail("Should have succeeded"); return null; }
-        );
+        result2.mapTo(success -> { assertNotNull(success); return null; })
+            .orElse(failure -> { fail("Should have succeeded"); return null; });
 
         LoginResult result3 = loginHandler.handle(validCommand);
-        result3.fold(
-            success -> { fail("Should have been rate limited"); return null; },
-            failure -> {
+        result3.mapTo(success -> { fail("Should have been rate limited"); return null; })
+            .orElse(failure -> {
                 assertEquals("RATE_LIMITED", failure.errorCode());
                 return null;
-            }
-        );
+            });
     }
 
     @Test
@@ -322,16 +296,14 @@ class LoginCommandHandlerTest {
 
         LoginResult result = loginHandler.handle(validCommand);
 
-        result.fold(
-            success -> { fail("Login should have failed"); return null; },
-            failure -> {
+        result.mapTo(success -> { fail("Login should have failed"); return null; })
+            .orElse(failure -> {
                 String errorMsg = failure.errorMessage();
                 assertFalse(errorMsg.contains("Optional.empty"));
                 assertFalse(errorMsg.contains("null"));
                 assertTrue(errorMsg.contains("Invalid username or password"));
                 return null;
-            }
-        );
+            });
     }
 
     /**
