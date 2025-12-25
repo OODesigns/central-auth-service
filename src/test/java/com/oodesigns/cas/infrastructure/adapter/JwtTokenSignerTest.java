@@ -1,5 +1,6 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
+import com.oodesigns.cas.domain.value.KeyPassword;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,7 +25,7 @@ class JwtTokenSignerTest {
 
     @BeforeEach
     void setUp() {
-        signer = new JwtTokenSigner(TEST_SECRET);
+        signer = new JwtTokenSigner(() -> KeyPassword.fromString(TEST_SECRET));
     }
 
     @Test
@@ -34,17 +35,33 @@ class JwtTokenSignerTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException for null secret key")
-    void shouldThrowForNullSecretKey() {
+    @DisplayName("Should throw NullPointerException for null supplier")
+    void shouldThrowForNullSupplier() {
         assertThrows(NullPointerException.class, () -> new JwtTokenSigner(null),
-                "Should throw NullPointerException for null secret key");
+                "Should throw NullPointerException for null supplier");
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException for insufficient key length")
+    @DisplayName("Should throw IllegalStateException for insufficient key length")
     void shouldThrowForInsufficientKeyLength() {
-        assertThrows(IllegalArgumentException.class, () -> new JwtTokenSigner("short"),
-                "Should throw IllegalArgumentException for key < 32 characters");
+        final JwtTokenSigner shortKeySigner = new JwtTokenSigner(() -> KeyPassword.fromString("short"));
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        assertThrows(IllegalStateException.class, () -> shortKeySigner.sign("{\"sub\":\"user\"}", expiresAt),
+            "Should throw IllegalStateException for key < 32 characters at signing time");
+    }
+
+    @Test
+        @DisplayName("Should throw IllegalStateException when KeySupplier returns null")
+        void shouldThrowWhenKeySupplierReturnsNull() {
+        final JwtTokenSigner nullPasswordSigner = new JwtTokenSigner(() -> null);
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        final IllegalStateException exception = assertThrows(IllegalStateException.class,
+            () -> nullPasswordSigner.sign("{\"sub\":\"user\"}", expiresAt),
+            "Should throw IllegalStateException when supplier returns null password");
+        assertInstanceOf(NullPointerException.class, exception.getCause(),
+            "Expected underlying cause to be NullPointerException");
     }
 
     @Test

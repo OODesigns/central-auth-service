@@ -1,11 +1,12 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
+import com.oodesigns.cas.domain.value.KeyPassword;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
 
@@ -15,32 +16,30 @@ import java.util.Objects;
  * 
  * Security Properties:
  * - Uses HMAC SHA-256 for token integrity verification
+ * - Retrieves KeyPassword instances on-demand via KeySupplier to avoid retaining secrets
  * - Requires secure secret key (minimum 256 bits for HS256)
  * - Tokens include expiration time for time-bounded validity
  * - Payloads are base64-encoded in the token
  * 
  * Note: In production, the secret key should be:
- * - Loaded from secure configuration (environment variables, vaults, etc.)
+ * - Loaded from secure configuration (environment variables, vaults, etc.) via KeySupplier implementations
+ * - Provided as KeyPassword objects that can be cleared immediately after use
  * - Never hardcoded in source code
  * - Rotated regularly
  * 
  * Requires the jjwt library: io.jsonwebtoken:jjwt-api:0.12.1
  */
 public final class JwtTokenSigner implements Ports.TokenSigner {
-    private final byte[] secretKey;
+    private final KeySupplier keySupplier;
 
     /**
-     * Construct a JWT token signer with the provided secret key.
-     * 
-     * @param secretKey The secret key for signing tokens (must be at least 256 bits/32 bytes for HS256)
-     * @throws IllegalArgumentException if secret key is null or insufficient length
+     * Construct a JWT token signer that fetches passwords on-demand.
+     *
+     * @param keySupplier Provider that retrieves passwords per signing request
+     * @throws NullPointerException if keySupplier is null
      */
-    public JwtTokenSigner(final String secretKey) {
-        Objects.requireNonNull(secretKey, "Secret key cannot be null");
-        if (secretKey.length() < 32) {
-            throw new IllegalArgumentException("Secret key must be at least 32 characters (256 bits) for HS256");
-        }
-        this.secretKey = secretKey.getBytes(StandardCharsets.UTF_8);
+    public JwtTokenSigner(final KeySupplier keySupplier) {
+        this.keySupplier = Objects.requireNonNull(keySupplier, "Key supplier cannot be null");
     }
 
     /**
@@ -62,13 +61,21 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
         }
 
         try {
-            // Add the JSON payload as a custom claim with the key "payload"
-            // This preserves the original structure while using JWT standard features
-            return Jwts.builder()
-                    .claim("payload", payload)
-                    .expiration(Date.from(expiresAt))
-                    .signWith(Keys.hmacShaKeyFor(secretKey), Jwts.SIG.HS256)
-                    .compact();
+            final KeyPassword password = Objects.requireNonNull(keySupplier.getPassword(),
+                    "Key supplier provided null password");
+            final byte[] secretKey = password.toUtf8Bytes();
+            try {
+                // Add the JSON payload as a custom claim with the key "payload"
+                // This preserves the original structure while using JWT standard features
+                return Jwts.builder()
+                        .claim("payload", payload)
+                        .expiration(Date.from(expiresAt))
+                        .signWith(Keys.hmacShaKeyFor(secretKey), Jwts.SIG.HS256)
+                        .compact();
+            } finally {
+                Arrays.fill(secretKey, (byte) 0);
+                password.clear();
+            }
         } catch (final RuntimeException e) {
             // Wrap JWT exceptions as runtime exceptions
             throw new IllegalStateException("Failed to sign JWT token", e);

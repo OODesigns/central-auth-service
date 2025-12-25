@@ -7,7 +7,7 @@ import java.util.Arrays;
  * Stores password as char[] for secure memory handling.
  * Ensures password can be zeroed out from memory after use.
  */
-public final class Password {
+public class Password {
     private final char[] passwordChars;
 
     /**
