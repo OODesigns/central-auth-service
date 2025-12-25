@@ -1,6 +1,7 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
+import com.oodesigns.cas.domain.value.Payload;
 
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
@@ -17,15 +18,15 @@ public class MockTokenSigner implements Ports.TokenSigner {
      * For testing, returns a simple format: "mock.<counter>.<payload>"
      */
     @Override
-    public String sign(final String payload, final Instant expiresAt) {
-        if (payload == null || payload.isEmpty()) {
+    public String sign(final Payload payload, final Instant expiresAt) {
+        if (payload == null) {
             throw new IllegalArgumentException("Payload cannot be null or empty");
         }
         if (expiresAt == null) {
             throw new IllegalArgumentException("ExpiresAt cannot be null");
         }
-        
-        return "mock." + tokenCounter.incrementAndGet() + "." + payload;
+
+        return "mock." + tokenCounter.incrementAndGet() + "." + payload.value();
     }
 
     /**

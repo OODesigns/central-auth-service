@@ -1,6 +1,7 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.value.KeyPassword;
+import com.oodesigns.cas.domain.value.Payload;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +48,7 @@ class JwtTokenSignerTest {
         final JwtTokenSigner shortKeySigner = new JwtTokenSigner(() -> KeyPassword.fromString("short"));
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        assertThrows(IllegalStateException.class, () -> shortKeySigner.sign("{\"sub\":\"user\"}", expiresAt),
+        assertThrows(IllegalStateException.class, () -> shortKeySigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt),
             "Should throw IllegalStateException for key < 32 characters at signing time");
     }
 
@@ -58,7 +59,7 @@ class JwtTokenSignerTest {
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final IllegalStateException exception = assertThrows(IllegalStateException.class,
-            () -> nullPasswordSigner.sign("{\"sub\":\"user\"}", expiresAt),
+            () -> nullPasswordSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt),
             "Should throw IllegalStateException when supplier returns null password");
         assertInstanceOf(NullPointerException.class, exception.getCause(),
             "Expected underlying cause to be NullPointerException");
@@ -67,7 +68,7 @@ class JwtTokenSignerTest {
     @Test
     @DisplayName("Should sign valid payload and return JWT token")
     void shouldSignValidPayloadAndReturnToken() {
-        final String payload = "{\"sub\":\"user123\",\"iat\":1234567890,\"exp\":1234567900}";
+        final Payload payload = Payload.of("{\"sub\":\"user123\",\"iat\":1234567890,\"exp\":1234567900}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final String token = signer.sign(payload, expiresAt);
@@ -82,8 +83,8 @@ class JwtTokenSignerTest {
     void shouldGenerateDifferentTokensForDifferentPayloads() {
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
         
-        final String token1 = signer.sign("{\"sub\":\"user1\"}", expiresAt);
-        final String token2 = signer.sign("{\"sub\":\"user2\"}", expiresAt);
+        final String token1 = signer.sign(Payload.of("{\"sub\":\"user1\"}"), expiresAt);
+        final String token2 = signer.sign(Payload.of("{\"sub\":\"user2\"}"), expiresAt);
 
         assertNotEquals(token1, token2, "Different payloads should generate different tokens");
     }
@@ -94,7 +95,7 @@ class JwtTokenSignerTest {
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
         
         assertThrows(NullPointerException.class, () -> signer.sign(null, expiresAt),
-                "Should throw NullPointerException for null payload");
+            "Should throw NullPointerException for null payload");
     }
 
     @Test
@@ -102,14 +103,14 @@ class JwtTokenSignerTest {
     void shouldThrowForEmptyPayload() {
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
         
-        assertThrows(IllegalArgumentException.class, () -> signer.sign("", expiresAt),
-                "Should throw IllegalArgumentException for empty payload");
+        assertThrows(IllegalArgumentException.class, () -> signer.sign(Payload.of(""), expiresAt),
+            "Should throw IllegalArgumentException for empty payload");
     }
 
     @Test
     @DisplayName("Should throw NullPointerException for null expiration")
     void shouldThrowForNullExpiration() {
-        final String payload = "{\"sub\":\"user123\"}";
+        final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         
         assertThrows(NullPointerException.class, () -> signer.sign(payload, null),
                 "Should throw NullPointerException for null expiration");
@@ -118,7 +119,7 @@ class JwtTokenSignerTest {
     @Test
     @DisplayName("Should generate verifiable JWT token")
     void shouldGenerateVerifiableToken() {
-        final String payload = "{\"sub\":\"user123\",\"permissions\":[\"READ\",\"WRITE\"]}";
+        final Payload payload = Payload.of("{\"sub\":\"user123\",\"permissions\":[\"READ\",\"WRITE\"]}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final String token = signer.sign(payload, expiresAt);
@@ -126,14 +127,14 @@ class JwtTokenSignerTest {
         // Verify the token can be parsed and contains our payload
         final var claims = parseToken(token);
         assertNotNull(claims, "Parsed claims should not be null");
-        assertEquals(payload, claims.get("payload", String.class),
-                "Token should contain the original payload");
+        assertEquals(payload.value(), claims.get("payload", String.class),
+            "Token should contain the original payload");
     }
 
     @Test
     @DisplayName("Should set correct expiration in token")
     void shouldSetCorrectExpiration() {
-        final String payload = "{\"sub\":\"user123\"}";
+        final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         final Instant expiresAt = Instant.now().plus(2, ChronoUnit.HOURS).truncatedTo(ChronoUnit.SECONDS);
 
         final String token = signer.sign(payload, expiresAt);
@@ -147,7 +148,7 @@ class JwtTokenSignerTest {
     @Test
     @DisplayName("Should reject token signed with different key")
     void shouldRejectTokenSignedWithDifferentKey() {
-        final String payload = "{\"sub\":\"user123\"}";
+        final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final String token = signer.sign(payload, expiresAt);
@@ -160,14 +161,14 @@ class JwtTokenSignerTest {
     @Test
     @DisplayName("Should handle JSON with special characters in payload")
     void shouldHandleSpecialCharactersInPayload() {
-        final String payload = "{\"sub\":\"user@example.com\",\"msg\":\"Hello \\\"World\\\"\",\"emoji\":\"🔐\"}";
+        final Payload payload = Payload.of("{\"sub\":\"user@example.com\",\"msg\":\"Hello \\\"World\\\"\",\"emoji\":\"🔐\"}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final String token = signer.sign(payload, expiresAt);
 
         final var claims = parseToken(token);
-        assertEquals(payload, claims.get("payload", String.class),
-                "Payload with special characters should be preserved");
+        assertEquals(payload.value(), claims.get("payload", String.class),
+            "Payload with special characters should be preserved");
     }
 
     /**

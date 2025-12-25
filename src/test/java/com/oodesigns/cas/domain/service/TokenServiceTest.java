@@ -40,8 +40,8 @@ class TokenServiceTest {
     }
 
     private void setupTokenSignerMock() {
-        when(tokenSigner.sign(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Instant.class)))
-            .thenAnswer(invocation -> "signed." + invocation.getArgument(0));
+        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(com.oodesigns.cas.domain.value.Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
+            .thenAnswer(invocation -> "signed." + ((com.oodesigns.cas.domain.value.Payload) invocation.getArgument(0)).value());
     }
 
     @Test

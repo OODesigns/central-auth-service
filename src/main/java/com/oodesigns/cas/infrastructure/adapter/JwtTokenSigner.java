@@ -2,6 +2,7 @@ package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.KeyPassword;
+import com.oodesigns.cas.domain.value.Payload;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
@@ -52,13 +53,9 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
      * @throws IllegalArgumentException if payload or expiresAt is null
      */
     @Override
-    public String sign(final String payload, final Instant expiresAt) {
+    public String sign(final Payload payload, final Instant expiresAt) {
         Objects.requireNonNull(payload, "Payload cannot be null");
         Objects.requireNonNull(expiresAt, "ExpiresAt cannot be null");
-        
-        if (payload.isBlank()) {
-            throw new IllegalArgumentException("Payload cannot be empty");
-        }
 
         try {
             final KeyPassword password = Objects.requireNonNull(keySupplier.getPassword(),
@@ -68,7 +65,7 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
                 // Add the JSON payload as a custom claim with the key "payload"
                 // This preserves the original structure while using JWT standard features
                 return Jwts.builder()
-                        .claim("payload", payload)
+                        .claim("payload", payload.value())
                         .expiration(Date.from(expiresAt))
                         .signWith(Keys.hmacShaKeyFor(secretKey), Jwts.SIG.HS256)
                         .compact();

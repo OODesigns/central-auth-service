@@ -51,14 +51,14 @@ public final class TokenService {
             .collect(Collectors.joining(",")) + "]";
         String payload = String.format("{\"sub\":\"%s\",\"jti\":\"%s\",\"permissions\":%s,\"iat\":%d,\"exp\":%d}",
                 userId.asString(), jti.asString(), permissionsList, issuedAt.getEpochSecond(), expiresAt.getEpochSecond());
-        return tokenSigner.sign(payload, expiresAt);
+        return tokenSigner.sign(com.oodesigns.cas.domain.value.Payload.of(payload), expiresAt);
     }
 
     private String createRefreshToken(final UserId userId, final Instant issuedAt) {
         Instant expiresAt = issuedAt.plus(REFRESH_TOKEN_TTL);
         String payload = String.format("{\"sub\":\"%s\",\"iat\":%d,\"exp\":%d}",
-                userId.asString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond());
-        return tokenSigner.sign(payload, expiresAt);
+            userId.asString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond());
+        return tokenSigner.sign(com.oodesigns.cas.domain.value.Payload.of(payload), expiresAt);
     }
 
     /**
