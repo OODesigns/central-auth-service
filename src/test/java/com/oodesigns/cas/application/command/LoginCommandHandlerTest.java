@@ -31,7 +31,7 @@ class LoginCommandHandlerTest {
     private Ports.UserRepositoryReader userRepository;
 
     @Mock
-    private Ports.PasswordHasher passwordHasher;
+    private Ports.PasswordVerifier passwordHasher;
 
     @Mock
     private Ports.Clock clock;
@@ -208,7 +208,7 @@ class LoginCommandHandlerTest {
     }
 
     @Test
-    void testPasswordHasherExceptionHandled() {
+    void testPasswordVerifierExceptionHandled() {
         when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
         when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
         when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(Credentials.class)))

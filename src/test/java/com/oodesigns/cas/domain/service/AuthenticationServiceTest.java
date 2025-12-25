@@ -19,7 +19,7 @@ import static org.mockito.Mockito.*;
 class AuthenticationServiceTest {
 
     @Mock
-    private Ports.PasswordHasher passwordHasher;
+    private Ports.PasswordVerifier passwordHasher;
     
     private AuthenticationService authService;
     private User testUser;

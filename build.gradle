@@ -23,6 +23,7 @@ dependencies {
     // Main dependencies
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.0'
     implementation 'com.bucket4j:bucket4j_jdk17-core:8.15.0'
+    implementation 'org.mindrot:jbcrypt:0.4'
 }
 
 test {

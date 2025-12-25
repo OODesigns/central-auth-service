@@ -11,10 +11,10 @@ import java.util.Optional;
  * Focused solely on verifying user credentials.
  */
 public final class AuthenticationService {
-    private final Ports.PasswordHasher passwordHasher;
+    private final Ports.PasswordVerifier passwordVerifier;
 
-    public AuthenticationService(final Ports.PasswordHasher passwordHasher) {
-        this.passwordHasher = Objects.requireNonNull(passwordHasher);
+    public AuthenticationService(final Ports.PasswordVerifier passwordVerifier) {
+        this.passwordVerifier = Objects.requireNonNull(passwordVerifier);
     }
 
     /**
@@ -24,7 +24,7 @@ public final class AuthenticationService {
      */
     public Optional<User> getAuthenticatedUser(final Credentials credentials) {
         try (final Credentials creds = credentials) {
-            return passwordHasher.verify(creds);
+            return passwordVerifier.verify(creds);
         }
     }
 }

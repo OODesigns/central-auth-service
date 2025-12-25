@@ -30,9 +30,9 @@ import static org.junit.jupiter.api.Assertions.*;
  *   ↓
  *   Value Objects & Entities (User, UserId, Username, PasswordHash, Role)
  *   ↓
- *   Ports (UserRepository, PasswordHasher, Clock, RateLimiter)
+ *   Ports (UserRepository, PasswordVerifier, Clock, RateLimiter)
  *   ↓
- *   Adapters (InMemoryUserRepository, MockPasswordHasher, MockClock, Bucket4jRateLimiter, MockTokenSigner)
+ *   Adapters (InMemoryUserRepository, MockPasswordVerifier, MockClock, Bucket4jRateLimiter, MockTokenSigner)
  *   ↓
  *   Result (LoginResult)
  * 
@@ -42,7 +42,7 @@ class LoginIntegrationTest {
 
     private LoginCommandHandler loginHandler;
     private InMemoryUserRepository userRepository;
-    private MockPasswordHasher passwordHasher;
+    private MockPasswordVerifier passwordHasher;
     private MockClock clock;
     private Bucket4jRateLimiter rateLimiter;
     private MockTokenSigner tokenSigner;
@@ -51,7 +51,7 @@ class LoginIntegrationTest {
     void setUp() {
         // Initialize all adapters
         userRepository = new InMemoryUserRepository();
-        passwordHasher = new MockPasswordHasher();
+        passwordHasher = new MockPasswordVerifier();
         clock = new MockClock(Instant.now());
         rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1)); // Allow 5 attempts per minute per IP
         tokenSigner = new MockTokenSigner();
