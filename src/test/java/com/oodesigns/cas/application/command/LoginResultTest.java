@@ -1,6 +1,6 @@
 package com.oodesigns.cas.application.command;
 
-import com.oodesigns.cas.domain.service.AuthenticationService;
+import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.Permission;
 import org.junit.jupiter.api.Test;
@@ -18,7 +18,7 @@ class LoginResultTest {
     @Test
     void testSuccessResult() {
         Set<Permission> permissions = new HashSet<>();
-        AuthenticationService.TokenPair tokenPair = new AuthenticationService.TokenPair(
+        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token_123", "refresh_token_456", Jti.generate(), permissions);
         LoginResult result = LoginResult.success(tokenPair);
 
@@ -71,7 +71,7 @@ class LoginResultTest {
     @Test
     void testAccessingErrorOnSuccessThrows() {
         Set<Permission> permissions = new HashSet<>();
-        AuthenticationService.TokenPair tokenPair = new AuthenticationService.TokenPair(
+        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token", "refresh_token", Jti.generate(), permissions);
         LoginResult result = LoginResult.success(tokenPair);
 
@@ -97,7 +97,7 @@ class LoginResultTest {
         // TokenPair constructor validates permissions cannot be null
         var jti = Jti.generate();
         assertThrows(NullPointerException.class,
-            () -> new AuthenticationService.TokenPair("access_token", "refresh_token", jti, null));
+            () -> new TokenService.TokenPair("access_token", "refresh_token", jti, null));
     }
 
     @Test
@@ -133,8 +133,8 @@ class LoginResultTest {
             () -> createTokenPair("access_token", null, permissions));
     }
     
-    private AuthenticationService.TokenPair createTokenPair(String access, String refresh, Set<Permission> perms) {
-        return new AuthenticationService.TokenPair(access, refresh, Jti.generate(), perms);
+    private TokenService.TokenPair createTokenPair(String access, String refresh, Set<Permission> perms) {
+        return new TokenService.TokenPair(access, refresh, Jti.generate(), perms);
     }
 
     @Test
@@ -153,9 +153,9 @@ class LoginResultTest {
     void testMultipleSuccessResults() {
         Set<Permission> permissions1 = new HashSet<>();
         Set<Permission> permissions2 = new HashSet<>();
-        AuthenticationService.TokenPair tokenPair1 = new AuthenticationService.TokenPair(
+        TokenService.TokenPair tokenPair1 = new TokenService.TokenPair(
             "token1", "refresh1", Jti.generate(), permissions1);
-        AuthenticationService.TokenPair tokenPair2 = new AuthenticationService.TokenPair(
+        TokenService.TokenPair tokenPair2 = new TokenService.TokenPair(
             "token2", "refresh2", Jti.generate(), permissions2);
         LoginResult result1 = LoginResult.success(tokenPair1);
         LoginResult result2 = LoginResult.success(tokenPair2);
@@ -202,7 +202,7 @@ class LoginResultTest {
     @Test
     void testCannotSwitchStates() {
         Set<Permission> permissions = new HashSet<>();
-        AuthenticationService.TokenPair tokenPair = new AuthenticationService.TokenPair(
+        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "token", "refresh", Jti.generate(), permissions);
         LoginResult success = LoginResult.success(tokenPair);
         LoginResult failure = LoginResult.failure("CODE", "message");

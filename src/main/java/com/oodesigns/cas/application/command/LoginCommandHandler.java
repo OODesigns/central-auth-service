@@ -1,6 +1,8 @@
 package com.oodesigns.cas.application.command;
 import com.oodesigns.cas.domain.service.AuthenticationService;
+import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.service.Ports;
+import com.oodesigns.cas.domain.value.Credentials;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -11,13 +13,16 @@ import java.util.Optional;
  */
 public final class LoginCommandHandler {
     private final AuthenticationService authService;
+    private final TokenService tokenService;
     private final Ports.UserRepositoryReader userRepository;
     private final Ports.RateLimiter rateLimiter;
 
     public LoginCommandHandler(final AuthenticationService authService,
+                               final TokenService tokenService,
                                final Ports.UserRepositoryReader userRepository,
                                final Ports.RateLimiter rateLimiter) {
         this.authService = Objects.requireNonNull(authService);
+        this.tokenService = Objects.requireNonNull(tokenService);
         this.userRepository = Objects.requireNonNull(userRepository);
         this.rateLimiter = Objects.requireNonNull(rateLimiter);
     }
@@ -44,9 +49,9 @@ public final class LoginCommandHandler {
      */
     private LoginResult authenticateUser(final LoginCommand command) {
         return userRepository.findByUsername(command.username())
-            .flatMap(foundUser -> authService.getAuthenticatedUser(foundUser, command.password().chars()))
-            .flatMap(authService::generateTokens)
-            // Type witness keeps Optional<LoginResult> so failure branch fits
+            .map(foundUser -> new Credentials(foundUser, command.password()))
+            .flatMap(authService::getAuthenticatedUser)
+            .flatMap(tokenService::generateTokens)
             .<LoginResult>map(LoginResult::success)
             .orElseGet(() -> LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password."));
     }

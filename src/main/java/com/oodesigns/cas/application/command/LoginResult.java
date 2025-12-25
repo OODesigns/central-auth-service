@@ -1,6 +1,6 @@
 package com.oodesigns.cas.application.command;
 
-import com.oodesigns.cas.domain.service.AuthenticationService;
+import com.oodesigns.cas.domain.service.TokenService;
 import java.util.function.Function;
 
 /**
@@ -21,7 +21,7 @@ public sealed interface LoginResult
      */
     <T> Mapper<T> mapTo(Function<SuccessResult, T> successMapper);
 
-    static SuccessResult success(final AuthenticationService.TokenPair tokenPair) {
+    static SuccessResult success(final TokenService.TokenPair tokenPair) {
         return new SuccessResult(tokenPair);
     }
 
@@ -32,7 +32,7 @@ public sealed interface LoginResult
     /**
      * Successful login result containing token information.
      */
-    record SuccessResult(AuthenticationService.TokenPair tokenPair) implements LoginResult {
+    record SuccessResult(TokenService.TokenPair tokenPair) implements LoginResult {
 
         public SuccessResult {
             if (tokenPair == null) {

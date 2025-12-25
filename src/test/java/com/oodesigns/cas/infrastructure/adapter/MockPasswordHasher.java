@@ -1,9 +1,12 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
+import com.oodesigns.cas.domain.value.Credentials;
 import com.oodesigns.cas.domain.value.PasswordHash;
+import com.oodesigns.cas.domain.entity.User;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Mock implementation of PasswordHasher for testing.
@@ -32,13 +35,16 @@ public class MockPasswordHasher implements Ports.PasswordHasher {
     }
 
     @Override
-    public boolean verify(char[] rawPassword, PasswordHash hash) {
-        if (rawPassword == null || hash == null) {
-            throw new IllegalArgumentException("Password and hash cannot be null");
+    public Optional<User> verify(final Credentials credentials) {
+        if (credentials == null) {
+            throw new IllegalArgumentException("Credentials cannot be null");
         }
-        // Look up the original password that was hashed
-        String storedPassword = passwordMap.get(hash.asString());
-        return storedPassword != null && storedPassword.equals(new String(rawPassword));
+        
+        String storedPassword = passwordMap.get(credentials.user().passwordHash().asString());
+        if (storedPassword != null && storedPassword.equals(new String(credentials.password().chars()))) {
+            return Optional.of(credentials.user());
+        }
+        return Optional.empty();
     }
 
     public void clear() {

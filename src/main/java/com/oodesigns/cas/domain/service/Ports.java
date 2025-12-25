@@ -1,7 +1,9 @@
 package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.value.PasswordHash;
+import com.oodesigns.cas.domain.value.Credentials;
 import java.time.Instant;
+import java.util.Optional;
 
 /**
  * Port interfaces for domain services.
@@ -10,11 +12,18 @@ import java.time.Instant;
 public class Ports {
 
     /**
-     * Port for password hashing operations.
+     * Port for password hashing and verification operations.
      */
     public interface PasswordHasher {
         PasswordHash hash(final char[] rawPassword);
-        boolean verify(final char[] rawPassword, final PasswordHash hash);
+        
+        /**
+         * Verify credentials and return authenticated user if successful.
+         * 
+         * @param credentials The user credentials to verify
+         * @return Optional containing user if password matches, empty if invalid
+         */
+        Optional<com.oodesigns.cas.domain.entity.User> verify(final Credentials credentials);
     }
 
     /**

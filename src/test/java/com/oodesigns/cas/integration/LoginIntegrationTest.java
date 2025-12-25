@@ -3,6 +3,7 @@ package com.oodesigns.cas.integration;
 import com.oodesigns.cas.application.command.*;
 import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.service.AuthenticationService;
+import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.*;
 import com.oodesigns.cas.domain.value.IpAddress;
 import com.oodesigns.cas.domain.value.Password;
@@ -55,11 +56,12 @@ class LoginIntegrationTest {
         rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1)); // Allow 5 attempts per minute per IP
         tokenSigner = new MockTokenSigner();
 
-        // Create domain service with injected ports
-        AuthenticationService authService = new AuthenticationService(passwordHasher, clock, tokenSigner);
+        // Create domain services with injected ports
+        AuthenticationService authService = new AuthenticationService(passwordHasher);
+        TokenService tokenService = new TokenService(clock, tokenSigner);
 
         // Create command handler with injected dependencies
-        loginHandler = new LoginCommandHandler(authService, userRepository, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, rateLimiter);
     }
 
     /**
