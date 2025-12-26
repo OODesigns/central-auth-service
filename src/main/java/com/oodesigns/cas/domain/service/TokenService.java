@@ -2,12 +2,15 @@ package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.value.Jti;
+import com.oodesigns.cas.domain.value.Payload;
+import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -43,34 +46,57 @@ public final class TokenService {
                         .map(refreshToken -> new TokenPair(accessToken, refreshToken, jti, user.permissions())));
     }
 
-    private Optional<String> createAccessToken(final UserId userId, final Jti jti, final java.util.Set<com.oodesigns.cas.domain.value.Permission> permissions, final Instant issuedAt) {
+    private Optional<String> createAccessToken(final UserId userId, final Jti jti,
+                                               final java.util.Set<Permission> permissions,
+                                               final Instant issuedAt) {
         Instant expiresAt = issuedAt.plus(ACCESS_TOKEN_TTL);
-        String permissionsList = "[" + permissions.stream()
+        return getPermissionsList(permissions)
+                .flatMap(p -> createAccessTokenPayload(userId, jti, p, issuedAt, expiresAt))
+                .flatMap(payload -> tokenSigner.sign(payload, expiresAt));
+    }
+
+    private Optional<Payload> createAccessTokenPayload(final UserId userId,
+                                                       final Jti jti,
+                                                       final String permissionsList,
+                                                       final Instant issuedAt,
+                                                       final Instant expiresAt){
+        return Optional.of(Payload.of(String.format("{\"sub\":\"%s\",\"jti\":\"%s\",\"permissions\":%s,\"iat\":%d,\"exp\":%d}",
+                userId.asString(), jti.asString(), permissionsList, issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
+    }
+
+
+    private Optional<String> getPermissionsList(Set<Permission> permissions) {
+        return Optional.of( "[" + permissions.stream()
             .map(p -> "\"" + p.asString() + "\"")
-            .collect(Collectors.joining(",")) + "]";
-        String payload = String.format("{\"sub\":\"%s\",\"jti\":\"%s\",\"permissions\":%s,\"iat\":%d,\"exp\":%d}",
-                userId.asString(), jti.asString(), permissionsList, issuedAt.getEpochSecond(), expiresAt.getEpochSecond());
-        return tokenSigner.sign(com.oodesigns.cas.domain.value.Payload.of(payload), expiresAt);
+            .collect(Collectors.joining(",")) + "]");
     }
 
     private Optional<String> createRefreshToken(final UserId userId, final Instant issuedAt) {
         Instant expiresAt = issuedAt.plus(REFRESH_TOKEN_TTL);
-        String payload = String.format("{\"sub\":\"%s\",\"iat\":%d,\"exp\":%d}",
-            userId.asString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond());
-        return tokenSigner.sign(com.oodesigns.cas.domain.value.Payload.of(payload), expiresAt);
+
+        return createRefreshTokenPayload(userId, issuedAt, expiresAt)
+                .flatMap(payload -> tokenSigner.sign(payload, expiresAt));
     }
+
+    private Optional<Payload> createRefreshTokenPayload(final UserId userId, 
+                                                       final Instant issuedAt,
+                                                       final Instant expiresAt){
+        return Optional.of(Payload.of(String.format("{\"sub\":\"%s\",\"iat\":%d,\"exp\":%d}",
+                userId.asString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
+    }
+
 
     /**
      * Token pair (access + refresh).
      */
     public record TokenPair(String accessToken, String refreshToken, Jti jti,
-                            java.util.Set<com.oodesigns.cas.domain.value.Permission> permissions) {
+                            java.util.Set<Permission> permissions) {
         public TokenPair {
             Objects.requireNonNull(accessToken);
             Objects.requireNonNull(refreshToken);
             Objects.requireNonNull(jti);
             Objects.requireNonNull(permissions);
-            permissions = java.util.Collections.unmodifiableSet(new java.util.HashSet<>(permissions));
+            permissions = Set.copyOf(permissions);
         }
 
         public String getAccessToken() {
@@ -85,7 +111,7 @@ public final class TokenService {
             return jti;
         }
 
-        public java.util.Set<com.oodesigns.cas.domain.value.Permission> getPermissions() {
+        public java.util.Set<Permission> getPermissions() {
             return permissions;
         }
     }
