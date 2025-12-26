@@ -26,7 +26,7 @@ class JwtTokenSignerTest {
 
     @BeforeEach
     void setUp() {
-        signer = new JwtTokenSigner(() -> java.util.Optional.of(KeyPassword.fromString(TEST_SECRET)));
+        signer = new JwtTokenSigner(keyId -> java.util.Optional.of(KeyPassword.fromString(TEST_SECRET)), "test-key");
     }
 
     @Test
@@ -38,20 +38,20 @@ class JwtTokenSignerTest {
     @Test
     @DisplayName("Should throw NullPointerException for null supplier")
     void shouldThrowForNullSupplier() {
-        assertThrows(NullPointerException.class, () -> new JwtTokenSigner(null),
+        assertThrows(NullPointerException.class, () -> new JwtTokenSigner(null, "test-key"),
                 "Should throw NullPointerException for null supplier");
     }
 
     @Test
     @DisplayName("Should return empty Optional for insufficient key length")
     void shouldReturnEmptyForInsufficientKeyLength() {
-        final JwtTokenSigner shortKeySigner = new JwtTokenSigner(() -> {
+        final JwtTokenSigner shortKeySigner = new JwtTokenSigner(keyId -> {
             try {
                 return java.util.Optional.of(KeyPassword.fromString("short"));
             } catch (IllegalArgumentException e) {
                 return java.util.Optional.empty();
             }
-        });
+        }, "test-key");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         assertTrue(shortKeySigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt).isEmpty(),
@@ -61,7 +61,7 @@ class JwtTokenSignerTest {
     @Test
         @DisplayName("Should return empty Optional when KeySupplier returns empty")
         void shouldReturnEmptyWhenKeySupplierReturnsEmpty() {
-        final JwtTokenSigner nullPasswordSigner = new JwtTokenSigner(java.util.Optional::empty);
+        final JwtTokenSigner nullPasswordSigner = new JwtTokenSigner(keyId -> java.util.Optional.empty(), "test-key");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final var result = nullPasswordSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);

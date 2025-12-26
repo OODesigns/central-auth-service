@@ -13,7 +13,8 @@ public interface KeySupplier {
     * Retrieve the password required for signing.
     * Caller must use the returned KeyPassword immediately and clear it afterwards.
      *
+     * @param keyId Identifier for the key to retrieve (e.g., environment variable name, key name)
      * @return Optional containing secret key material when available
      */
-    java.util.Optional<KeyPassword> getPassword();
+    java.util.Optional<KeyPassword> getPassword(String keyId);
 }

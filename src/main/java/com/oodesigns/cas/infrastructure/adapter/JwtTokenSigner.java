@@ -33,15 +33,18 @@ import java.util.Optional;
  */
 public final class JwtTokenSigner implements Ports.TokenSigner {
     private final KeySupplier keySupplier;
+    private final String keyId;
 
     /**
      * Construct a JWT token signer that fetches passwords on-demand.
      *
      * @param keySupplier Provider that retrieves passwords per signing request
-     * @throws NullPointerException if keySupplier is null
+     * @param keyId Identifier for the key to retrieve from the supplier
+     * @throws NullPointerException if keySupplier or keyId is null
      */
-    public JwtTokenSigner(final KeySupplier keySupplier) {
+    public JwtTokenSigner(final KeySupplier keySupplier, final String keyId) {
         this.keySupplier = Objects.requireNonNull(keySupplier, "Key supplier cannot be null");
+        this.keyId = Objects.requireNonNull(keyId, "Key ID cannot be null");
     }
 
     /**
@@ -58,7 +61,7 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
             return Optional.empty();
         }
 
-        return keySupplier.getPassword()
+        return keySupplier.getPassword(keyId)
                     .flatMap(password -> signWithPassword(payload, expiresAt, password));       
     }
 
