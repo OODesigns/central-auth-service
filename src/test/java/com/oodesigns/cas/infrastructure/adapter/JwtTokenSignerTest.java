@@ -26,7 +26,7 @@ class JwtTokenSignerTest {
 
     @BeforeEach
     void setUp() {
-        signer = new JwtTokenSigner(() -> KeyPassword.fromString(TEST_SECRET));
+        signer = new JwtTokenSigner(() -> java.util.Optional.of(KeyPassword.fromString(TEST_SECRET)));
     }
 
     @Test
@@ -43,26 +43,29 @@ class JwtTokenSignerTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalStateException for insufficient key length")
-    void shouldThrowForInsufficientKeyLength() {
-        final JwtTokenSigner shortKeySigner = new JwtTokenSigner(() -> KeyPassword.fromString("short"));
+    @DisplayName("Should return empty Optional for insufficient key length")
+    void shouldReturnEmptyForInsufficientKeyLength() {
+        final JwtTokenSigner shortKeySigner = new JwtTokenSigner(() -> {
+            try {
+                return java.util.Optional.of(KeyPassword.fromString("short"));
+            } catch (IllegalArgumentException e) {
+                return java.util.Optional.empty();
+            }
+        });
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        assertThrows(IllegalStateException.class, () -> shortKeySigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt),
-            "Should throw IllegalStateException for key < 32 characters at signing time");
+        assertTrue(shortKeySigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt).isEmpty(),
+            "Should return empty Optional for key < 32 characters at signing time");
     }
 
     @Test
-        @DisplayName("Should throw IllegalStateException when KeySupplier returns null")
-        void shouldThrowWhenKeySupplierReturnsNull() {
-        final JwtTokenSigner nullPasswordSigner = new JwtTokenSigner(() -> null);
+        @DisplayName("Should return empty Optional when KeySupplier returns empty")
+        void shouldReturnEmptyWhenKeySupplierReturnsEmpty() {
+        final JwtTokenSigner nullPasswordSigner = new JwtTokenSigner(java.util.Optional::empty);
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final IllegalStateException exception = assertThrows(IllegalStateException.class,
-            () -> nullPasswordSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt),
-            "Should throw IllegalStateException when supplier returns null password");
-        assertInstanceOf(NullPointerException.class, exception.getCause(),
-            "Expected underlying cause to be NullPointerException");
+        final var result = nullPasswordSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
+        assertTrue(result.isEmpty(), "Should return empty Optional when supplier returns empty password");
     }
 
     @Test
@@ -71,7 +74,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\",\"iat\":1234567890,\"exp\":1234567900}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt);
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
 
         assertNotNull(token, "Token should not be null");
         assertFalse(token.isBlank(), "Token should not be empty");
@@ -83,37 +86,35 @@ class JwtTokenSignerTest {
     void shouldGenerateDifferentTokensForDifferentPayloads() {
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
         
-        final String token1 = signer.sign(Payload.of("{\"sub\":\"user1\"}"), expiresAt);
-        final String token2 = signer.sign(Payload.of("{\"sub\":\"user2\"}"), expiresAt);
+        final String token1 = signer.sign(Payload.of("{\"sub\":\"user1\"}"), expiresAt).orElseThrow();
+        final String token2 = signer.sign(Payload.of("{\"sub\":\"user2\"}"), expiresAt).orElseThrow();
 
         assertNotEquals(token1, token2, "Different payloads should generate different tokens");
     }
 
     @Test
-    @DisplayName("Should throw NullPointerException for null payload")
-    void shouldThrowForNullPayload() {
+    @DisplayName("Should return empty Optional for null payload")
+    void shouldReturnEmptyForNullPayload() {
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
-        
-        assertThrows(NullPointerException.class, () -> signer.sign(null, expiresAt),
-            "Should throw NullPointerException for null payload");
+
+        assertTrue(signer.sign(null, expiresAt).isEmpty(),
+            "Should return empty Optional for null payload");
     }
 
     @Test
     @DisplayName("Should throw IllegalArgumentException for empty payload")
     void shouldThrowForEmptyPayload() {
-        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
-        
-        assertThrows(IllegalArgumentException.class, () -> signer.sign(Payload.of(""), expiresAt),
+        assertThrows(IllegalArgumentException.class, () -> Payload.of(""),
             "Should throw IllegalArgumentException for empty payload");
     }
 
     @Test
-    @DisplayName("Should throw NullPointerException for null expiration")
-    void shouldThrowForNullExpiration() {
+    @DisplayName("Should return empty Optional for null expiration")
+    void shouldReturnEmptyForNullExpiration() {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
-        
-        assertThrows(NullPointerException.class, () -> signer.sign(payload, null),
-                "Should throw NullPointerException for null expiration");
+
+        assertTrue(signer.sign(payload, null).isEmpty(),
+                "Should return empty Optional for null expiration");
     }
 
     @Test
@@ -122,7 +123,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\",\"permissions\":[\"READ\",\"WRITE\"]}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt);
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
 
         // Verify the token can be parsed and contains our payload
         final var claims = parseToken(token);
@@ -137,7 +138,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         final Instant expiresAt = Instant.now().plus(2, ChronoUnit.HOURS).truncatedTo(ChronoUnit.SECONDS);
 
-        final String token = signer.sign(payload, expiresAt);
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
 
         final var claims = parseToken(token);
         final Date tokenExpiration = claims.getExpiration();
@@ -151,11 +152,12 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt);
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
         final String differentKey = "different-secret-key-with-32-chars!";
 
-        assertThrows(Exception.class, () -> parseTokenWithKey(token, differentKey),
-                "Should reject token signed with different key");
+        assertThrows(Exception.class, () -> {
+            parseTokenWithKey(token, differentKey);
+        }, "Should reject token signed with different key");
     }
 
     @Test
@@ -164,7 +166,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user@example.com\",\"msg\":\"Hello \\\"World\\\"\",\"emoji\":\"🔐\"}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt);
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
 
         final var claims = parseToken(token);
         assertEquals(payload.value(), claims.get("payload", String.class),

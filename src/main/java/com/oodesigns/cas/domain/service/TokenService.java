@@ -31,20 +31,19 @@ public final class TokenService {
      */
     public Optional<TokenPair> generateTokens(final User user) {
         return Optional.ofNullable(user)
-                .map(this::createTokenPairForUser);
+                .flatMap(this::createTokenPairForUser);
     }
 
-    private TokenPair createTokenPairForUser(final User user) {
+    private Optional<TokenPair> createTokenPairForUser(final User user) {
         Instant now = clock.now();
         Jti jti = Jti.generate();
         
-        String accessToken = createAccessToken(user.userId(), jti, user.permissions(), now);
-        String refreshToken = createRefreshToken(user.userId(), now);
-
-        return new TokenPair(accessToken, refreshToken, jti, user.permissions());
+        return createAccessToken(user.userId(), jti, user.permissions(), now)
+                .flatMap(accessToken -> createRefreshToken(user.userId(), now)
+                        .map(refreshToken -> new TokenPair(accessToken, refreshToken, jti, user.permissions())));
     }
 
-    private String createAccessToken(final UserId userId, final Jti jti, final java.util.Set<com.oodesigns.cas.domain.value.Permission> permissions, final Instant issuedAt) {
+    private Optional<String> createAccessToken(final UserId userId, final Jti jti, final java.util.Set<com.oodesigns.cas.domain.value.Permission> permissions, final Instant issuedAt) {
         Instant expiresAt = issuedAt.plus(ACCESS_TOKEN_TTL);
         String permissionsList = "[" + permissions.stream()
             .map(p -> "\"" + p.asString() + "\"")
@@ -54,7 +53,7 @@ public final class TokenService {
         return tokenSigner.sign(com.oodesigns.cas.domain.value.Payload.of(payload), expiresAt);
     }
 
-    private String createRefreshToken(final UserId userId, final Instant issuedAt) {
+    private Optional<String> createRefreshToken(final UserId userId, final Instant issuedAt) {
         Instant expiresAt = issuedAt.plus(REFRESH_TOKEN_TTL);
         String payload = String.format("{\"sub\":\"%s\",\"iat\":%d,\"exp\":%d}",
             userId.asString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond());

@@ -18,15 +18,15 @@ public class MockTokenSigner implements Ports.TokenSigner {
      * For testing, returns a simple format: "mock.<counter>.<payload>"
      */
     @Override
-    public String sign(final Payload payload, final Instant expiresAt) {
+    public java.util.Optional<String> sign(final Payload payload, final Instant expiresAt) {
         if (payload == null) {
-            throw new IllegalArgumentException("Payload cannot be null or empty");
+            return java.util.Optional.empty();
         }
         if (expiresAt == null) {
-            throw new IllegalArgumentException("ExpiresAt cannot be null");
+            return java.util.Optional.empty();
         }
 
-        return "mock." + tokenCounter.incrementAndGet() + "." + payload.value();
+        return java.util.Optional.of("mock." + tokenCounter.incrementAndGet() + "." + payload.value());
     }
 
     /**

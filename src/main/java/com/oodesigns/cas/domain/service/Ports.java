@@ -28,7 +28,7 @@ public class Ports {
      * Port for token signing and verification.
      */
     public interface TokenSigner {
-        String sign(final com.oodesigns.cas.domain.value.Payload payload, final Instant expiresAt);
+        java.util.Optional<String> sign(final com.oodesigns.cas.domain.value.Payload payload, final Instant expiresAt);
     }
 
     /**

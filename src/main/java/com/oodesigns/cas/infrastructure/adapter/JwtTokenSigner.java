@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Production implementation of TokenSigner using JWT (JSON Web Tokens).
@@ -49,33 +50,32 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
      * 
      * @param payload The JSON payload to sign (non-null, non-empty)
      * @param expiresAt The expiration time for the token
-     * @return A JWT token string that can be used for authentication
-     * @throws IllegalArgumentException if payload or expiresAt is null
+     * @return Optional containing JWT token string when signing succeeds
      */
     @Override
-    public String sign(final Payload payload, final Instant expiresAt) {
-        Objects.requireNonNull(payload, "Payload cannot be null");
-        Objects.requireNonNull(expiresAt, "ExpiresAt cannot be null");
+    public Optional<String> sign(final Payload payload, final Instant expiresAt) {
+        if (payload == null || expiresAt == null) {
+            return Optional.empty();
+        }
 
+        return keySupplier.getPassword()
+                    .flatMap(password -> signWithPassword(payload, expiresAt, password));       
+    }
+
+    private Optional<String> signWithPassword(final Payload payload, final Instant expiresAt, final KeyPassword password) {
+        final byte[] secretKey = password.toUtf8Bytes();
         try {
-            final KeyPassword password = Objects.requireNonNull(keySupplier.getPassword(),
-                    "Key supplier provided null password");
-            final byte[] secretKey = password.toUtf8Bytes();
-            try {
-                // Add the JSON payload as a custom claim with the key "payload"
-                // This preserves the original structure while using JWT standard features
-                return Jwts.builder()
-                        .claim("payload", payload.value())
-                        .expiration(Date.from(expiresAt))
-                        .signWith(Keys.hmacShaKeyFor(secretKey), Jwts.SIG.HS256)
-                        .compact();
-            } finally {
-                Arrays.fill(secretKey, (byte) 0);
-                password.clear();
-            }
+            final String token = Jwts.builder()
+                    .claim("payload", payload.value())
+                    .expiration(Date.from(expiresAt))
+                    .signWith(Keys.hmacShaKeyFor(secretKey), Jwts.SIG.HS256)
+                    .compact();
+            return Optional.of(token);
         } catch (final RuntimeException e) {
-            // Wrap JWT exceptions as runtime exceptions
-            throw new IllegalStateException("Failed to sign JWT token", e);
+            return Optional.empty();
+        } finally {
+            Arrays.fill(secretKey, (byte) 0);
+            password.clear();
         }
     }
 }

@@ -35,7 +35,7 @@ public final class JwtTokenSignerFactory {
             validateSecret(current, "Environment variable '" + envVarName + "'");
             final char[] chars = current.toCharArray();
             try {
-                return KeyPassword.of(chars);
+                return java.util.Optional.of(KeyPassword.of(chars));
             } finally {
                 Arrays.fill(chars, '\0');
             }
@@ -60,7 +60,7 @@ public final class JwtTokenSignerFactory {
             validateSecret(secret, "Secret file '" + filePath + "'");
             final char[] chars = secret.toCharArray();
             try {
-                return KeyPassword.of(chars);
+                return java.util.Optional.of(KeyPassword.of(chars));
             } finally {
                 Arrays.fill(chars, '\0');
             }

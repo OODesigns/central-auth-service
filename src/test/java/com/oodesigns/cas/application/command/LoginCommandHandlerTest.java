@@ -65,7 +65,7 @@ class LoginCommandHandlerTest {
     private void setupTokenSignerMock() {
         // Mock token signer to return simple signed tokens for testing
         when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(com.oodesigns.cas.domain.value.Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
-            .thenAnswer(invocation -> "signed." + ((com.oodesigns.cas.domain.value.Payload) invocation.getArgument(0)).value());
+            .thenAnswer(invocation -> java.util.Optional.of("signed." + ((com.oodesigns.cas.domain.value.Payload) invocation.getArgument(0)).value()));
     }
 
     @Test
