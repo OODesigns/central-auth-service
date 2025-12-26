@@ -488,7 +488,7 @@ class LoginIntegrationTest {
     }
 
     @Test
-    void testLoginResponseIncludesPermissions() {
+    void testLoginResponseReturnsTokens() {
         // 1. Setup: Create user with permissions
         UserId userId = UserId.generate();
         Username username = new Username("powerful_user");
@@ -507,12 +507,11 @@ class LoginIntegrationTest {
         
         LoginResult result = loginHandler.handle(loginCmd);
 
-        // 3. Verify: Permissions returned in response
+        // 3. Verify: Token pair returned in response
         result.mapTo(success -> {
-                assertEquals(3, success.tokenPair().permissions().size());
-                assertTrue(success.tokenPair().permissions().contains(com.oodesigns.cas.domain.value.Permission.of("manage_users")));
-                assertTrue(success.tokenPair().permissions().contains(com.oodesigns.cas.domain.value.Permission.of("view_reports")));
-                assertTrue(success.tokenPair().permissions().contains(com.oodesigns.cas.domain.value.Permission.of("delete_accounts")));
+                assertNotNull(success.tokenPair());
+                assertNotNull(success.tokenPair().accessToken());
+                assertNotNull(success.tokenPair().refreshToken());
                 return null;
             })
             .orElse(failure -> {
@@ -522,7 +521,7 @@ class LoginIntegrationTest {
     }
 
     @Test
-    void testLoginWithNoPermissions() {
+    void testLoginWithNoPermissionsStillReturnsTokens() {
         // 1. Setup: Create user with no permissions
         UserId userId = UserId.generate();
         Username username = new Username("basic_user");
@@ -536,9 +535,11 @@ class LoginIntegrationTest {
         
         LoginResult result = loginHandler.handle(loginCmd);
 
-        // 3. Verify: Empty permissions set returned
+        // 3. Verify: Token pair still returned
         result.mapTo(success -> {
-                assertEquals(0, success.tokenPair().permissions().size());
+            assertNotNull(success.tokenPair());
+            assertNotNull(success.tokenPair().accessToken());
+            assertNotNull(success.tokenPair().refreshToken());
                 return null;
             })
             .orElse(failure -> {

@@ -42,8 +42,8 @@ public final class TokenService {
         Jti jti = Jti.generate();
         
         return createAccessToken(user.userId(), jti, user.permissions(), now)
-                .flatMap(accessToken -> createRefreshToken(user.userId(), now)
-                        .map(refreshToken -> new TokenPair(accessToken, refreshToken, jti, user.permissions())));
+            .flatMap(accessToken -> createRefreshToken(user.userId(), now)
+                .map(refreshToken -> new TokenPair(accessToken, refreshToken)));
     }
 
     private Optional<String> createAccessToken(final UserId userId, final Jti jti,
@@ -89,30 +89,11 @@ public final class TokenService {
     /**
      * Token pair (access + refresh).
      */
-    public record TokenPair(String accessToken, String refreshToken, Jti jti,
-                            java.util.Set<Permission> permissions) {
+    public record TokenPair(String accessToken, String refreshToken) {
         public TokenPair {
             Objects.requireNonNull(accessToken);
             Objects.requireNonNull(refreshToken);
-            Objects.requireNonNull(jti);
-            Objects.requireNonNull(permissions);
-            permissions = Set.copyOf(permissions);
         }
 
-        public String getAccessToken() {
-            return accessToken;
-        }
-
-        public String getRefreshToken() {
-            return refreshToken;
-        }
-
-        public Jti getJti() {
-            return jti;
-        }
-
-        public java.util.Set<Permission> getPermissions() {
-            return permissions;
-        }
     }
 }

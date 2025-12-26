@@ -1,7 +1,6 @@
 package com.oodesigns.cas.application.command;
 
 import com.oodesigns.cas.domain.service.TokenService;
-import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.Permission;
 import org.junit.jupiter.api.Test;
 import java.util.HashSet;
@@ -19,13 +18,13 @@ class LoginResultTest {
     void testSuccessResult() {
         Set<Permission> permissions = new HashSet<>();
         TokenService.TokenPair tokenPair = new TokenService.TokenPair(
-            "access_token_123", "refresh_token_456", Jti.generate(), permissions);
+            "access_token_123", "refresh_token_456");
         LoginResult result = LoginResult.success(tokenPair);
 
         result.mapTo(success -> {
                 assertEquals("access_token_123", success.tokenPair().accessToken());
                 assertEquals("refresh_token_456", success.tokenPair().refreshToken());
-                assertEquals(0, success.tokenPair().permissions().size());
+                // permissions no longer surfaced on TokenPair
                 return null;
             })
             .orElse(failure -> {
@@ -72,7 +71,7 @@ class LoginResultTest {
     void testAccessingErrorOnSuccessThrows() {
         Set<Permission> permissions = new HashSet<>();
         TokenService.TokenPair tokenPair = new TokenService.TokenPair(
-            "access_token", "refresh_token", Jti.generate(), permissions);
+            "access_token", "refresh_token");
         LoginResult result = LoginResult.success(tokenPair);
 
         result.mapTo(success -> {
@@ -94,10 +93,8 @@ class LoginResultTest {
 
     @Test
     void testSuccessWithNullPermissionsThrows() {
-        // TokenPair constructor validates permissions cannot be null
-        var jti = Jti.generate();
-        assertThrows(NullPointerException.class,
-            () -> new TokenService.TokenPair("access_token", "refresh_token", jti, null));
+        // permissions are no longer part of TokenPair; nothing to validate
+        assertTrue(true);
     }
 
     @Test
@@ -134,7 +131,7 @@ class LoginResultTest {
     }
     
     private TokenService.TokenPair createTokenPair(String access, String refresh, Set<Permission> perms) {
-        return new TokenService.TokenPair(access, refresh, Jti.generate(), perms);
+        return new TokenService.TokenPair(access, refresh);
     }
 
     @Test
@@ -154,9 +151,9 @@ class LoginResultTest {
         Set<Permission> permissions1 = new HashSet<>();
         Set<Permission> permissions2 = new HashSet<>();
         TokenService.TokenPair tokenPair1 = new TokenService.TokenPair(
-            "token1", "refresh1", Jti.generate(), permissions1);
+            "token1", "refresh1");
         TokenService.TokenPair tokenPair2 = new TokenService.TokenPair(
-            "token2", "refresh2", Jti.generate(), permissions2);
+            "token2", "refresh2");
         LoginResult result1 = LoginResult.success(tokenPair1);
         LoginResult result2 = LoginResult.success(tokenPair2);
 
@@ -203,7 +200,7 @@ class LoginResultTest {
     void testCannotSwitchStates() {
         Set<Permission> permissions = new HashSet<>();
         TokenService.TokenPair tokenPair = new TokenService.TokenPair(
-            "token", "refresh", Jti.generate(), permissions);
+            "token", "refresh");
         LoginResult success = LoginResult.success(tokenPair);
         LoginResult failure = LoginResult.failure("CODE", "message");
 

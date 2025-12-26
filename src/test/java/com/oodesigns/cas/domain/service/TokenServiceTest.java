@@ -54,9 +54,8 @@ class TokenServiceTest {
 
         assertTrue(tokensOptional.isPresent());
         TokenService.TokenPair tokens = tokensOptional.get();
-        assertNotNull(tokens.getAccessToken());
-        assertNotNull(tokens.getRefreshToken());
-        assertNotNull(tokens.getJti());
+        assertNotNull(tokens.accessToken());
+        assertNotNull(tokens.refreshToken());
     }
 
     @Test
@@ -75,7 +74,7 @@ class TokenServiceTest {
         
         assertTrue(tokens1Optional.isPresent());
         assertTrue(tokens2Optional.isPresent());
-        assertNotEquals(tokens1Optional.get().getJti(), tokens2Optional.get().getJti());
+        assertNotEquals(tokens1Optional.get().accessToken(), tokens2Optional.get().accessToken());
     }
 
     @Test
@@ -87,10 +86,9 @@ class TokenServiceTest {
         assertTrue(tokensOptional.isPresent());
         
         TokenService.TokenPair tokens = tokensOptional.get();
-        assertNotNull(tokens.getAccessToken());
-        assertNotNull(tokens.getRefreshToken());
-        assertNotNull(tokens.getJti());
-        assertFalse(tokens.getAccessToken().isEmpty());
-        assertFalse(tokens.getRefreshToken().isEmpty());
+        assertNotNull(tokens.accessToken());
+        assertNotNull(tokens.refreshToken());
+        assertFalse(tokens.accessToken().isEmpty());
+        assertFalse(tokens.refreshToken().isEmpty());
     }
 }
