@@ -1,6 +1,5 @@
 package com.oodesigns.cas.domain.service;
 
-import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.value.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,35 +21,34 @@ class AuthenticationServiceTest {
     private Ports.PasswordVerifier passwordHasher;
     
     private AuthenticationService authService;
-    private User testUser;
+    private UserCredential testCredential;
 
     @BeforeEach
     void setUp() {
         authService = new AuthenticationService(passwordHasher);
         
         UserId userId = UserId.generate();
-        Username username = new Username("test_user");
         PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
-        testUser = User.create(userId, username, passwordHash);
+        testCredential = new UserCredential(userId, passwordHash);
     }
 
     @Test
     void testAuthenticateValidPassword() {
         Password password = new Password("password123".toCharArray());
-        var credentials = new Credentials(testUser, password);
-        when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testUser));
+        var credentials = new Credentials(testCredential, password);
+        when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential));
 
         var result = authService.getAuthenticatedUser(credentials);
 
         assertTrue(result.isPresent());
-        assertEquals(testUser, result.get());
+        assertEquals(testCredential, result.get());
         verify(passwordHasher).verify(credentials);
     }
 
     @Test
     void testAuthenticateInvalidPassword() {
         Password password = new Password("wrongpassword".toCharArray());
-        var credentials = new Credentials(testUser, password);
+        var credentials = new Credentials(testCredential, password);
         when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.empty());
 
         var result = authService.getAuthenticatedUser(credentials);
@@ -60,13 +58,13 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void testAuthenticateNullCredentialsThrowsNullPointerException() {
+    void testAuthenticateNullCredentialThrowsNullPointerException() {
         Password password = new Password("password".toCharArray());
         assertThrows(NullPointerException.class, () -> new Credentials(null, password));
     }
 
     @Test
     void testAuthenticateNullPasswordThrowsNullPointerException() {
-        assertThrows(NullPointerException.class, () -> new Credentials(testUser, null));
+        assertThrows(NullPointerException.class, () -> new Credentials(testCredential, null));
     }
 }

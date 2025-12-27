@@ -1,8 +1,14 @@
 package com.oodesigns.cas.domain.service;
 
+import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.value.Credentials;
+import com.oodesigns.cas.domain.value.Payload;
+import com.oodesigns.cas.domain.value.UserCredential;
+import com.oodesigns.cas.domain.value.Username;
+import com.oodesigns.cas.domain.value.UserId;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Port interfaces for domain services.
@@ -16,19 +22,19 @@ public class Ports {
      */
     public interface PasswordVerifier {     
        /**
-         * Verify credentials and return authenticated user if successful.
+         * Verify credentials and return user credential if successful.
          * 
          * @param credentials The user credentials to verify
-         * @return Optional containing user if password matches, empty if invalid
+         * @return Optional containing user credential if password matches, empty if invalid
          */
-        Optional<com.oodesigns.cas.domain.entity.User> verify(final Credentials credentials);
+        Optional<UserCredential> verify(final Credentials credentials);
     }
 
     /**
      * Port for token signing and verification.
      */
     public interface TokenSigner {
-        java.util.Optional<String> sign(final com.oodesigns.cas.domain.value.Payload payload, final Instant expiresAt);
+        Optional<String> sign(final Payload payload, final Instant expiresAt);
     }
 
     /**
@@ -51,7 +57,7 @@ public class Ports {
     public sealed interface RateLimitResult
         permits RateLimitResult.Allowed, RateLimitResult.Blocked {
 
-        <T> Mapper<T> mapTo(java.util.function.Function<Allowed, T> onAllowed);
+        <T> Mapper<T> mapTo(Function<Allowed, T> onAllowed);
 
         static Allowed allowed() {
             return new Allowed();
@@ -63,7 +69,7 @@ public class Ports {
 
         record Allowed() implements RateLimitResult {
             @Override
-            public <T> Mapper<T> mapTo(java.util.function.Function<Allowed, T> onAllowed) {
+            public <T> Mapper<T> mapTo(Function<Allowed, T> onAllowed) {
                 return new MapperAllowed<>(onAllowed.apply(this));
             }
 
@@ -75,7 +81,7 @@ public class Ports {
                 }
 
                 @Override
-                public T orElse(java.util.function.Function<Blocked, T> onBlocked) {
+                public T orElse(Function<Blocked, T> onBlocked) {
                     return value;
                 }
             }
@@ -89,7 +95,7 @@ public class Ports {
             }
 
             @Override
-            public <T> Mapper<T> mapTo(java.util.function.Function<Allowed, T> onAllowed) {
+            public <T> Mapper<T> mapTo(Function<Allowed, T> onAllowed) {
                 return new MapperBlocked<>(this);
             }
 
@@ -101,14 +107,14 @@ public class Ports {
                 }
 
                 @Override
-                public T orElse(java.util.function.Function<Blocked, T> onBlocked) {
+                public T orElse(Function<Blocked, T> onBlocked) {
                     return onBlocked.apply(blocked);
                 }
             }
         }
 
         interface Mapper<T> {
-            T orElse(java.util.function.Function<Blocked, T> onBlocked);
+            T orElse(Function<Blocked, T> onBlocked);
         }
     }
 
@@ -117,7 +123,15 @@ public class Ports {
      * Implementations handle DB/cache details.
      * Note: User creation/modification is outside the scope of authentication.
      */
-    public interface UserRepositoryReader {
-        java.util.Optional<com.oodesigns.cas.domain.entity.User> findByUsername(final com.oodesigns.cas.domain.value.Username username);
+    public interface UserCredentialReader {
+        Optional<UserCredential> findCredentialsByUsername(final Username username);
+    }
+
+    /**
+     * Port for reading full user data by ID.
+     * Used after authentication succeeds to retrieve permissions and other user metadata.
+     */
+    public interface UserRepository {
+        Optional<User> findById(final UserId userId);
     }
 }

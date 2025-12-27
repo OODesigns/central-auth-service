@@ -61,7 +61,8 @@ class LoginIntegrationTest {
         TokenService tokenService = new TokenService(clock, tokenSigner);
 
         // Create command handler with injected dependencies
-        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, rateLimiter);
+        // InMemoryUserRepository implements both UserCredentialReader and UserRepository
+        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, rateLimiter);
     }
 
     /**
@@ -433,8 +434,8 @@ class LoginIntegrationTest {
 
         // 2. Verify: Repository persists users
         assertEquals(2, userRepository.size());
-        assertTrue(userRepository.findByUsername(new Username("persist1")).isPresent());
-        assertTrue(userRepository.findByUsername(new Username("persist2")).isPresent());
+        assertTrue(userRepository.findCredentialsByUsername(new Username("persist1")).isPresent());
+        assertTrue(userRepository.findCredentialsByUsername(new Username("persist2")).isPresent());
     }
 
     @Test

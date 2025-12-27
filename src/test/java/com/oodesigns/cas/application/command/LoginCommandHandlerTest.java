@@ -5,9 +5,6 @@ import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.*;
-import com.oodesigns.cas.domain.value.IpAddress;
-import com.oodesigns.cas.domain.value.Password;
-import com.oodesigns.cas.domain.value.Username;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mock;
@@ -21,14 +18,18 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Integration unit tests for LoginCommandHandler.
- * Validates: complete login flow, error handling, rate limiting, user authentication.
+ * Unit tests for LoginCommandHandler using mocks.
+ * Validates: command handler flow, error handling, rate limiting integration.
+ * Full integration tests are in LoginIntegrationTest.
  */
 @ExtendWith(MockitoExtension.class)
 class LoginCommandHandlerTest {
 
     @Mock
-    private Ports.UserRepositoryReader userRepository;
+    private Ports.UserCredentialReader credentialReader;
+
+    @Mock
+    private Ports.UserRepository userRepository;
 
     @Mock
     private Ports.PasswordVerifier passwordHasher;
@@ -43,292 +44,132 @@ class LoginCommandHandlerTest {
     private Ports.RateLimiter rateLimiter;
 
     private LoginCommandHandler loginHandler;
+    private UserCredential testCredential;
     private User testUser;
-    private LoginCommand validCommand;
 
     @BeforeEach
     void setUp() {
         AuthenticationService authService = new AuthenticationService(passwordHasher);
         TokenService tokenService = new TokenService(clock, tokenSigner);
-        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, tokenService, credentialReader, userRepository, rateLimiter);
 
-        // Create test user
+        // Setup test data
         UserId userId = UserId.generate();
-        Username username = new Username("john_doe");
         PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
-        testUser = User.create(userId, username, passwordHash);
-
-        // Create valid command
-        validCommand = new LoginCommand(Username.of("john_doe"), new Password("password123".toCharArray()), IpAddress.of("192.168.1.1"));
+        testCredential = new UserCredential(userId, passwordHash);
+        testUser = User.create(userId, new Username("john_doe"), passwordHash);
     }
 
-    private void setupTokenSignerMock() {
-        // Mock token signer to return simple signed tokens for testing
-        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(com.oodesigns.cas.domain.value.Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
-            .thenAnswer(invocation -> java.util.Optional.of("signed." + ((com.oodesigns.cas.domain.value.Payload) invocation.getArgument(0)).value()));
+    private void mockSuccessfulFlow() {
+        when(tokenSigner.sign(any(), any()))
+            .thenAnswer(invocation -> Optional.of("signed.token"));
+        when(rateLimiter.checkLimit(anyString()))
+            .thenReturn(Ports.RateLimitResult.allowed());
+        when(clock.now()).thenReturn(Instant.now());
     }
 
     @Test
     void testSuccessfulLogin() {
-        setupTokenSignerMock();
-        when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(Credentials.class))).thenReturn(java.util.Optional.of(testUser));
-        when(clock.now()).thenReturn(Instant.now());
+        mockSuccessfulFlow();
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential));
+        when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
 
-        LoginResult result = loginHandler.handle(validCommand);
+        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password123".toCharArray()), IpAddress.of("192.168.1.1"));
+        LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(success -> {
-                assertNotNull(success.tokenPair());
-                assertNotNull(success.tokenPair().accessToken());
-                assertNotNull(success.tokenPair().refreshToken());
-                return null;
-            })
-            .orElse(failure -> {
-                fail("Login should have succeeded");
-                return null;
-            });
-        
-        verify(rateLimiter).checkLimit("login:192.168.1.1");
-        verify(userRepository).findByUsername(any(Username.class));
-        verify(passwordHasher).verify(any(Credentials.class));
+            assertNotNull(success.tokenPair());
+            return null;
+        }).orElse(failure -> {
+            fail("Login should succeed");
+            return null;
+        });
     }
 
     @Test
-    void testLoginWithInvalidCredentials() {
-        when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(Credentials.class))).thenReturn(java.util.Optional.empty());
+    void testLoginInvalidCredentials() {
+        when(rateLimiter.checkLimit(anyString()))
+            .thenReturn(Ports.RateLimitResult.allowed());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.empty());
 
-        LoginResult result = loginHandler.handle(validCommand);
+        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("wrongpass".toCharArray()), IpAddress.of("192.168.1.1"));
+        LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(success -> {
-                fail("Login should have failed");
-                return null;
-            })
-            .orElse(failure -> {
-                assertEquals("INVALID_CREDENTIALS", failure.errorCode());
-                return null;
-            });
+            fail("Login should fail");
+            return null;
+        }).orElse(failure -> {
+            assertEquals("INVALID_CREDENTIALS", failure.errorCode());
+            return null;
+        });
     }
 
     @Test
-    void testLoginWithUnknownUser() {
-        when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.empty());
+    void testLoginUnknownUser() {
+        when(rateLimiter.checkLimit(anyString()))
+            .thenReturn(Ports.RateLimitResult.allowed());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.empty());
 
-        LoginResult result = loginHandler.handle(validCommand);
+        LoginCommand cmd = new LoginCommand(Username.of("unknown"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
+        LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(success -> {
-                fail("Login should have failed");
-                return null;
-            })
-            .orElse(failure -> {
-                assertEquals("INVALID_CREDENTIALS", failure.errorCode());
-                return null;
-            });
+            fail("Login should fail");
+            return null;
+        }).orElse(failure -> {
+            assertEquals("INVALID_CREDENTIALS", failure.errorCode());
+            return null;
+        });
     }
 
     @Test
     void testLoginRateLimited() {
-        when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createDeniedResult("Too many attempts from this IP"));
+        when(rateLimiter.checkLimit(anyString()))
+            .thenReturn(Ports.RateLimitResult.blocked("Too many attempts"));
 
-        LoginResult result = loginHandler.handle(validCommand);
-
-        result.mapTo(success -> {
-                fail("Login should have been rate limited");
-                return null;
-            })
-            .orElse(failure -> {
-                assertEquals("RATE_LIMITED", failure.errorCode());
-                return null;
-            });
-    }
-
-    @Test
-    void testLoginWithInvalidUsername() {
-        // LoginCommand validates at construction time - empty username rejected
-        assertThrows(IllegalArgumentException.class, 
-            () -> Username.of(""));
-    }
-
-    @Test
-    void testLoginWithNullCommand() {
-        LoginResult result = loginHandler.handle(null);
-
-        result.mapTo(success -> {
-                fail("Expected failure for null command");
-                return null;
-            })
-            .orElse(failure -> {
-                assertEquals("INVALID_REQUEST", failure.errorCode());
-                assertEquals("LoginCommand cannot be null", failure.errorMessage());
-                return null;
-            });
-    }
-
-    @Test
-    void testDifferentIPAddressesTrackSeparately() {
-        setupTokenSignerMock();
-        LoginCommand cmd2 = new LoginCommand(Username.of("john_doe"), new Password("password123".toCharArray()), IpAddress.of("192.168.1.2"));
-
-        when(rateLimiter.checkLimit(org.mockito.ArgumentMatchers.anyString())).thenReturn(createAllowedResult());
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(Credentials.class))).thenReturn(java.util.Optional.of(testUser));
-        when(clock.now()).thenReturn(Instant.now());
-
-        LoginResult result1 = loginHandler.handle(validCommand);
-        LoginResult result2 = loginHandler.handle(cmd2);
-
-        result1.mapTo(success -> { assertNotNull(success); return null; })
-            .orElse(failure -> { fail("First result should succeed"); return null; });
-        result2.mapTo(success -> { assertNotNull(success); return null; })
-            .orElse(failure -> { fail("Second result should succeed"); return null; });
-        
-        verify(rateLimiter).checkLimit("login:192.168.1.1");
-        verify(rateLimiter).checkLimit("login:192.168.1.2");
-    }
-
-    @Test
-    void testRepositoryExceptionHandled() {
-        when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class)))
-            .thenThrow(new RuntimeException("Database connection failed"));
-
-        LoginResult result = loginHandler.handle(validCommand);
-
-        result.mapTo(success -> {
-                fail("Login should have failed");
-                return null;
-            })
-            .orElse(failure -> {
-                assertEquals("INTERNAL_ERROR", failure.errorCode());
-                return null;
-            });
-    }
-
-    @Test
-    void testPasswordVerifierExceptionHandled() {
-        when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(Credentials.class)))
-            .thenThrow(new RuntimeException("Bcrypt error"));
-
-        LoginResult result = loginHandler.handle(validCommand);
-
-        result.mapTo(success -> {
-                fail("Login should have failed");
-                return null;
-            })
-            .orElse(failure -> {
-                assertEquals("INTERNAL_ERROR", failure.errorCode());
-                return null;
-            });
-    }
-
-    @Test
-    void testCompleteFlowWithAdminUser() {
-        setupTokenSignerMock();
-        User adminUser = testUser.grantPermission(Permission.of("manage_users"));
-
-        when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(adminUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(Credentials.class))).thenReturn(java.util.Optional.of(testUser));
-        when(clock.now()).thenReturn(Instant.now());
-
-        LoginResult result = loginHandler.handle(validCommand);
-
-        result.mapTo(success -> {
-                assertNotNull(success.tokenPair());
-                assertNotNull(success.tokenPair().accessToken());
-                assertNotNull(success.tokenPair().refreshToken());
-                return null;
-            })
-            .orElse(failure -> {
-                fail("Login should have succeeded");
-                return null;
-            });
-    }
-
-    @Test
-    void testLoginCommandViaHandler() {
-        setupTokenSignerMock();
-        char[] password = "mypass".toCharArray();
-        LoginCommand cmd = new LoginCommand(Username.of("test_user"), new Password(password), IpAddress.of("10.0.0.1"));
-
-        when(rateLimiter.checkLimit("login:10.0.0.1")).thenReturn(createAllowedResult());
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(Credentials.class))).thenReturn(java.util.Optional.of(testUser));
-        when(clock.now()).thenReturn(Instant.now());
-
+        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
         LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(success -> {
-                assertNotNull(success.tokenPair());
-                return null;
-            })
-            .orElse(failure -> {
-                fail("Login should have succeeded");
-                return null;
-            });
+            fail("Should be rate limited");
+            return null;
+        }).orElse(failure -> {
+            assertEquals("RATE_LIMITED", failure.errorCode());
+            return null;
+        });
     }
 
     @Test
-    void testMultipleLoginAttemptsWithRateLimiting() {
-        setupTokenSignerMock();
-        when(rateLimiter.checkLimit("login:192.168.1.1"))
-            .thenReturn(createAllowedResult())
-            .thenReturn(createAllowedResult())
-            .thenReturn(createDeniedResult("Rate limited"));
+    void testLoginNullCommand() {
+        LoginResult result = loginHandler.handle(null);
 
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
-        when(passwordHasher.verify(org.mockito.ArgumentMatchers.any(Credentials.class))).thenReturn(java.util.Optional.of(testUser));
-        when(clock.now()).thenReturn(Instant.now());
-
-        LoginResult result1 = loginHandler.handle(validCommand);
-        result1.mapTo(success -> { assertNotNull(success); return null; })
-            .orElse(failure -> { fail("Should have succeeded"); return null; });
-
-        LoginResult result2 = loginHandler.handle(validCommand);
-        result2.mapTo(success -> { assertNotNull(success); return null; })
-            .orElse(failure -> { fail("Should have succeeded"); return null; });
-
-        LoginResult result3 = loginHandler.handle(validCommand);
-        result3.mapTo(success -> { fail("Should have been rate limited"); return null; })
-            .orElse(failure -> {
-                assertEquals("RATE_LIMITED", failure.errorCode());
-                return null;
-            });
+        result.mapTo(success -> {
+            fail("Should fail");
+            return null;
+        }).orElse(failure -> {
+            assertEquals("INVALID_REQUEST", failure.errorCode());
+            return null;
+        });
     }
 
     @Test
-    void testErrorMessagesAreSafe() {
-        when(rateLimiter.checkLimit("login:192.168.1.1")).thenReturn(createAllowedResult());
-        when(userRepository.findByUsername(org.mockito.ArgumentMatchers.any(Username.class))).thenReturn(Optional.of(testUser));
+    void testLoginRuntimeExceptionHandled() {
+        when(rateLimiter.checkLimit(anyString()))
+            .thenReturn(Ports.RateLimitResult.allowed());
+        when(credentialReader.findCredentialsByUsername(any()))
+            .thenThrow(new RuntimeException("Database error"));
 
-        LoginResult result = loginHandler.handle(validCommand);
+        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
+        LoginResult result = loginHandler.handle(cmd);
 
-        result.mapTo(success -> { fail("Login should have failed"); return null; })
-            .orElse(failure -> {
-                String errorMsg = failure.errorMessage();
-                assertFalse(errorMsg.contains("Optional.empty"));
-                assertFalse(errorMsg.contains("null"));
-                assertTrue(errorMsg.contains("Invalid username or password"));
-                return null;
-            });
-    }
-
-    /**
-     * Helper to create a RateLimitResult for testing.
-     */
-    private Ports.RateLimitResult createAllowedResult() {
-        return Ports.RateLimitResult.allowed();
-    }
-
-    /**
-     * Helper to create a denied RateLimitResult for testing.
-     */
-    private Ports.RateLimitResult createDeniedResult(String message) {
-        return Ports.RateLimitResult.blocked(message);
+        result.mapTo(success -> {
+            fail("Should fail");
+            return null;
+        }).orElse(failure -> {
+            assertEquals("INTERNAL_ERROR", failure.errorCode());
+            return null;
+        });
     }
 }

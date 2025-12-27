@@ -1,7 +1,7 @@
 package com.oodesigns.cas.domain.service;
 
-import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.value.Credentials;
+import com.oodesigns.cas.domain.value.UserCredential;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -19,10 +19,10 @@ public final class AuthenticationService {
 
     /**
      * Authenticate a user by verifying password.
-     * Returns Optional containing authenticated user if password matches, empty if invalid.
+     * Returns Optional containing user credential if password matches, empty if invalid.
      * Password is automatically cleared via Credentials.close() in try-with-resources.
      */
-    public Optional<User> getAuthenticatedUser(final Credentials credentials) {
+    public Optional<UserCredential> getAuthenticatedUser(final Credentials credentials) {
         try (final Credentials creds = credentials) {
             return passwordVerifier.verify(creds);
         }
