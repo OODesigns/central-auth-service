@@ -3,7 +3,7 @@ package com.oodesigns.cas.infrastructure.adapter;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Credentials;
 import com.oodesigns.cas.domain.value.PasswordHash;
-import com.oodesigns.cas.domain.value.UserCredential;
+import com.oodesigns.cas.domain.value.UserId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -46,14 +46,14 @@ public class MockPasswordVerifier implements Ports.PasswordVerifier {
     }
 
     @Override
-    public Optional<UserCredential> verify(final Credentials credentials) {
+    public Optional<UserId> verify(final Credentials credentials) {
         if (credentials == null) {
             throw new IllegalArgumentException("Credentials cannot be null");
         }
         
         String storedPassword = passwordMap.get(credentials.credential().passwordHash().asString());
         if (storedPassword != null && storedPassword.equals(new String(credentials.password().chars()))) {
-            return Optional.of(credentials.credential());
+            return Optional.of(credentials.credential().userId());
         }
         return Optional.empty();
     }

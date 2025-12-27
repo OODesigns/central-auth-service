@@ -73,7 +73,7 @@ class LoginCommandHandlerTest {
     void testSuccessfulLogin() {
         mockSuccessfulFlow();
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
-        when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
         when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
 
         LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password123".toCharArray()), IpAddress.of("192.168.1.1"));

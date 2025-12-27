@@ -2,7 +2,7 @@ package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Credentials;
-import com.oodesigns.cas.domain.value.UserCredential;
+import com.oodesigns.cas.domain.value.UserId;
 import org.mindrot.jbcrypt.BCrypt;
 
 import java.util.Optional;
@@ -25,10 +25,10 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
      * Verify credentials by checking password against stored bcrypt hash.
      * 
      * @param credentials The credentials containing user credential and password to verify
-     * @return Optional containing user credential if password matches, empty if invalid
+     * @return Optional containing user ID if password matches, empty if invalid
      */
     @Override
-    public Optional<UserCredential> verify(final Credentials credentials) {
+    public Optional<UserId> verify(final Credentials credentials) {
         return Optional.ofNullable(credentials)
             .flatMap(this::authenticateCredentials);
     }
@@ -39,9 +39,9 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
      * Password char[] is automatically cleared via Credentials AutoCloseable interface.
      * 
      * @param credentials the credentials to verify
-     * @return Optional containing user credential if password matches, empty if invalid
+     * @return Optional containing user ID if password matches, empty if invalid
      */
-    private Optional<UserCredential> authenticateCredentials(final Credentials credentials) {
+    private Optional<UserId> authenticateCredentials(final Credentials credentials) {
         try {
             // Convert char[] to String with minimal lifetime for BCrypt verification
             // Note: Java strings are immutable and will be GC'd after this block
@@ -57,7 +57,7 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
             providedPassword = null; // NOSONAR - intentional null assignment for security
             
             if (matches) {
-                return Optional.of(credentials.credential());
+                return Optional.of(credentials.credential().userId());
             }
             return Optional.empty();
             

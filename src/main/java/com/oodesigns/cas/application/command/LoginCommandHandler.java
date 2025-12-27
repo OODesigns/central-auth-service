@@ -4,7 +4,7 @@ import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Credentials;
-import com.oodesigns.cas.domain.value.UserCredential;
+import com.oodesigns.cas.domain.value.UserId;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -70,8 +70,8 @@ public final class LoginCommandHandler {
      * This only executes after password has been verified.
      * Returns a TokenAndUserPair containing both the tokens and authenticated user.
      */
-    private Optional<TokenAndUserPair> fetchFullUserAndGenerateTokens(final UserCredential credential) {
-        return userRepository.findById(credential.userId())
+    private Optional<TokenAndUserPair> fetchFullUserAndGenerateTokens(final UserId userId) {
+        return userRepository.findById(userId)
             .flatMap(user -> tokenService.generateTokens(user)
                 .map(tokens -> new TokenAndUserPair(tokens, user)));
     }

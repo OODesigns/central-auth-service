@@ -1,7 +1,5 @@
 package com.oodesigns.cas.domain.value;
-
 import com.oodesigns.cas.domain.entity.User;
-
 import java.util.Objects;
 
 /**

@@ -49,7 +49,7 @@ class BcryptPasswordVerifierTest {
         final Credentials credentials = new Credentials(testCredential, password);
         
         try (final Credentials creds = credentials) {
-            final Optional<UserCredential> result = verifier.verify(creds);
+            final Optional<UserId> result = verifier.verify(creds);
             
             // Note: This will fail if BCrypt is not available, but that's expected
             // for production implementation testing
@@ -69,7 +69,7 @@ class BcryptPasswordVerifierTest {
         final Credentials credentials = new Credentials(testCredential, wrongPassword);
         
         try (final Credentials creds = credentials) {
-            final Optional<UserCredential> result = verifier.verify(creds);
+            final Optional<UserId> result = verifier.verify(creds);
             
             assertNotNull(result, "Result should not be null");
             // With dynamic loading, if BCrypt is available it should return empty
@@ -80,7 +80,7 @@ class BcryptPasswordVerifierTest {
     @Test
     @DisplayName("Should return empty Optional for null credentials")
     void shouldReturnEmptyOptionalForNullCredentials() {
-        final Optional<UserCredential> result = verifier.verify(null);
+        final Optional<UserId> result = verifier.verify(null);
         
         assertNotNull(result, "Result should not be null");
         assertTrue(result.isEmpty(), "Should return empty Optional for null credentials");
@@ -93,7 +93,7 @@ class BcryptPasswordVerifierTest {
         final Credentials credentials = new Credentials(testCredential, password);
         
         try (final Credentials creds = credentials) {
-            final Optional<UserCredential> result = verifier.verify(creds);
+            final Optional<UserId> result = verifier.verify(creds);
             
             assertNotNull(result, "Result Optional should never be null");
             // Can be either empty or containing credential depending on BCrypt availability
@@ -109,7 +109,7 @@ class BcryptPasswordVerifierTest {
         
         // Test that credentials can be used with try-with-resources
         try (final Credentials creds = credentials) {
-            final Optional<UserCredential> result = verifier.verify(creds);
+            final Optional<UserId> result = verifier.verify(creds);
             assertNotNull(result);
         }
         // Password should be cleared after close (AutoCloseable behavior)
@@ -124,7 +124,7 @@ class BcryptPasswordVerifierTest {
         final Credentials credentials = new Credentials(testCredential, shortPassword);
         
         try (final Credentials creds = credentials) {
-            final Optional<UserCredential> result = verifier.verify(creds);
+            final Optional<UserId> result = verifier.verify(creds);
             
             assertNotNull(result, "Should handle short password gracefully");
         }
@@ -150,8 +150,8 @@ class BcryptPasswordVerifierTest {
         final Credentials creds2 = new Credentials(cred2, pwd2);
         
         try (final Credentials c1 = creds1; final Credentials c2 = creds2) {
-            final Optional<UserCredential> result1 = verifier.verify(c1);
-            final Optional<UserCredential> result2 = verifier.verify(c2);
+            final Optional<UserId> result1 = verifier.verify(c1);
+            final Optional<UserId> result2 = verifier.verify(c2);
             
             assertTrue(result1.isPresent());
             assertTrue(result2.isPresent());

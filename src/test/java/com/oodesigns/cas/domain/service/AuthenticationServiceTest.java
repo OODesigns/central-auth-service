@@ -36,12 +36,12 @@ class AuthenticationServiceTest {
     void testAuthenticateValidPassword() {
         Password password = new Password("password123".toCharArray());
         var credentials = new Credentials(testCredential, password);
-        when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential));
+        when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential.userId()));
 
         var result = authService.getAuthenticatedUser(credentials);
 
         assertTrue(result.isPresent());
-        assertEquals(testCredential, result.get());
+        assertEquals(testCredential.userId(), result.get());
         verify(passwordHasher).verify(credentials);
     }
 

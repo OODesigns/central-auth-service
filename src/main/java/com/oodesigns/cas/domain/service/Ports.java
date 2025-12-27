@@ -22,12 +22,12 @@ public class Ports {
      */
     public interface PasswordVerifier {     
        /**
-         * Verify credentials and return user credential if successful.
+         * Verify credentials and return user ID if successful.
          * 
          * @param credentials The user credentials to verify
-         * @return Optional containing user credential if password matches, empty if invalid
+         * @return Optional containing user ID if password matches, empty if invalid
          */
-        Optional<UserCredential> verify(final Credentials credentials);
+        Optional<UserId> verify(final Credentials credentials);
     }
 
     /**
