@@ -57,7 +57,8 @@ class LoginCommandHandlerTest {
         UserId userId = UserId.generate();
         PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
         testCredential = new UserCredential(userId, passwordHash);
-        testUser = User.create(userId, new Username("john_doe"), passwordHash);
+        testUser = User.create(userId, new Username("john_doe"), passwordHash)
+            .grantPermission(Permission.of("read"));
     }
 
     private void mockSuccessfulFlow() {
@@ -80,6 +81,9 @@ class LoginCommandHandlerTest {
 
         result.mapTo(success -> {
             assertNotNull(success.tokenPair());
+            assertEquals(testCredential.userId(), success.userId());
+            assertNotNull(success.permissions());
+            assertTrue(success.permissions().size() > 0);  // User should have some permissions
             return null;
         }).orElse(failure -> {
             fail("Login should succeed");

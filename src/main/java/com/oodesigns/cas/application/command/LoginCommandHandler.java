@@ -1,4 +1,5 @@
 package com.oodesigns.cas.application.command;
+import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.service.Ports;
@@ -52,7 +53,7 @@ public final class LoginCommandHandler {
     /**
      * Authenticate user using two-step process:
      * 1. Get credentials (userId + passwordHash) and verify password
-     * 2. If valid, fetch full User object for permissions
+     * 2. If valid, fetch full User object for permissions and generate tokens
      * @return LoginResult with success or failure
      */
     private LoginResult authenticateUser(final LoginCommand command) {
@@ -60,16 +61,42 @@ public final class LoginCommandHandler {
             .map(cred -> new Credentials(cred, command.password()))
             .flatMap(authService::getAuthenticatedUser)
             .flatMap(this::fetchFullUserAndGenerateTokens)
-            .<LoginResult>map(LoginResult::success)
+            .<LoginResult>map(pair -> LoginResult.success(pair.tokenPair(), pair.user().userId(), pair.user().permissions()))
             .orElseGet(() -> LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password."));
     }
 
     /**
      * Fetch the full User object by userId and generate tokens.
      * This only executes after password has been verified.
+     * Returns a TokenAndUserPair containing both the tokens and authenticated user.
      */
-    private Optional<TokenService.TokenPair> fetchFullUserAndGenerateTokens(final UserCredential credential) {
+    private Optional<TokenAndUserPair> fetchFullUserAndGenerateTokens(final UserCredential credential) {
         return userRepository.findById(credential.userId())
-            .flatMap(tokenService::generateTokens);
+            .flatMap(user -> tokenService.generateTokens(user)
+                .map(tokens -> new TokenAndUserPair(tokens, user)));
+    }
+
+    /**
+     * Immutable utility record for carrying both TokenPair and User through the Optional chain.
+     * 
+     * Used to transport both the generated TokenPair and the authenticated User object
+     * from token generation back to the login handler without losing the User data.
+     * 
+     * This is necessary because TokenService.generateTokens() returns only the TokenPair,
+     * but we need both the tokens AND the User's permissions/userId for the response.
+     * 
+     * @param tokenPair the generated access and refresh tokens (must not be null)
+     * @param user the authenticated user with permissions (must not be null)
+     */
+    private record TokenAndUserPair(TokenService.TokenPair tokenPair, User user) {
+        /**
+         * Compact constructor validates both values are non-null.
+         * 
+         * @throws NullPointerException if either tokenPair or user is null
+         */
+        public TokenAndUserPair {
+            Objects.requireNonNull(tokenPair, "TokenPair cannot be null");
+            Objects.requireNonNull(user, "User cannot be null");
+        }
     }
 }

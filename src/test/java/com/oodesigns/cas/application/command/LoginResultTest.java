@@ -1,7 +1,12 @@
 package com.oodesigns.cas.application.command;
 
 import com.oodesigns.cas.domain.service.TokenService;
+import com.oodesigns.cas.domain.value.Permission;
+import com.oodesigns.cas.domain.value.UserId;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,12 +20,15 @@ class LoginResultTest {
     void testSuccessResult() {
         TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token_123", "refresh_token_456");
-        LoginResult result = LoginResult.success(tokenPair);
+        UserId userId = UserId.generate();
+        Set<Permission> permissions = Set.of(Permission.of("read"), Permission.of("write"));
+        LoginResult result = LoginResult.success(tokenPair, userId, permissions);
 
         result.mapTo(success -> {
                 assertEquals("access_token_123", success.tokenPair().accessToken());
                 assertEquals("refresh_token_456", success.tokenPair().refreshToken());
-                // permissions no longer surfaced on TokenPair
+                assertEquals(userId, success.userId());
+                assertEquals(permissions, success.permissions());
                 return null;
             })
             .orElse(failure -> {
@@ -49,7 +57,7 @@ class LoginResultTest {
         // With fold pattern, failure results never have token access - type-safe at compile time
         LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
 
-        // This test verifies that FailureResult doesn't expose token methods
+        // This test verifies that FailureResult doesn't expose success methods
         result.mapTo(success -> {
                 fail("FailureResult should never match success case");
                 return null;
@@ -58,7 +66,7 @@ class LoginResultTest {
                 // Only error-related methods are available
                 assertNotNull(failure.errorCode());
                 assertNotNull(failure.errorMessage());
-                // Token methods are not available on FailureResult - verified at compile time
+                // Success methods (tokenPair, userId, permissions) are not available on FailureResult - verified at compile time
                 return null;
             });
     }
@@ -67,11 +75,14 @@ class LoginResultTest {
     void testAccessingErrorOnSuccessThrows() {
         TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token", "refresh_token");
-        LoginResult result = LoginResult.success(tokenPair);
+        UserId userId = UserId.generate();
+        Set<Permission> permissions = Collections.emptySet();
+        LoginResult result = LoginResult.success(tokenPair, userId, permissions);
 
         result.mapTo(success -> {
                 assertEquals("access_token", success.tokenPair().accessToken());
                 assertEquals("refresh_token", success.tokenPair().refreshToken());
+                assertEquals(userId, success.userId());
                 return null;
             })
             .orElse(failure -> {
@@ -82,14 +93,28 @@ class LoginResultTest {
 
     @Test
     void testSuccessWithNullTokensThrows() {
+        UserId userId = UserId.generate();
+        Set<Permission> permissions = Set.of(Permission.of("read"));
         assertThrows(IllegalArgumentException.class,
-            () -> LoginResult.success(null));
+            () -> LoginResult.success(null, userId, permissions));
+    }
+
+    @Test
+    void testSuccessWithNullUserIdThrows() {
+        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
+            "access_token", "refresh_token");
+        Set<Permission> permissions = Set.of(Permission.of("read"));
+        assertThrows(IllegalArgumentException.class,
+            () -> LoginResult.success(tokenPair, null, permissions));
     }
 
     @Test
     void testSuccessWithNullPermissionsThrows() {
-        // permissions are no longer part of TokenPair; nothing to validate
-        assertTrue(true);
+        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
+            "access_token", "refresh_token");
+        UserId userId = UserId.generate();
+        assertThrows(IllegalArgumentException.class,
+            () -> LoginResult.success(tokenPair, userId, null));
     }
 
     @Test
@@ -145,12 +170,16 @@ class LoginResultTest {
             "token1", "refresh1");
         TokenService.TokenPair tokenPair2 = new TokenService.TokenPair(
             "token2", "refresh2");
-        LoginResult result1 = LoginResult.success(tokenPair1);
-        LoginResult result2 = LoginResult.success(tokenPair2);
+        UserId userId1 = UserId.generate();
+        UserId userId2 = UserId.generate();
+        Set<Permission> permissions = Set.of(Permission.of("read"));
+        LoginResult result1 = LoginResult.success(tokenPair1, userId1, permissions);
+        LoginResult result2 = LoginResult.success(tokenPair2, userId2, permissions);
 
         result1.mapTo(success1 -> {
                 result2.mapTo(success2 -> {
                         assertNotEquals(success1.tokenPair().accessToken(), success2.tokenPair().accessToken());
+                        assertNotEquals(success1.userId(), success2.userId());
                         return null;
                     })
                     .orElse(failure2 -> {
@@ -191,7 +220,9 @@ class LoginResultTest {
     void testCannotSwitchStates() {
         TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "token", "refresh");
-        LoginResult success = LoginResult.success(tokenPair);
+        UserId userId = UserId.generate();
+        Set<Permission> permissions = Set.of(Permission.of("admin"));
+        LoginResult success = LoginResult.success(tokenPair, userId, permissions);
         LoginResult failure = LoginResult.failure("CODE", "message");
 
         // Success cannot be failed and vice versa

@@ -8,6 +8,7 @@ import com.oodesigns.cas.domain.value.UserCredential;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mindrot.jbcrypt.BCrypt;
 
 import java.util.Optional;
 
@@ -21,15 +22,17 @@ import static org.junit.jupiter.api.Assertions.*;
 class BcryptPasswordVerifierTest {
     private BcryptPasswordVerifier verifier;
     private UserCredential testCredential;
-    private MockPasswordVerifier mockHasher;
+    private MockPasswordHasher mockHasher;
 
     @BeforeEach
     void setUp() {
         verifier = new BcryptPasswordVerifier();
-        mockHasher = new MockPasswordVerifier();
+        mockHasher = new MockPasswordHasher();
         
         final UserId userId = UserId.generate();
-        final PasswordHash passwordHash = mockHasher.hash("correct_password".toCharArray());
+        // Generate a real BCrypt hash for "correct_password"
+        final String bcryptHash = BCrypt.hashpw("correct_password", BCrypt.gensalt(12));
+        final PasswordHash passwordHash = new PasswordHash(bcryptHash);
         testCredential = new UserCredential(userId, passwordHash);
     }
 
@@ -130,8 +133,10 @@ class BcryptPasswordVerifierTest {
     @Test
     @DisplayName("Should verify with multiple users")
     void shouldVerifyWithMultipleUsers() {
-        final PasswordHash hash1 = mockHasher.hash("password1".toCharArray());
-        final PasswordHash hash2 = mockHasher.hash("password2".toCharArray());
+        final String bcryptHash1 = BCrypt.hashpw("password1", BCrypt.gensalt(12));
+        final String bcryptHash2 = BCrypt.hashpw("password2", BCrypt.gensalt(12));
+        final PasswordHash hash1 = new PasswordHash(bcryptHash1);
+        final PasswordHash hash2 = new PasswordHash(bcryptHash2);
         
         final UserId userId1 = UserId.generate();
         final UserId userId2 = UserId.generate();
@@ -148,8 +153,8 @@ class BcryptPasswordVerifierTest {
             final Optional<UserCredential> result1 = verifier.verify(c1);
             final Optional<UserCredential> result2 = verifier.verify(c2);
             
-            assertNotNull(result1);
-            assertNotNull(result2);
+            assertTrue(result1.isPresent());
+            assertTrue(result2.isPresent());
         }
     }
 }

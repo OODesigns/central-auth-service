@@ -1,6 +1,9 @@
 package com.oodesigns.cas.application.command;
 
 import com.oodesigns.cas.domain.service.TokenService;
+import com.oodesigns.cas.domain.value.Permission;
+import com.oodesigns.cas.domain.value.UserId;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -21,8 +24,8 @@ public sealed interface LoginResult
      */
     <T> Mapper<T> mapTo(Function<SuccessResult, T> successMapper);
 
-    static SuccessResult success(final TokenService.TokenPair tokenPair) {
-        return new SuccessResult(tokenPair);
+    static SuccessResult success(final TokenService.TokenPair tokenPair, final UserId userId, final Set<Permission> permissions) {
+        return new SuccessResult(tokenPair, userId, permissions);
     }
 
     static FailureResult failure(final String errorCode, final String errorMessage) {
@@ -30,13 +33,25 @@ public sealed interface LoginResult
     }
 
     /**
-     * Successful login result containing token information.
+     * Successful login result containing token information and user metadata.
+     * Permissions and userId are included so client can immediately use them
+     * without needing to decode the JWT.
      */
-    record SuccessResult(TokenService.TokenPair tokenPair) implements LoginResult {
+    record SuccessResult(
+        TokenService.TokenPair tokenPair,
+        UserId userId,
+        Set<Permission> permissions
+    ) implements LoginResult {
 
         public SuccessResult {
             if (tokenPair == null) {
                 throw new IllegalArgumentException("Token pair is required");
+            }
+            if (userId == null) {
+                throw new IllegalArgumentException("User ID is required");
+            }
+            if (permissions == null) {
+                throw new IllegalArgumentException("Permissions cannot be null");
             }
         }
 
