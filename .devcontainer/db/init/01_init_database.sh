@@ -57,6 +57,7 @@ psql --username="${POSTGRES_USER}" --dbname="${POSTGRES_DB}" <<-EOSQL
   -- Allow the app user to connect and use the public schema
   GRANT CONNECT ON DATABASE ${APP_DB} TO ${APP_USER};
   GRANT USAGE   ON SCHEMA public TO ${APP_USER};
+  GRANT USAGE   ON SCHEMA auth TO ${APP_USER};
 
   -- Grant CRUD on all existing tables
   GRANT SELECT, INSERT, UPDATE, DELETE
@@ -67,4 +68,14 @@ psql --username="${POSTGRES_USER}" --dbname="${POSTGRES_DB}" <<-EOSQL
   ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE
     ON TABLES TO ${APP_USER};
+
+  -- Grant execute on all functions in auth schema
+  GRANT EXECUTE
+    ON ALL FUNCTIONS IN SCHEMA auth
+    TO ${APP_USER};
+
+  -- Ensure future functions in auth schema inherit these privileges
+  ALTER DEFAULT PRIVILEGES IN SCHEMA auth
+    GRANT EXECUTE
+    ON FUNCTIONS TO ${APP_USER};
 EOSQL

@@ -61,10 +61,10 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- NOTE:
 --  - password_hash must be injected via Flyway placeholder or environment
---  - admin must rotate password on first login
+--  - admin must rotate password on first login (password_reset_required_at is set to now())
 
-INSERT INTO users (username, password_hash, force_password_reset, created_at, updated_at)
-VALUES ('admin', '${ADMIN_PASSWORD}', true, NOW(), NOW())
+INSERT INTO users (username, password_hash, password_reset_required_at, created_at, updated_at)
+VALUES ('admin', '${ADMIN_PASSWORD}', NOW(), NOW(), NOW())
 ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================================

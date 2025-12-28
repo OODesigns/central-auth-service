@@ -53,6 +53,19 @@ DROP TABLE IF EXISTS audit_logs;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ============================================================================
+-- ROLES & PERMISSIONS (database-level security)
+-- ============================================================================
+
+-- Create app-level role for application connections
+CREATE ROLE app_user WITH LOGIN PASSWORD 'changeme';
+COMMENT ON ROLE app_user IS 'Application-level database connection role with minimal required permissions';
+
+-- Create auth schema for auth-related functions
+CREATE SCHEMA IF NOT EXISTS auth;
+GRANT USAGE ON SCHEMA auth TO app_user;
+COMMENT ON SCHEMA auth IS 'Authentication and authorization functions';
+
+-- ============================================================================
 -- USERS
 -- ============================================================================
 
@@ -630,3 +643,34 @@ CREATE TRIGGER trg_audit_user_roles
   AFTER INSERT OR DELETE ON user_roles
   FOR EACH ROW
   EXECUTE FUNCTION audit_user_roles();
+-- ============================================================================
+-- AUTH FUNCTIONS
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION auth.find_user_credentials(p_username text)
+RETURNS TABLE (
+  user_id uuid,
+  username text,
+  password_hash text,
+  password_reset_required_at timestamptz
+)
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT
+    u.user_id,
+    u.username,
+    u.password_hash,
+    u.password_reset_required_at
+  FROM public.users u
+  WHERE u.username = p_username;
+$$;
+
+COMMENT ON FUNCTION auth.find_user_credentials(text) IS
+  'Retrieves user credentials for password-based authentication. Used by the auth service to fetch password hash for verification.';
+
+ALTER FUNCTION auth.find_user_credentials(text)
+SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION auth.find_user_credentials(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth.find_user_credentials(text) TO app_user;
