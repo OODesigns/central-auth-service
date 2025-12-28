@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.jooq.DSLContext;
 /**
- * jOOQ-based implementation of UserCredentialReader.
+ * Jooq-based implementation of UserCredentialReader.
  * Type-safe queries to PostgreSQL {@code auth.find_user_credentials(username)} function.
  *
  * Benefits over JDBC:
@@ -29,14 +29,10 @@ final class JooqUserCredentialReader implements Ports.UserCredentialReader {
     }
 
     @Override
-    public Optional<UserCredential> findCredentialsByUsername(
-            final Username username) {
-        // Call the auth.find_user_credentials() function via jOOQ
-        // Returns Optional.empty() if username is null, otherwise queries database
+    public Optional<UserCredential> findCredentialsByUsername(final Username username) {
         return Optional.ofNullable(username)
                 .flatMap(u -> dsl.fetchOptional(
-                        "SELECT * FROM auth.find_user_credentials(?)",
-                        u.value()
+                        "SELECT * FROM auth.find_user_credentials(?)", u.value()
                 )
                 .map(jooqRecord -> new UserCredential(
                         new UserId(jooqRecord.get("user_id", UUID.class)),

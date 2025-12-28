@@ -22,6 +22,7 @@ DROP FUNCTION IF EXISTS audit_trusted_clients();
 DROP FUNCTION IF EXISTS audit_role_permissions();
 DROP FUNCTION IF EXISTS audit_user_roles();
 DROP FUNCTION IF EXISTS set_updated_at_timestamp();
+DROP FUNCTION IF EXISTS auth.find_user_credentials(text);
 
 DROP INDEX IF EXISTS idx_users_username;
 DROP INDEX IF EXISTS idx_token_hash;
@@ -654,8 +655,13 @@ RETURNS TABLE (
   password_hash text,
   password_reset_required_at timestamptz
 )
+-- LANGUAGE sql: Function body is written in SQL (not plpgsql, python, etc.)
 LANGUAGE sql
+-- STABLE: Function is deterministic (same input = same output) and doesn't modify data
+--   PostgreSQL can optimize queries by caching results within a transaction
 STABLE
+-- AS $$...$$ : Delimiter syntax for function body. $$ avoids quote escaping issues
+--   (alternative to single quotes which require doubling internal quotes)
 AS $$
   SELECT
     u.user_id,
