@@ -23,6 +23,7 @@ DROP FUNCTION IF EXISTS audit_role_permissions();
 DROP FUNCTION IF EXISTS audit_user_roles();
 DROP FUNCTION IF EXISTS set_updated_at_timestamp();
 DROP FUNCTION IF EXISTS auth.find_user_credentials(text);
+DROP FUNCTION IF EXISTS auth.get_user(uuid);
 
 DROP INDEX IF EXISTS idx_users_username;
 DROP INDEX IF EXISTS idx_token_hash;
@@ -680,3 +681,41 @@ SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION auth.find_user_credentials(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION auth.find_user_credentials(text) TO app_user;
+
+-- ============================================================================
+-- POST-AUTHENTICATION USER FUNCTION
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION auth.get_user(p_user_id uuid)
+RETURNS TABLE (
+  user_id uuid,
+  username text,
+  permissions text[]
+)
+-- LANGUAGE sql: Function body is written in SQL
+LANGUAGE sql
+-- STABLE: Deterministic function, safe to cache within transaction
+STABLE
+-- AS $$...$$ : Delimiter syntax for function body
+AS $$
+  SELECT
+    u.user_id,
+    u.username,
+    COALESCE(array_agg(DISTINCT p.name ORDER BY p.name), ARRAY[]::text[]) AS permissions
+  FROM public.users u
+  LEFT JOIN public.user_roles ur ON u.user_id = ur.user_id
+  LEFT JOIN public.roles r ON ur.role_id = r.role_id
+  LEFT JOIN public.role_permissions rp ON r.role_id = rp.role_id
+  LEFT JOIN public.permissions p ON rp.permission_id = p.permission_id
+  WHERE u.user_id = p_user_id
+  GROUP BY u.user_id, u.username;
+$$;
+
+COMMENT ON FUNCTION auth.get_user(uuid) IS
+  'Retrieves authenticated user with permissions for authorization. Returns user_id, username, and aggregated permissions array. Used after successful authentication to load user data for the User domain entity.';
+
+ALTER FUNCTION auth.get_user(uuid)
+SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION auth.get_user(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth.get_user(uuid) TO app_user;
