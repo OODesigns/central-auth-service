@@ -7,23 +7,10 @@ FROM eclipse-temurin:21-jdk
 # Install development tools & dependencies
 ##############################################
 # Update package lists and install required development tools
-# Breaking this into multiple RUN commands to improve build caching and resilience
-# Each step will be cached separately, making rebuilds faster if one step fails
-
-# Update package lists
-RUN apt-get update
-
-# Install Git for version control
-RUN apt-get install -y --no-install-recommends git
-
-# Install network utilities
-RUN apt-get install -y --no-install-recommends curl wget
-
-# Install additional tools
-RUN apt-get install -y --no-install-recommends unzip
-
-# Clean up to reduce image size
-RUN rm -rf /var/lib/apt/lists/*
+# All apt-get commands merged into single RUN to reduce image layers
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git curl wget unzip && \
+    rm -rf /var/lib/apt/lists/*
 
 ##############################################
 # Install Flyway CLI for DB migrations
@@ -48,16 +35,11 @@ WORKDIR /workspace
 COPY gradlew settings.gradle build.gradle ./
 COPY gradle ./gradle
 
-# Make the Gradle wrapper executable
-RUN chmod +x gradlew
-
-# Pre-download Gradle dependencies to speed up subsequent builds
+# Make the Gradle wrapper executable and pre-download dependencies
 # The --no-daemon flag prevents Gradle from starting a background process
-RUN ./gradlew --no-daemon dependencies
-
-# For a dev container, we'll create an empty src directory structure
-# This ensures the directory exists without requiring source files during build
-RUN mkdir -p src/main/java src/main/resources src/test/java src/test/resources
+RUN chmod +x gradlew && \
+    ./gradlew --no-daemon dependencies && \
+    mkdir -p src/main/java src/main/resources src/test/java src/test/resources
 
 ##############################################
 # Expose ports for development
