@@ -12,14 +12,17 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * In-memory test implementation of UserCredentialReader and UserRepository.
  * Used for testing without database dependencies.
- * Includes a save() method for test fixture setup (not part of the ports).
+ * 
+ * Note: Tests must set up both User (for post-auth) and UserCredential (for auth)
+ * separately, as User no longer contains password hash.
  */
 public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports.UserRepository {
     private final Map<UserId, User> usersById = new ConcurrentHashMap<>();
     private final Map<String, User> usersByUsername = new ConcurrentHashMap<>();
+    private final Map<String, UserCredential> credentialsByUsername = new ConcurrentHashMap<>();
 
     /**
-     * Test fixture helper to populate the repository.
+     * Test fixture helper to save a user (for authorization/profile data).
      * Not part of the port contracts.
      */
     public void save(User user) {
@@ -30,13 +33,28 @@ public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports
         usersByUsername.put(user.username().asString(), user);
     }
 
+    /**
+     * Test fixture helper to save credentials separately (for authentication).
+     * Not part of the port contracts.
+     * 
+     * @param credential the user credential with userId and password hash
+     */
+    public void saveCredential(UserCredential credential) {
+        if (credential == null) {
+            throw new IllegalArgumentException("UserCredential cannot be null");
+        }
+        // Store by userId string since we need to match credentials to users
+        credentialsByUsername.put(credential.userId().toString(), credential);
+    }
+
     @Override
     public Optional<UserCredential> findCredentialsByUsername(Username username) {
         if (username == null) {
             throw new IllegalArgumentException("Username cannot be null");
         }
+        // Find user by username to get userId, then look up credential
         return Optional.ofNullable(usersByUsername.get(username.asString()))
-            .map(UserCredential::from);
+            .flatMap(user -> Optional.ofNullable(credentialsByUsername.get(user.userId().toString())));
     }
 
     @Override
@@ -50,6 +68,7 @@ public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports
     public void clear() {
         usersById.clear();
         usersByUsername.clear();
+        credentialsByUsername.clear();
     }
 
     public int size() {

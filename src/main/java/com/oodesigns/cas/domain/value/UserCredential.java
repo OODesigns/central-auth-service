@@ -1,5 +1,4 @@
 package com.oodesigns.cas.domain.value;
-import com.oodesigns.cas.domain.entity.User;
 import java.util.Objects;
 
 /**
@@ -14,16 +13,5 @@ public record UserCredential(UserId userId, PasswordHash passwordHash) {
     public UserCredential {
         Objects.requireNonNull(userId, "User ID cannot be null");
         Objects.requireNonNull(passwordHash, "Password hash cannot be null");
-    }
-
-    /**
-     * Extract credentials from a full User object.
-     * 
-     * @param user the user entity
-     * @return UserCredential with userId and passwordHash
-     */
-    public static UserCredential from(final User user) {
-        Objects.requireNonNull(user, "User cannot be null");
-        return new UserCredential(user.userId(), user.passwordHash());
     }
 }

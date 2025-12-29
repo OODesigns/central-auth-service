@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.time.Instant;
+import java.util.*;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -57,8 +58,7 @@ class LoginCommandHandlerTest {
         UserId userId = UserId.generate();
         PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
         testCredential = new UserCredential(userId, passwordHash);
-        testUser = User.create(userId, new Username("john_doe"), passwordHash)
-            .grantPermission(Permission.of("read"));
+        testUser = new User(userId, new Username("john_doe"), Set.of(Permission.of("read")));
     }
 
     private void mockSuccessfulFlow() {

@@ -14,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 
 import java.time.Instant;
 
+import java.util.*;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -74,14 +76,23 @@ class LoginIntegrationTest {
         tokenSigner.reset();
     }
 
+    /**
+     * Test helper: Setup a user with credentials for authentication.
+     * Saves both the User (for post-auth) and UserCredential (for authentication).
+     */
+    private void setupUserWithCredentials(UserId userId, Username username, String password) {
+        User user = new User(userId, username, Set.of());
+        PasswordHash passwordHash = passwordHasher.hash(password.toCharArray());
+        userRepository.save(user);
+        userRepository.saveCredential(new UserCredential(userId, passwordHash));
+    }
+
     @Test
     void testCompleteLoginFlow() {
         // 1. Setup: Create and persist a user
         UserId userId = UserId.generate();
         Username username = new Username("alice_smith");
-        PasswordHash passwordHash = passwordHasher.hash("correct_password".toCharArray());
-        User user = User.create(userId, username, passwordHash);
-        userRepository.save(user);
+        setupUserWithCredentials(userId, username, "correct_password");
 
         // 2. Execute: Login command
         LoginCommand loginCmd = new LoginCommand(Username.of("alice_smith"), new Password("correct_password".toCharArray()), 
@@ -107,9 +118,7 @@ class LoginIntegrationTest {
         // 1. Setup: Create user with specific password
         UserId userId = UserId.generate();
         Username username = new Username("bob_jones");
-        PasswordHash passwordHash = passwordHasher.hash("correct_password".toCharArray());
-        User user = User.create(userId, username, passwordHash);
-        userRepository.save(user);
+        setupUserWithCredentials(userId, username, "correct_password");
 
         // 2. Execute: Wrong password
         LoginCommand loginCmd = new LoginCommand(Username.of("bob_jones"), new Password("wrong_password".toCharArray()), 
@@ -152,17 +161,14 @@ class LoginIntegrationTest {
 
     @Test
     void testMultipleUsersInSystem() {
-        // 1. Setup: Create multiple users
-        User alice = User.create(UserId.generate(), new Username("alice"), 
-            passwordHasher.hash("correct_password".toCharArray()));
-        User bob = User.create(UserId.generate(), new Username("bob"), 
-            passwordHasher.hash("correct_password".toCharArray()));
-        User charlie = User.create(UserId.generate(), new Username("charlie"), 
-            passwordHasher.hash("correct_password".toCharArray()));
-
-        userRepository.save(alice);
-        userRepository.save(bob);
-        userRepository.save(charlie);
+        // 1. Setup: Create multiple users with credentials
+        UserId aliceId = UserId.generate();
+        UserId bobId = UserId.generate();
+        UserId charlieId = UserId.generate();
+        
+        setupUserWithCredentials(aliceId, new Username("alice"), "correct_password");
+        setupUserWithCredentials(bobId, new Username("bob"), "correct_password");
+        setupUserWithCredentials(charlieId, new Username("charlie"), "correct_password");
 
         // 2. Execute: Login as each user
         LoginCommand aliceCmd = new LoginCommand(Username.of("alice"), new Password("correct_password".toCharArray()), 
@@ -208,9 +214,8 @@ class LoginIntegrationTest {
     @Test
     void testRateLimitingPerIPAddress() {
         // 1. Setup: User
-        User user = User.create(UserId.generate(), new Username("rate_test"), 
-            passwordHasher.hash("correct_password".toCharArray()));
-        userRepository.save(user);
+        UserId userId = UserId.generate();
+        setupUserWithCredentials(userId, new Username("rate_test"), "correct_password");
 
         // 2. Execute: Multiple login attempts from same IP
         String testIP = "10.0.0.5";
@@ -247,9 +252,8 @@ class LoginIntegrationTest {
     @Test
     void testDifferentIPsNotRateLimited() {
         // 1. Setup: User
-        User user = User.create(UserId.generate(), new Username("multi_ip_test"), 
-            passwordHasher.hash("correct_password".toCharArray()));
-        userRepository.save(user);
+        UserId userId = UserId.generate();
+        setupUserWithCredentials(userId, new Username("multi_ip_test"), "correct_password");
 
         // 2. Execute: Attempts from different IPs should succeed independently
         String[] ips = {"10.0.0.1", "10.0.0.2", "10.0.0.3"};
@@ -272,10 +276,11 @@ class LoginIntegrationTest {
     void testUserWithMultiplePermissions() {
         // 1. Setup: User with multiple permissions
         UserId userId = UserId.generate();
-        User user = User.create(userId, new Username("super_admin"), 
-            passwordHasher.hash("correct_password".toCharArray()))
-            .grantPermission(Permission.of("manage_users"))
-            .grantPermission(Permission.of("delete_accounts"));
+        setupUserWithCredentials(userId, new Username("super_admin"), "correct_password");
+        User user = new User(userId, new Username("super_admin"), Set.of(
+            Permission.of("manage_users"),
+            Permission.of("delete_accounts")
+        ));
         userRepository.save(user);
 
         // 2. Verify: User has both permissions
@@ -301,8 +306,8 @@ class LoginIntegrationTest {
     void testImmutabilityOfUserAfterLogin() {
         // 1. Setup: Create and persist user
         UserId userId = UserId.generate();
-        User originalUser = User.create(userId, new Username("immutable_test"), 
-            passwordHasher.hash("correct_password".toCharArray()));
+        setupUserWithCredentials(userId, new Username("immutable_test"), "correct_password");
+        User originalUser = new User(userId, new Username("immutable_test"), Set.of());
         userRepository.save(originalUser);
 
         // 2. Execute: Login (which uses the user from repository)
@@ -324,9 +329,8 @@ class LoginIntegrationTest {
     @Test
     void testPasswordSecurityWithCharArrays() {
         // 1. Setup: User
-        User user = User.create(UserId.generate(), new Username("security_test"), 
-            passwordHasher.hash("correct_password".toCharArray()));
-        userRepository.save(user);
+        UserId userId = UserId.generate();
+        setupUserWithCredentials(userId, new Username("security_test"), "correct_password");
 
         // 2. Execute: Login with char array password
         char[] password = "correct_password".toCharArray();
@@ -355,9 +359,9 @@ class LoginIntegrationTest {
         // 1. Setup: Create users with specific value objects
         Username username = new Username("VALUE_OBJECT_TEST");
         UserId userId = UserId.generate();
-        PasswordHash hash = passwordHasher.hash("correct_password".toCharArray());
-
-        User user = User.create(userId, username, hash);
+        
+        setupUserWithCredentials(userId, username, "correct_password");
+        User user = new User(userId, username, Set.of());
         userRepository.save(user);
 
         // 2. Execute: Login with normalized username
@@ -379,9 +383,8 @@ class LoginIntegrationTest {
     @Test
     void testClockAdvancement() {
         // 1. Setup: User with mock clock
-        User user = User.create(UserId.generate(), new Username("clock_test"), 
-            passwordHasher.hash("correct_password".toCharArray()));
-        userRepository.save(user);
+        UserId userId = UserId.generate();
+        setupUserWithCredentials(userId, new Username("clock_test"), "correct_password");
 
         Instant t1 = clock.now();
 
@@ -423,14 +426,11 @@ class LoginIntegrationTest {
 
     @Test
     void testRepositoryPersistence() {
-        // 1. Setup: Save multiple users
-        User user1 = User.create(UserId.generate(), new Username("persist1"), 
-            passwordHasher.hash("correct_password".toCharArray()));
-        User user2 = User.create(UserId.generate(), new Username("persist2"), 
-            passwordHasher.hash("correct_password".toCharArray()));
-
-        userRepository.save(user1);
-        userRepository.save(user2);
+        // 1. Setup: Save multiple users with credentials
+        UserId user1Id = UserId.generate();
+        UserId user2Id = UserId.generate();
+        setupUserWithCredentials(user1Id, new Username("persist1"), "password1");
+        setupUserWithCredentials(user2Id, new Username("persist2"), "password2");
 
         // 2. Verify: Repository persists users
         assertEquals(2, userRepository.size());
@@ -444,9 +444,7 @@ class LoginIntegrationTest {
         // 1. User registration
         UserId userId = UserId.generate();
         Username username = new Username("secure_user");
-        PasswordHash hash = passwordHasher.hash("MySecurePassword123".toCharArray());
-        User user = User.create(userId, username, hash);
-        userRepository.save(user);
+        setupUserWithCredentials(userId, username, "MySecurePassword123");
 
         // 2. Successful login
         LoginCommand correctCmd = new LoginCommand(Username.of("secure_user"), new Password("MySecurePassword123".toCharArray()), 
@@ -493,12 +491,13 @@ class LoginIntegrationTest {
         // 1. Setup: Create user with permissions
         UserId userId = UserId.generate();
         Username username = new Username("powerful_user");
-        PasswordHash passwordHash = passwordHasher.hash("super_secret".toCharArray());
+        setupUserWithCredentials(userId, username, "super_secret");
         
-        User user = User.create(userId, username, passwordHash)
-            .grantPermission(com.oodesigns.cas.domain.value.Permission.of("manage_users"))
-            .grantPermission(com.oodesigns.cas.domain.value.Permission.of("view_reports"))
-            .grantPermission(com.oodesigns.cas.domain.value.Permission.of("delete_accounts"));
+        User user = new User(userId, username, Set.of(
+            com.oodesigns.cas.domain.value.Permission.of("manage_users"),
+            com.oodesigns.cas.domain.value.Permission.of("view_reports"),
+            com.oodesigns.cas.domain.value.Permission.of("delete_accounts")
+        ));
         
         userRepository.save(user);
 
@@ -526,9 +525,7 @@ class LoginIntegrationTest {
         // 1. Setup: Create user with no permissions
         UserId userId = UserId.generate();
         Username username = new Username("basic_user");
-        PasswordHash passwordHash = passwordHasher.hash("basic_pass".toCharArray());
-        User user = User.create(userId, username, passwordHash);
-        userRepository.save(user);
+        setupUserWithCredentials(userId, username, "basic_pass");
 
         // 2. Execute: Login
         LoginCommand loginCmd = new LoginCommand(Username.of("basic_user"), new Password("basic_pass".toCharArray()), 

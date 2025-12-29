@@ -11,66 +11,48 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for User domain entity.
  * Validates: factory methods, immutability, permissions management.
+ * Note: User contains only post-authentication data (no password hash).
  */
 class UserTest {
 
     private UserId userId;
     private Username username;
-    private PasswordHash passwordHash;
 
     @BeforeEach
     void setUp() {
         userId = UserId.generate();
         username = new Username("john_doe");
-        passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
     }
 
     @Test
     void testCreateNewUser() {
-        User user = User.create(userId, username, passwordHash);
+        User user = new User(userId, username, Set.of());
         
         assertEquals(userId, user.userId());
         assertEquals(username, user.username());
-        assertEquals(passwordHash, user.passwordHash());
         assertTrue(user.permissions().isEmpty());
     }
 
     @Test
     void testCreateThrowsWithNullUserId() {
-        assertThrows(NullPointerException.class, () -> User.create(null, username, passwordHash));
+        UserId nullUserId = null;
+        Set<Permission> permissions = Set.of();
+        assertThrows(NullPointerException.class, () -> new User(nullUserId, username, permissions));
     }
 
     @Test
     void testCreateThrowsWithNullUsername() {
-        assertThrows(NullPointerException.class, () -> User.create(userId, null, passwordHash));
-    }
-
-    @Test
-    void testCreateThrowsWithNullPasswordHash() {
-        assertThrows(NullPointerException.class, () -> User.create(userId, username, null));
-    }
-
-    @Test
-    void testGrantPermissionReturnsNewInstance() {
-        User user1 = User.create(userId, username, passwordHash);
-        User user2 = user1.grantPermission(Permission.of("view_users"));
-
-        // Different objects
-        assertNotSame(user1, user2);
-        
-        // Original state unchanged
-        assertTrue(user1.permissions().isEmpty());
-        
-        // New instance has permission
-        assertEquals(1, user2.permissions().size());
-        assertTrue(user2.permissions().contains(Permission.of("view_users")));
+        Username nullUsername = null;
+        Set<Permission> permissions = Set.of();
+        assertThrows(NullPointerException.class, () -> new User(userId, nullUsername, permissions));
     }
 
     @Test
     void testGrantMultiplePermissions() {
-        User user = User.create(userId, username, passwordHash)
-            .grantPermission(Permission.of("view_users"))
-            .grantPermission(Permission.of("edit_profile"));
+        User user = new User(userId, username, Set.of(
+            Permission.of("view_users"),
+            Permission.of("edit_profile")
+        ));
 
         assertEquals(2, user.permissions().size());
         assertTrue(user.permissions().contains(Permission.of("view_users")));
@@ -78,42 +60,40 @@ class UserTest {
     }
 
     @Test
-    void testEqualityBasedOnUserId() {
-        // User equality is based on all fields, not just userId
-        User user1 = User.create(userId, username, passwordHash);
-        User user2 = User.create(userId, username, passwordHash);
+    void testEqualityBasedOnAllFields() {
+        User user1 = new User(userId, username, Set.of());
+        User user2 = new User(userId, username, Set.of());
         
         assertEquals(user1, user2);
     }
 
     @Test
     void testInequalityDifferentUserIds() {
-        User user1 = User.create(userId, username, passwordHash);
-        User user2 = User.create(UserId.generate(), username, passwordHash);
+        User user1 = new User(userId, username, Set.of());
+        User user2 = new User(UserId.generate(), username, Set.of());
         
         assertNotEquals(user1, user2);
     }
 
     @Test
     void testInequalityDifferentUsernames() {
-        User user1 = User.create(userId, username, passwordHash);
-        User user2 = User.create(userId, new Username("different"), passwordHash);
+        User user1 = new User(userId, username, Set.of());
+        User user2 = new User(userId, new Username("different"), Set.of());
         
         assertNotEquals(user1, user2);
     }
 
     @Test
     void testHashCodeConsistency() {
-        User user1 = User.create(userId, username, passwordHash);
-        User user2 = User.create(userId, username, passwordHash);
+        User user1 = new User(userId, username, Set.of());
+        User user2 = new User(userId, username, Set.of());
         
         assertEquals(user1.hashCode(), user2.hashCode());
     }
 
     @Test
     void testImmutabilityGetPermissionsReturnsUnmodifiable() {
-        User user = User.create(userId, username, passwordHash)
-            .grantPermission(Permission.of("view_users"));
+        User user = new User(userId, username, Set.of(Permission.of("view_users")));
         
         Set<Permission> permissions = user.permissions();
         
@@ -127,8 +107,8 @@ class UserTest {
 
     @Test
     void testCanBeUsedInHashBasedCollections() {
-        User user1 = User.create(userId, username, passwordHash);
-        User user2 = User.create(UserId.generate(), username, passwordHash);
+        User user1 = new User(userId, username, Set.of());
+        User user2 = new User(UserId.generate(), username, Set.of());
 
         Set<User> users = new HashSet<>();
         users.add(user1);

@@ -10,6 +10,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.time.Instant;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -35,8 +37,7 @@ class TokenServiceTest {
         
         UserId userId = UserId.generate();
         Username username = new Username("test_user");
-        PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
-        testUser = User.create(userId, username, passwordHash);
+        testUser = new User(userId, username, Set.of());
     }
 
     private void setupTokenSignerMock() {
