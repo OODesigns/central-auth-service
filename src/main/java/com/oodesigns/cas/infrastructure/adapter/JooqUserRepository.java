@@ -14,7 +14,7 @@ import org.jooq.DSLContext;
 import org.jooq.Record;
 
 /**
- * jOOQ-based implementation of UserRepository.
+ * Jooq-based implementation of UserRepository.
  * Type-safe queries to PostgreSQL {@code auth.get_user(user_id)} function.
  *
  * Retrieves authenticated user data with permissions for authorization decisions.
@@ -49,7 +49,7 @@ final class JooqUserRepository implements Ports.UserRepository {
      * Maps database record to User domain entity.
      * Converts PostgreSQL text[] permissions array to Set<Permission>.
      *
-     * @param rec jOOQ record from auth.get_user() function
+     * @param rec Jooq record from auth.get_user() function
      * @return User domain entity with immutable permission set
      */
     private User mapToUser(final Record rec) {
