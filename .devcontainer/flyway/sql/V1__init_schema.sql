@@ -52,17 +52,27 @@ DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS trusted_clients;
 DROP TABLE IF EXISTS audit_logs;
 
+-- NOTE: DO NOT DROP auth schema - it's created by the init script (01_init_database.sh)
+-- and persists across migrations to maintain function ownership and privileges
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ============================================================================
 -- ROLES & PERMISSIONS (database-level security)
 -- ============================================================================
 
--- Create app-level role for application connections
-CREATE ROLE app_user WITH LOGIN PASSWORD 'changeme';
+-- Create app-level role for application connections (if not already created by init script)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_user') THEN
+    CREATE ROLE app_user WITH LOGIN PASSWORD 'changeme';
+  END IF;
+END
+$$;
+
 COMMENT ON ROLE app_user IS 'Application-level database connection role with minimal required permissions';
 
--- Create auth schema for auth-related functions
+-- Auth schema is created by init script; ensure it exists and grant usage
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT USAGE ON SCHEMA auth TO app_user;
 COMMENT ON SCHEMA auth IS 'Authentication and authorization functions';

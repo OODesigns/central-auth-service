@@ -52,8 +52,13 @@ else
   echo "Database \"${APP_DB}\" already exists; skipping creation."
 fi
 
+echo "----> Creating auth schema (if not exists)"
+psql --username="${POSTGRES_USER}" --dbname="${APP_DB}" <<-EOSQL
+  CREATE SCHEMA IF NOT EXISTS auth;
+EOSQL
+
 echo "----> Granting privileges on ${APP_DB} to ${APP_USER}"
-psql --username="${POSTGRES_USER}" --dbname="${POSTGRES_DB}" <<-EOSQL
+psql --username="${POSTGRES_USER}" --dbname="${APP_DB}" <<-EOSQL
   -- Allow the app user to connect and use the public schema
   GRANT CONNECT ON DATABASE ${APP_DB} TO ${APP_USER};
   GRANT USAGE   ON SCHEMA public TO ${APP_USER};
