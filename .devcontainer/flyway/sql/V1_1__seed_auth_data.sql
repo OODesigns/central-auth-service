@@ -12,7 +12,7 @@
 --
 --  1. ADMIN PASSWORD INJECTION (REQUIRED)
 --     Set Flyway placeholder: ${ADMIN_PASSWORD}
---     Example in Gradle: -Dflyway.placeholders.admin_password=<bcrypt_hash>
+--     Configure via .env file: FLYWAY_PLACEHOLDERS_ADMIN_PASSWORD=<bcrypt_hash>
 --     
 --     The placeholder MUST be replaced before running this migration.
 --     If not configured, the literal string '${ADMIN_PASSWORD}' will be inserted
