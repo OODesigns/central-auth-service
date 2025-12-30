@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -44,7 +43,6 @@ class AdminLoginMockIntegrationTest {
 
     private static final String ADMIN_USERNAME = "admin";
     private static final String ADMIN_PASSWORD = "admin_initial_password";
-    private static final String ADMIN_ROLE = "admin";
 
     @BeforeEach
     void setUp() {

@@ -14,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.sql.*;
-import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -149,8 +148,8 @@ class AdminLoginDatabaseIntegrationTest {
     private DSLContext createDslContext() {
         try {
             var dataSource = new org.postgresql.ds.PGSimpleDataSource();
-            dataSource.setServerName(getDbHost());           // Connect to docker-compose postgres
-            dataSource.setPortNumber(getDbPort());
+            dataSource.setServerNames(new String[]{getDbHost()});           // Connect to docker-compose postgres
+            dataSource.setPortNumbers(new int[]{getDbPort()});
             dataSource.setDatabaseName(getAppDb());
             dataSource.setUser(getAppUser());
             dataSource.setPassword(getAppPassword());
@@ -411,7 +410,7 @@ stmt.close();
                 "WHERE ur.user_id = '" + userId + "' AND r.name = 'admin'"
             );
             assertTrue(rs.next(), "Query should return results");
-            assertTrue(rs.getInt("role_count") == 1,
+            assertEquals(1, rs.getInt("role_count"),
                 "Admin user should have exactly one admin role");
             stmt.close();
             conn.close();
