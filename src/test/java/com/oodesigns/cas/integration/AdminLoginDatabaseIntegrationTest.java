@@ -119,7 +119,7 @@ class AdminLoginDatabaseIntegrationTest {
         rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
         
         // Create real JWT token signer with secret from environment
-        String jwtSecret = System.getenv().getOrDefault("JWT_SECRET", "@VBM8bzckFFr^c@");
+        String jwtSecret = System.getenv().get("JWT_SECRET");
         tokenSigner = new JwtTokenSigner(
             keyId -> java.util.Optional.of(com.oodesigns.cas.domain.value.KeyPassword.fromString(jwtSecret)),
             "default"
