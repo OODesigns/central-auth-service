@@ -4,7 +4,7 @@
 	"name": "Java + Postgres + Flyway",              // Human‑readable name shown in IntelliJ’s Dev Container UI
 	"dockerComposeFile": "docker-compose.yml",       // Path to the Docker Compose file that defines your services
 	"service": "app",                                // The Compose service to use as your main development container
-	"workspaceFolder": "/workspace",                 // Directory inside the container where your project is mounted
+	"workspaceFolder": "/workspaces",                // Directory inside the container where your project is mounted (matches docker-compose.yml)
 	"customizations": {                              // IntelliJ‑specific IDE customizations
 		"jetbrains": {                               // JetBrains plugin settings
 			"plugins": [
