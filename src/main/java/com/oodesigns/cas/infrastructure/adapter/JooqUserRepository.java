@@ -28,11 +28,11 @@ import org.jooq.Record;
  * - Array handling: Automatic PostgreSQL text[] to Java Set<Permission> conversion
  * - Single responsibility: Only handles user retrieval, credential reading handled by UserCredentialReader
  */
-final class JooqUserRepository implements Ports.UserRepository {
+public final class JooqUserRepository implements Ports.UserRepository {
 
     private final DSLContext dsl;
 
-    JooqUserRepository(final DSLContext dsl) {
+    public JooqUserRepository(final DSLContext dsl) {
         this.dsl = Objects.requireNonNull(dsl, "DSLContext cannot be null");
     }
 

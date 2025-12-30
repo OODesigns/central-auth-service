@@ -20,11 +20,11 @@ import org.jooq.DSLContext;
  * - Generated types: No string column names or manual casting
  * - Refactor-safe: RLS/permission changes break compilation if needed
  */
-final class JooqUserCredentialReader implements Ports.UserCredentialReader {
+public final class JooqUserCredentialReader implements Ports.UserCredentialReader {
 
     private final DSLContext dsl;
 
-    JooqUserCredentialReader(final DSLContext dsl) {
+    public JooqUserCredentialReader(final DSLContext dsl) {
         this.dsl = Objects.requireNonNull(dsl, "DSLContext cannot be null");
     }
 

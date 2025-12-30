@@ -11,11 +11,11 @@
 -- IMPORTANT REQUIREMENTS:
 --
 --  1. ADMIN PASSWORD INJECTION (REQUIRED)
---     Set Flyway placeholder: ${ADMIN_PASSWORD}
---     Configure via .env file: FLYWAY_PLACEHOLDERS_ADMIN_PASSWORD=<bcrypt_hash>
+--     Set Flyway placeholder: ${ADMIN_PASSWORD_HASH}
+--     Configure via .env file: ADMIN_PASSWORD_HASH=<bcrypt_hash>
 --     
 --     The placeholder MUST be replaced before running this migration.
---     If not configured, the literal string '${ADMIN_PASSWORD}' will be inserted
+--     If not configured, the literal string '${ADMIN_PASSWORD_HASH}' will be inserted
 --     and the admin user will not be able to log in.
 --
 --  2. IDEMPOTENCY
@@ -98,7 +98,7 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 --  - admin must rotate password on first login (password_reset_required_at is set to now())
 
 INSERT INTO users (username, password_hash, password_reset_required_at, created_at, updated_at)
-VALUES ('admin', '${ADMIN_PASSWORD}', NOW(), NOW(), NOW())
+VALUES ('admin', '${ADMIN_PASSWORD_HASH}', NOW(), NOW(), NOW())
 ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================================

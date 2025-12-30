@@ -19,28 +19,23 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * End-to-end integration tests for the login use case.
+ * Integration tests for the login command handler using mock adapters.
  * 
- * Demonstrates the complete hexagonal architecture flow:
- *   REST Request (LoginRequestDto)
- *   ↓
- *   Application Command (LoginCommand)
- *   ↓
- *   Command Handler (LoginCommandHandler)
- *   ↓
- *   Domain Services (AuthenticationService)
- *   ↓
- *   Value Objects & Entities (User, UserId, Username, PasswordHash, Role)
- *   ↓
- *   Ports (UserRepository, PasswordVerifier, Clock, RateLimiter)
- *   ↓
- *   Adapters (InMemoryUserRepository, MockPasswordVerifier, MockClock, Bucket4jRateLimiter, MockTokenSigner)
- *   ↓
- *   Result (LoginResult)
+ * Tests general login scenarios (not admin-specific) with in-memory mocks:
+ * - Valid credentials login
+ * - Invalid password handling
+ * - Non-existent user handling
+ * - Multiple users in system
+ * - Rate limiting behavior
+ * - Token generation
  * 
- * All external dependencies are injected as ports; adapters handle specifics.
+ * Uses mock adapters (InMemoryUserRepository, MockPasswordVerifier, MockClock, etc.)
+ * for fast unit-like testing without external dependencies.
+ * 
+ * For admin-specific scenarios with mocks, see: AdminLoginMockIntegrationTest
+ * For real database testing, see: AdminLoginDatabaseIntegrationTest
  */
-class LoginIntegrationTest {
+class LoginMockIntegrationTest {
 
     private LoginCommandHandler loginHandler;
     private InMemoryUserRepository userRepository;

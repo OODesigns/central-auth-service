@@ -19,6 +19,9 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.mockito:mockito-core:5.12.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.12.0'
+    testImplementation 'org.testcontainers:testcontainers:1.19.8'
+    testImplementation 'org.testcontainers:postgresql:1.19.8'
+    testImplementation 'org.testcontainers:junit-jupiter:1.19.8'
     
     // Database
     implementation 'org.jooq:jooq:3.19.0'
@@ -27,7 +30,8 @@ dependencies {
     // Main dependencies
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.0'
     implementation 'com.bucket4j:bucket4j_jdk17-core:8.15.0'
-    implementation 'org.mindrot:jbcrypt:0.4'
+    implementation 'org.springframework.security:spring-security-crypto:6.3.0'
+    implementation 'commons-logging:commons-logging:1.2'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.1'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.1'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.1'

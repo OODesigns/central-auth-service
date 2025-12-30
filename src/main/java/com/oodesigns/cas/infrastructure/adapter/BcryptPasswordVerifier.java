@@ -3,23 +3,25 @@ package com.oodesigns.cas.infrastructure.adapter;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Credentials;
 import com.oodesigns.cas.domain.value.UserId;
-import org.mindrot.jbcrypt.BCrypt;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.Optional;
 
 /**
- * Production implementation of PasswordVerifier using BCrypt.
+ * Production implementation of PasswordVerifier using Spring Security's BCrypt.
  * Verifies password credentials against stored password hashes using the bcrypt algorithm.
  * 
  * Security Properties:
  * - Uses BCrypt with salting and work factor for resistance against rainbow table and brute force attacks
- * - BCrypt.checkpw() uses constant-time comparison to prevent timing attacks
+ * - Spring Security's BCryptPasswordEncoder uses constant-time comparison to prevent timing attacks
  * - Password is cleared via Credentials.close() when used with try-with-resources
  * - Avoids logging or exposing verification failure reasons
+ * - Supports all bcrypt hash formats: $2a$, $2b$, $2y$
  * 
- * Requires the jbcrypt library: org.mindrot:jbcrypt:0.4
+ * Requires Spring Security: org.springframework.security:spring-security-crypto:6.3.0
  */
 public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
+    private static final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     /**
      * Verify credentials by checking password against stored bcrypt hash.
@@ -35,7 +37,7 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
 
     /**
      * Authenticate credentials by verifying password against stored bcrypt hash.
-     * Uses BCrypt constant-time comparison to prevent timing attacks.
+     * Uses Spring Security BCryptPasswordEncoder for constant-time comparison resistant to timing attacks.
      * Password char[] is automatically cleared via Credentials AutoCloseable interface.
      * 
      * @param credentials the credentials to verify
@@ -48,8 +50,9 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
             String providedPassword = new String(credentials.password().chars());
             final String storedHash = credentials.credential().passwordHash().asString();
             
-            // BCrypt.checkpw() performs constant-time comparison resistant to timing attacks
-            final boolean matches = BCrypt.checkpw(providedPassword, storedHash);
+            // Spring Security's matches() performs constant-time comparison resistant to timing attacks
+            // Supports all bcrypt hash formats: $2a$, $2b$, $2y$
+            final boolean matches = encoder.matches(providedPassword, storedHash);
             
             // Clear the password string from memory as soon as possible
             // Note: Java strings cannot be truly wiped, but setting to null enables GC sooner
@@ -68,7 +71,3 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
         }
     }
 }
-
-
-
-

@@ -1,16 +1,9 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/java-postgres
 {
-	"name": "Java + Postgres + Flyway",              // Human‑readable name shown in IntelliJ’s Dev Container UI
-	"dockerComposeFile": "docker-compose.yml",       // Path to the Docker Compose file that defines your services
-	"service": "app",                                // The Compose service to use as your main development container
-	"workspaceFolder": "/workspaces",                // Directory inside the container where your project is mounted (matches docker-compose.yml)
-	"customizations": {                              // IntelliJ‑specific IDE customizations
-		"jetbrains": {                               // JetBrains plugin settings
-			"plugins": [
-				"org.intellij.plugins.hcl"           // Installs the HCL plugin inside the container
-			]
-		}
-	}
+	"name": "Java + Postgres + Flyway",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"workspaceFolder": "/workspaces"
 }
 

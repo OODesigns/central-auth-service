@@ -8,7 +8,7 @@ import com.oodesigns.cas.domain.value.UserCredential;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mindrot.jbcrypt.BCrypt;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.Optional;
 
@@ -30,8 +30,9 @@ class BcryptPasswordVerifierTest {
         mockHasher = new MockPasswordHasher();
         
         final UserId userId = UserId.generate();
-        // Generate a real BCrypt hash for "correct_password"
-        final String bcryptHash = BCrypt.hashpw("correct_password", BCrypt.gensalt(12));
+        // Generate a real BCrypt hash for "correct_password" using Spring Security
+        final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+        final String bcryptHash = encoder.encode("correct_password");
         final PasswordHash passwordHash = new PasswordHash(bcryptHash);
         testCredential = new UserCredential(userId, passwordHash);
     }
@@ -133,8 +134,9 @@ class BcryptPasswordVerifierTest {
     @Test
     @DisplayName("Should verify with multiple users")
     void shouldVerifyWithMultipleUsers() {
-        final String bcryptHash1 = BCrypt.hashpw("password1", BCrypt.gensalt(12));
-        final String bcryptHash2 = BCrypt.hashpw("password2", BCrypt.gensalt(12));
+        final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+        final String bcryptHash1 = encoder.encode("password1");
+        final String bcryptHash2 = encoder.encode("password2");
         final PasswordHash hash1 = new PasswordHash(bcryptHash1);
         final PasswordHash hash2 = new PasswordHash(bcryptHash2);
         

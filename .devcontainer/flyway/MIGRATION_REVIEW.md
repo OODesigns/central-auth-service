@@ -50,8 +50,8 @@ REVOKE ALL ON FUNCTION auth.get_user(uuid) FROM PUBLIC;
 
 #### Issue 4: Insufficient configuration documentation for placeholder injection
 **Severity**: MEDIUM (Documentation)  
-**Description**: The `${ADMIN_PASSWORD}` placeholder requires Flyway configuration, but error handling if not set is unclear.  
-**Impact**: Misconfigured deployments could insert literal `'${ADMIN_PASSWORD}'` string  
+**Description**: The `${ADMIN_PASSWORD_HASH}` placeholder requires Flyway configuration, but error handling if not set is unclear.  
+**Impact**: Misconfigured deployments could insert literal `'${ADMIN_PASSWORD_HASH}'` string  
 **Fix Applied**: Enhanced header comments with:
 - Explicit requirement for Flyway placeholder configuration
 - Example Gradle command
@@ -146,7 +146,7 @@ REVOKE ALL ON FUNCTION auth.get_user(uuid) FROM PUBLIC;
 
 ## Testing Recommendations
 
-1. **Test placeholder injection**: Verify Flyway replaces `${ADMIN_PASSWORD}` correctly
+1. **Test placeholder injection**: Verify Flyway replaces `${ADMIN_PASSWORD_HASH}` correctly
 2. **Test function execution**: Confirm `app_user` can execute both auth functions
 3. **Test role permissions**: Verify admin user has all expected permissions after migration
 4. **Test re-run idempotency**: Run migrations twice, verify no errors on second run
