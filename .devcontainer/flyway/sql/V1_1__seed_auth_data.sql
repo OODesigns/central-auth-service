@@ -2,19 +2,39 @@
 -- Bootstrap authorization data for Central Auth Service (CAS)
 --
 -- This migration seeds:
---  - static roles
---  - static permissions
+--  - static roles (admin, user, kiosk)
+--  - static permissions (user/cert/audit management)
 --  - role → permission mappings
---  - bootstrap admin user (forced password rotation)
---  - admin → admin-role assignment
+--  - bootstrap admin user (forced password rotation on first login)
+--  - admin user → admin role assignment
 --
--- All inserts are idempotent and safe to run once.
+-- IMPORTANT REQUIREMENTS:
 --
--- REQUIRED CONFIGURATION:
---  - Set Flyway placeholder for ${ADMIN_PASSWORD} in application configuration
---    Example: flyway.placeholders.admin_password=<bcrypt_hash_of_initial_password>
---  - The placeholder MUST be replaced before running this migration
---  - Failure to set the placeholder will result in migration failure
+--  1. ADMIN PASSWORD INJECTION (REQUIRED)
+--     Set Flyway placeholder: ${ADMIN_PASSWORD}
+--     Example in Gradle: -Dflyway.placeholders.admin_password=<bcrypt_hash>
+--     
+--     The placeholder MUST be replaced before running this migration.
+--     If not configured, the literal string '${ADMIN_PASSWORD}' will be inserted
+--     and the admin user will not be able to log in.
+--
+--  2. IDEMPOTENCY
+--     All INSERT statements use ON CONFLICT (name/role) DO NOTHING
+--     Safe to run multiple times without errors
+--
+--  3. ROLE PERMISSIONS
+--     - admin: Full permissions (create/update/delete users, certs, audit)
+--     - user:  No permissions (view-only, handled at application layer)
+--     - kiosk: No permissions (public terminal, view-only access)
+--     
+--     To grant permissions to 'user' or 'kiosk' roles, uncomment and modify
+--     the commented INSERT statements below in the PERMISSIONS section.
+--
+-- SECURITY NOTES:
+--  - Admin user password_reset_required_at is set to NOW()
+--    Admin MUST change password on first login
+--  - Consider rotating admin password in production deployment
+--  - Use environment-based password injection in CI/CD, not hardcoded
 
 -- ============================================================================
 -- SEED ROLES (STATIC CONFIG)
@@ -54,6 +74,20 @@ WHERE r.name = 'admin'
                  'create_certificate', 'revoke_certificate', 'view_audit_log',
                  'clear_audit_log')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- Regular users: no special permissions assigned
+-- (View-only access handled at application level; users cannot perform admin actions)
+-- (Intentionally empty - uncomment and add permissions if needed in future)
+-- INSERT INTO role_permissions (role_id, permission_id)
+-- SELECT r.role_id, p.permission_id FROM roles r CROSS JOIN permissions p
+-- WHERE r.name = 'user' AND p.name IN () ON CONFLICT DO NOTHING;
+
+-- Kiosk users: no special permissions assigned  
+-- (Public terminal access; view-only; cannot perform admin actions)
+-- (Intentionally empty - uncomment and add permissions if needed in future)
+-- INSERT INTO role_permissions (role_id, permission_id)
+-- SELECT r.role_id, p.permission_id FROM roles r CROSS JOIN permissions p
+-- WHERE r.name = 'kiosk' AND p.name IN () ON CONFLICT DO NOTHING;
 
 -- ============================================================================
 -- BOOTSTRAP ADMIN USER (FORCE PASSWORD ROTATION)

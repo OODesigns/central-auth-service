@@ -729,3 +729,6 @@ SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION auth.get_user(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION auth.get_user(uuid) TO app_user;
+
+REVOKE ALL ON FUNCTION auth.get_user(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth.get_user(uuid) TO app_user;
