@@ -1,5 +1,6 @@
 package com.oodesigns.cas.domain.value;
 
+import jakarta.annotation.Nonnull;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -25,14 +26,17 @@ public record UserId(UUID value) {
         return new UserId(UUID.randomUUID());
     }
 
+    @Nonnull
     public UUID asUUID() {
         return value;
     }
 
+    @Nonnull
     public String asString() {
         return value.toString();
     }
 
+    @Nonnull
     @Override
     public String toString() {
         return value.toString();

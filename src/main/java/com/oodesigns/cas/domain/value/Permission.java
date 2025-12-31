@@ -1,5 +1,7 @@
 package com.oodesigns.cas.domain.value;
 
+import jakarta.annotation.Nonnull;
+
 /**
  * Value object representing a fine-grained permission.
  * 
@@ -38,10 +40,12 @@ public record Permission(String value) {
      * 
      * @return the permission name (e.g., "create_user")
      */
+    @Nonnull
     public String asString() {
         return value;
     }
 
+    @Nonnull
     @Override
     public String toString() {
         return value;

@@ -1,5 +1,7 @@
 package com.oodesigns.cas.domain.value;
 
+import jakarta.annotation.Nonnull;
+
 /**
  * Value object representing a hashed password.
  * Stores only the hash; never the plaintext.
@@ -15,10 +17,12 @@ public record PasswordHash(String value) {
         }
     }
 
+    @Nonnull
     public String asString() {
         return value;
     }
 
+    @Nonnull
     @Override
     public String toString() {
         return "PasswordHash(****)";

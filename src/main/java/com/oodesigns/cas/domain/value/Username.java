@@ -1,4 +1,6 @@
 package com.oodesigns.cas.domain.value;
+
+import jakarta.annotation.Nonnull;
 import java.util.regex.Pattern;
 
 /**
@@ -22,10 +24,12 @@ public record Username(String value) {
         return new Username(value);
     }
 
+    @Nonnull
     public String asString() {
         return value;
     }
 
+    @Nonnull
     @Override
     public String toString() {
         return value;

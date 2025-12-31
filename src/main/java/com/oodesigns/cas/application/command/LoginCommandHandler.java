@@ -40,7 +40,7 @@ public final class LoginCommandHandler {
                 .map(this::handleCommand)
                 .orElseGet(() -> LoginResult.failure("INVALID_REQUEST", "LoginCommand cannot be null"));
         } catch (final RuntimeException e) {
-            return LoginResult.failure("INTERNAL_ERROR", "An internal error occurred during authentication");
+            return LoginResult.failure("INTERNAL_ERROR", e.getMessage());
         }
     }
 

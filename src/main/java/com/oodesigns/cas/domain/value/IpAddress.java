@@ -1,5 +1,6 @@
 package com.oodesigns.cas.domain.value;
 
+import jakarta.annotation.Nonnull;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
@@ -27,9 +28,10 @@ public record IpAddress(String value) {
      */
     private static boolean isValidIpAddress(final String ip) {
         try {
+            //noinspection ResultOfMethodCallIgnored
             InetAddress.getByName(ip);
             return true;
-        } catch (final UnknownHostException e) {
+        } catch (final UnknownHostException _) {
             return false;
         }
     }
@@ -38,10 +40,12 @@ public record IpAddress(String value) {
         return new IpAddress(value);
     }
 
+    @Nonnull
     public String asString() {
         return value;
     }
 
+    @Nonnull
     @Override
     public String toString() {
         return value;
