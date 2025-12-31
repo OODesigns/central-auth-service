@@ -15,7 +15,7 @@ RUN apt-get update && \
 ##############################################
 # Install Flyway CLI for DB migrations
 ##############################################
-ARG FLYWAY_VERSION=11.8.2
+ARG FLYWAY_VERSION=11.20.0
 RUN curl -SL \
       "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
     | tar -xz \
