@@ -175,6 +175,7 @@ class AdminLoginDatabaseIntegrationTest {
     void testAdminLoginWithDatabaseCredentials() {
         // Spring Security's BCryptPasswordEncoder supports all bcrypt hash formats ($2a$, $2b$, $2y$)
         // Ensure the admin user has a valid bcrypt hash in the database
+        String actualHash = null;
         try {
             String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", getDbHost(), getDbPort(), getAppDb());
             Connection conn = DriverManager.getConnection(jdbcUrl, getAppUser(), getAppPassword());
@@ -184,6 +185,25 @@ class AdminLoginDatabaseIntegrationTest {
             var rs = stmt.executeQuery("SELECT user_id, password_hash FROM users WHERE username = 'admin'");
             if (!rs.next()) {
                 fail("Admin user not found in database");
+            }
+            actualHash = rs.getString("password_hash");
+            System.out.println("DEBUG: Password hash in DB: " + actualHash);
+            System.out.println("DEBUG: Plain password to test: " + ADMIN_PASSWORD);
+            
+            // Test bcrypt directly
+            org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder = 
+                new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+            boolean directMatch = encoder.matches(ADMIN_PASSWORD, actualHash);
+            System.out.println("DEBUG: Direct BCrypt match: " + directMatch);
+            
+            // Test auth.find_user_credentials function
+            var rs2 = stmt.executeQuery("SELECT * FROM auth.find_user_credentials('admin')");
+            if (rs2.next()) {
+                String funcHash = rs2.getString("password_hash");
+                System.out.println("DEBUG: Hash from auth.find_user_credentials: " + funcHash);
+                System.out.println("DEBUG: Hashes match: " + actualHash.equals(funcHash));
+            } else {
+                System.out.println("DEBUG: auth.find_user_credentials returned no rows!");
             }
             
             stmt.close();
@@ -373,7 +393,7 @@ stmt.close();
                 "Migration history should exist from docker-compose Flyway service");
             stmt.close();
             conn.close();
-        } catch (SQLException e) {
+        } catch (SQLException _) {
             // Migration table might not exist yet - that's OK, migrations come from docker-compose
             assertTrue(true, "Migration table not required for this test - comes from docker-compose");
         }

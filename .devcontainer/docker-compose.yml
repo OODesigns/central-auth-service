@@ -99,7 +99,7 @@ services:
       # If your script creates a separate "app" database + roles:
       APP_DB: ${APP_DB}
       APP_USER: ${APP_USER}
-      APP_PASSWORD_HASH: ${APP_PASSWORD}
+      APP_PASSWORD: ${APP_PASSWORD}
       # ← tell initdb to use C.utf8 for the entire cluster
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.utf8"
     # Attach to both the default Compose network AND pg-network
