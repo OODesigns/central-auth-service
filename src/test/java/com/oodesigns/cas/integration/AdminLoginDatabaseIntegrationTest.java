@@ -11,6 +11,7 @@ import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.sql.*;
@@ -39,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * This is a true end-to-end test that validates the entire stack works correctly
  * with real infrastructure and a live database.
  */
+@Tag("integration")
 class AdminLoginDatabaseIntegrationTest {
 
     private LoginCommandHandler loginHandler;
