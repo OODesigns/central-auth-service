@@ -12,6 +12,10 @@ java {
     }
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs.add("--enable-preview")
+}
+
 repositories {
     mavenCentral()
 }
@@ -23,8 +27,8 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testImplementation 'org.mockito:mockito-core:5.12.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.12.0'
+    testImplementation 'org.mockito:mockito-core:5.14.1'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.14.1'
     testImplementation 'org.testcontainers:testcontainers:1.19.8'
     testImplementation 'org.testcontainers:postgresql:1.19.8'
     testImplementation 'org.testcontainers:junit-jupiter:1.19.8'
@@ -37,7 +41,7 @@ dependencies {
     implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.0'
     implementation 'com.bucket4j:bucket4j_jdk17-core:8.15.0'
-    implementation 'org.springframework.security:spring-security-crypto:6.3.0'
+    implementation 'org.springframework.security:spring-security-crypto:7.0.2'
     implementation 'commons-logging:commons-logging:1.2'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.1'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.1'
@@ -48,10 +52,17 @@ test {
     useJUnitPlatform {
         excludeTags 'integration'
     }
+    jvmArgs = [
+        '--enable-preview',
+        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.lang.invoke=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+        '--add-opens', 'java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED'
+    ]
     finalizedBy jacocoTestReport
 }
 
-task integrationTest(type: Test) {
+tasks.register('integrationTest', Test) {
     useJUnitPlatform {
         includeTags 'integration'
     }
