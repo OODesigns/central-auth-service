@@ -1,7 +1,7 @@
 ##############################################
 # Development container configuration
 ##############################################
-FROM eclipse-temurin:21-jdk
+FROM eclipse-temurin:22-jdk
 
 ##############################################
 # Install development tools & dependencies

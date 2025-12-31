@@ -1,8 +1,9 @@
 package com.oodesigns.cas.domain.value;
 
-import jakarta.annotation.Nonnull;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+
+import jakarta.annotation.Nonnull;
 
 /**
  * Value object representing an IP address.
