@@ -61,7 +61,8 @@ services:
     environment:
       # Auth service specific environment variables
       # JDBC-style connection string for the database.
-      DATABASE_URL: jdbc:postgresql://localhost:5432/${POSTGRES_DB}
+      # Use 'db' as hostname - Docker Compose automatically resolves it to the db container's IP
+      DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       # Indicates development environment.
       NODE_ENV: development
       # JWT secret key for signing tokens.
