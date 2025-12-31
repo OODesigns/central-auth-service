@@ -8,6 +8,8 @@ import com.oodesigns.cas.domain.value.UserId;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Application command handler for login.
@@ -16,6 +18,9 @@ import java.util.Optional;
  * 2. Fetch full User object to retrieve permissions for token
  */
 public final class LoginCommandHandler {
+    private static final Logger LOGGER = Logger.getLogger(LoginCommandHandler.class.getName());
+    private static final String INTERNAL_ERROR = "INTERNAL_ERROR";
+    
     private final AuthenticationService authService;
     private final TokenService tokenService;
     private final Ports.UserCredentialReader credentialReader;
@@ -40,7 +45,8 @@ public final class LoginCommandHandler {
                 .map(this::handleCommand)
                 .orElseGet(() -> LoginResult.failure("INVALID_REQUEST", "LoginCommand cannot be null"));
         } catch (final RuntimeException e) {
-            return LoginResult.failure("INTERNAL_ERROR", e.getMessage());
+            LOGGER.log(Level.SEVERE, INTERNAL_ERROR, e);
+            return LoginResult.failure(INTERNAL_ERROR, e.getMessage());
         }
     }
 
