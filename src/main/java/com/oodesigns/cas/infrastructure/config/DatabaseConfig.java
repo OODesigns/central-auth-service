@@ -1,70 +1,155 @@
 package com.oodesigns.cas.infrastructure.config;
 
-import org.jooq.DSLContext;
-import org.jooq.SQLDialect;
-import org.jooq.impl.DSL;
-import org.postgresql.ds.PGSimpleDataSource;
-
-import javax.sql.DataSource;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
+import java.util.function.Supplier;
 
 /**
- * Declarative database configuration that loads properties and creates JOOQ DSLContext.
+ * Database configuration that loads and validates properties.
  * <p>
- * Follows functional programming principles:
- * - Each method does one thing
- * - Immutable configuration after construction
- * - Pure functions with clear inputs/outputs
- * - Lazy initialization with thread-safe caching
+ * Single Responsibility: Load properties, resolve placeholders, validate against defined schema.
+ * Does NOT create DSLContext - that's delegated to DatabaseContextFactory for Spring IoC.
  * </p>
  */
-public final class DatabaseConfig implements AutoCloseable {
+public final class DatabaseConfig {
     
     private static final Logger LOGGER = Logger.getLogger(DatabaseConfig.class.getName());
     private static final String PROPERTIES_FILE = "application.properties";
-    private static final int DEFAULT_PORT = 5432;
-    private static final int CONNECTION_TIMEOUT_SECONDS = 30;
-    private static final int VALIDATION_TIMEOUT_SECONDS = 5;
     
-    private final Properties properties;
-    private final DatabaseConnectionConfig connectionConfig;
-    private final Supplier<DSLContext> dslContextSupplier;
+    // Property definitions with validation patterns
+    private static final PropertyDefinition DB_HOST = new PropertyDefinition(
+        "db.host",
+        "localhost",
+        Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$"),
+        value -> !value.contains(".."),  // No consecutive dots
+        "Database hostname or IP address"
+    );
     
+    private static final PropertyDefinition DB_PORT = new PropertyDefinition(
+        "db.port",
+        "5432",
+        Pattern.compile("^\\d{1,5}$"),
+        value -> {
+            try {
+                int port = Integer.parseInt(value);
+                return port >= 1 && port <= 65535;
+            } catch (NumberFormatException _) {
+                return false;
+            }
+        },
+        "Database port (1-65535)"
+    );
+    
+    private static final PropertyDefinition DB_NAME = new PropertyDefinition(
+        "db.name",
+        "auth_db",
+        Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_-]*$"),
+        null,
+        "Database name (alphanumeric, underscore, and hyphen)"
+    );
+    
+    private static final PropertyDefinition DB_USER = new PropertyDefinition(
+        "db.user",
+        "app_user",
+        Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_-]*$"),
+        null,
+        "Database username (alphanumeric, underscore, and hyphen)"
+    );
+    
+    private static final PropertyDefinition DB_PASSWORD = PropertyDefinition.withoutValidation(
+        "db.password",
+        "password",
+        "Database password"
+    );
+    
+    private static final Map<String, PropertyDefinition> PROPERTY_DEFINITIONS = Map.of(
+        DB_HOST.key(), DB_HOST,
+        DB_PORT.key(), DB_PORT,
+        DB_NAME.key(), DB_NAME,
+        DB_USER.key(), DB_USER,
+        DB_PASSWORD.key(), DB_PASSWORD
+    );
+    
+    private final Properties resolvedProperties;
+    
+    /**
+     * Creates configuration by loading and validating properties.
+     * Fails fast if required properties are invalid.
+     */
     public DatabaseConfig() {
-        this.properties = loadAndResolveProperties();
-        this.connectionConfig = extractAndValidateConnectionConfig();
-        this.dslContextSupplier = createMemoizedDslContextSupplier();
+        this.resolvedProperties = loadAndResolveProperties();
+        validateAllDefinedProperties();
     }
     
     /**
-     * Get DSLContext for database operations.
-     * Thread-safe lazy initialization with memoization.
+     * Get validated property value.
+     *
+     * @param key The property key
+     * @return The property value
+     * @throws DatabaseConfigurationException if property is not defined
      */
-    public DSLContext dslContext() {
-        return dslContextSupplier.get();
+    public String getProperty(final String key) {
+        PropertyDefinition definition = PROPERTY_DEFINITIONS.get(key);
+        if (definition == null) {
+            throw new DatabaseConfigurationException("Property '" + key + "' is not defined");
+        }
+        return resolvedProperties.getProperty(key);
     }
     
     /**
-     * Get property value by key.
+     * Get property value with fallback.
+     *
+     * @param key The property key
+     * @param fallback The fallback value
+     * @return The property value or fallback
      */
-    public String property(final String key) {
-        return properties.getProperty(key);
+    public String getProperty(final String key, final String fallback) {
+        PropertyDefinition definition = PROPERTY_DEFINITIONS.get(key);
+        if (definition == null) {
+            return fallback;
+        }
+        return resolvedProperties.getProperty(key, fallback);
     }
     
     /**
-     * Get property value with fallback default.
+     * Get database host.
      */
-    public String property(final String key, final String defaultValue) {
-        return properties.getProperty(key, defaultValue);
+    public String getHost() {
+        return getProperty(DB_HOST.key());
+    }
+    
+    /**
+     * Get database port.
+     */
+    public int getPort() {
+        return Integer.parseInt(getProperty(DB_PORT.key()));
+    }
+    
+    /**
+     * Get database name.
+     */
+    public String getDatabaseName() {
+        return getProperty(DB_NAME.key());
+    }
+    
+    /**
+     * Get database username.
+     */
+    public String getUsername() {
+        return getProperty(DB_USER.key());
+    }
+    
+    /**
+     * Get database password.
+     */
+    public String getPassword() {
+        return getProperty(DB_PASSWORD.key());
     }
     
     /**
@@ -99,16 +184,21 @@ public final class DatabaseConfig implements AutoCloseable {
     }
     
     /**
-     * Resolve all property values with environment variable substitution.
+     * Resolve all property placeholders in format ${ENV_VAR:default}.
      */
     private Properties resolveAllProperties(final Properties props) {
-        props.replaceAll((key, value) -> resolvePropertyValue(value.toString()));
-        return props;
+        Properties resolved = new Properties();
+        props.forEach((key, value) -> 
+            resolved.setProperty(
+                String.valueOf(key), 
+                resolvePropertyValue(String.valueOf(value))
+            )
+        );
+        return resolved;
     }
     
     /**
-     * Resolve single property value replacing ${ENV_VAR:default} patterns.
-     * Resolution order: environment variable → system property → default → empty string
+     * Resolve property value with environment variable or system property substitution.
      */
     private String resolvePropertyValue(final String value) {
         if (value == null || !value.contains("${")) {
@@ -116,235 +206,57 @@ public final class DatabaseConfig implements AutoCloseable {
         }
         
         String result = value;
-        while (result.contains("${")) {
-            int start = result.indexOf("${");
-            int end = result.indexOf("}", start);
+        int startIndex = 0;
+        
+        while ((startIndex = result.indexOf("${", startIndex)) != -1) {
+            int endIndex = result.indexOf('}', startIndex);
+            if (endIndex == -1) break;
             
-            if (end == -1) {
-                logWarning(() -> "Unclosed placeholder in property: " + value);
-                break;
-            }
+            String placeholder = result.substring(startIndex + 2, endIndex);
+            String resolvedValue = resolvePlaceholder(placeholder);
             
-            String resolved = resolvePlaceholder(result.substring(start + 2, end));
-            result = result.substring(0, start) + resolved + result.substring(end + 1);
+            result = result.substring(0, startIndex) + resolvedValue + result.substring(endIndex + 1);
+            startIndex += resolvedValue.length();
         }
         
         return result;
     }
     
     /**
-     * Resolve single placeholder (ENV_VAR or ENV_VAR:default).
+     * Resolve placeholder in format "ENV_VAR:default_value".
      */
     private String resolvePlaceholder(final String placeholder) {
         String[] parts = placeholder.split(":", 2);
-        String envVar = parts[0].trim();
-        String defaultVal = parts.length > 1 ? parts[1] : "";
+        String varName = parts[0];
+        String defaultValue = parts.length > 1 ? parts[1] : "";
         
-        return Optional.ofNullable(System.getenv(envVar))
-            .or(() -> Optional.ofNullable(System.getProperty(envVar)))
-            .orElse(defaultVal);
+        return Optional.ofNullable(System.getenv(varName))
+            .or(() -> Optional.ofNullable(System.getProperty(varName)))
+            .orElse(defaultValue);
     }
     
     /**
-     * Extract and validate database connection configuration from properties.
-     * Called during construction to fail fast if configuration is invalid.
+     * Validate all defined properties against their patterns.
      */
-    private DatabaseConnectionConfig extractAndValidateConnectionConfig() {
-        return new DatabaseConnectionConfig(
-            propertyOrDefault("db.host", "db"),
-            intPropertyOrDefault("db.port", DEFAULT_PORT),
-            propertyOrDefault("db.name", "auth_db"),
-            propertyOrDefault("db.user", "app_user"),
-            propertyOrDefault("db.password", "password")
-        );
-    }
-    
-    /**
-     * Create memoized supplier for thread-safe lazy DSLContext initialization.
-     * Configuration is already validated, so this won't throw configuration errors.
-     */
-    private Supplier<DSLContext> createMemoizedDslContextSupplier() {
-        return new MemoizedSupplier<>(() -> {
-            DataSource ds = buildDataSource();
-            logInfo(() -> "DSLContext created successfully");
-            return DSL.using(ds, SQLDialect.POSTGRES);
+    private void validateAllDefinedProperties() {
+        PROPERTY_DEFINITIONS.forEach((key, definition) -> {
+            String rawValue = resolvedProperties.getProperty(key);
+            String validatedValue = definition.validatedValue(rawValue);
+            resolvedProperties.setProperty(key, validatedValue);
         });
     }
     
-    /**
-     * Build and configure PostgreSQL DataSource from validated configuration.
-     */
-    private DataSource buildDataSource() {
-        PGSimpleDataSource ds = configureDataSource(connectionConfig);
-        validateConnection(ds);
-        logDataSourceConfiguration(connectionConfig);
-        return ds;
-    }
-    
-    /**
-     * Configure PostgreSQL DataSource with connection parameters.
-     * Configuration is already validated, so this should not fail.
-     */
-    private PGSimpleDataSource configureDataSource(final DatabaseConnectionConfig config) {
-        PGSimpleDataSource ds = new PGSimpleDataSource();
-        ds.setServerNames(new String[]{config.host()});
-        ds.setPortNumbers(new int[]{config.port()});
-        ds.setDatabaseName(config.database());
-        ds.setUser(config.user());
-        ds.setPassword(config.password());
-        ds.setConnectTimeout(CONNECTION_TIMEOUT_SECONDS);
-        ds.setLoginTimeout(CONNECTION_TIMEOUT_SECONDS);
-        return ds;
-    }
-    
-    /**
-     * Validate database connection.
-     * This is called lazily on first DSLContext access, not during construction.
-     */
-    private void validateConnection(final DataSource ds) {
-        try (Connection conn = ds.getConnection()) {
-            if (!conn.isValid(VALIDATION_TIMEOUT_SECONDS)) {
-                throw new DatabaseConnectionException("Database connection validation failed");
-            }
-            logInfo(() -> "Database connection test successful");
-        } catch (SQLException e) {
-            throw new DatabaseConnectionException("Failed to validate database connection", e);
-        }
-    }
-    
-    /**
-     * Get property with validation and default fallback.
-     */
-    private String propertyOrDefault(final String key, final String defaultValue) {
-        String value = properties.getProperty(key, defaultValue);
-        if (value == null || value.trim().isEmpty()) {
-            logWarning(() -> String.format("Property '%s' is empty, using default: %s", key, defaultValue));
-            return defaultValue;
-        }
-        return value.trim();
-    }
-    
-    /**
-     * Get integer property with parsing and default fallback.
-     */
-    private int intPropertyOrDefault(final String key, final int defaultValue) {
-        String value = properties.getProperty(key);
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
-        }
-        
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (NumberFormatException _) {
-            logWarning(() -> String.format(
-                "Invalid integer for '%s': %s. Using default: %d", key, value, defaultValue));
-            return defaultValue;
-        }
-    }
-    
-    /**
-     * Log DataSource configuration.
-     */
-    private void logDataSourceConfiguration(final DatabaseConnectionConfig config) {
-        logInfo(() -> String.format("DataSource configured: %s:%d/%s (user: %s)",
-            config.host(), config.port(), config.database(), config.user()));
-    }
-    
-    /**
-     * Conditional INFO logging.
-     */
     private void logInfo(final Supplier<String> messageSupplier) {
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info(messageSupplier.get());
+            LOGGER.log(Level.INFO, messageSupplier);
         }
     }
     
-    /**
-     * Conditional WARNING logging.
-     */
-    private void logWarning(final Supplier<String> messageSupplier) {
-        if (LOGGER.isLoggable(Level.WARNING)) {
-            LOGGER.warning(messageSupplier.get());
-        }
-    }
-    
-    /**
-     * SEVERE logging with message.
-     */
     private void logSevere(final String message) {
-        LOGGER.severe(message);
+        LOGGER.log(Level.SEVERE, message);
     }
     
-    /**
-     * SEVERE logging with exception.
-     */
-    private void logSevere(final String message, final Exception e) {
-        LOGGER.log(Level.SEVERE, message, e);
-    }
-    
-    @Override
-    public void close() {
-        // DSLContext is stateless - no cleanup needed
-        // DataSource connections are managed by JOOQ
-    }
-    
-    /**
-     * Immutable database connection configuration.
-     */
-    private record DatabaseConnectionConfig(
-        String host,
-        int port,
-        String database,
-        String user,
-        String password
-    ) {
-        private DatabaseConnectionConfig {
-            Objects.requireNonNull(host, "Host cannot be null");
-            Objects.requireNonNull(database, "Database cannot be null");
-            Objects.requireNonNull(user, "User cannot be null");
-            Objects.requireNonNull(password, "Password cannot be null");
-            
-            if (host.trim().isEmpty()) {
-                throw new IllegalArgumentException("Host cannot be empty");
-            }
-            if (port < 1 || port > 65535) {
-                throw new IllegalArgumentException("Port must be between 1 and 65535: " + port);
-            }
-            if (database.trim().isEmpty()) {
-                throw new IllegalArgumentException("Database cannot be empty");
-            }
-            if (user.trim().isEmpty()) {
-                throw new IllegalArgumentException("User cannot be empty");
-            }
-        }
-    }
-    
-    /**
-     * Thread-safe memoized supplier for lazy initialization using AtomicReference.
-     * Ensures the delegate supplier is called at most once, even under concurrent access.
-     */
-    private static final class MemoizedSupplier<T> implements Supplier<T> {
-        private final Supplier<T> delegate;
-        private final java.util.concurrent.atomic.AtomicReference<T> value = 
-            new java.util.concurrent.atomic.AtomicReference<>();
-        
-        private MemoizedSupplier(final Supplier<T> delegate) {
-            this.delegate = Objects.requireNonNull(delegate);
-        }
-        
-        @Override
-        public T get() {
-            T result = value.get();
-            if (result == null) {
-                synchronized (this) {
-                    result = value.get();
-                    if (result == null) {
-                        result = delegate.get();
-                        value.set(result);
-                    }
-                }
-            }
-            return result;
-        }
+    private void logSevere(final String message, final Throwable throwable) {
+        LOGGER.log(Level.SEVERE, message, throwable);
     }
 }
