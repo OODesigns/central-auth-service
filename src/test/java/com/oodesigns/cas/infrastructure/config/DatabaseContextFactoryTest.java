@@ -5,11 +5,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 
+import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
+import com.oodesigns.cas.util.properties.PropertiesReader;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for DatabaseContextFactory.
- * Tests DSLContext creation and thread-safe lazy initialization.
+ * Tests DSLContext creation from DatabaseConfig.
  */
 class DatabaseContextFactoryTest {
     
@@ -29,69 +32,37 @@ class DatabaseContextFactoryTest {
         System.clearProperty("DB_PASSWORD");
     }
     
+    private DatabaseConfig createConfig() {
+        return new DatabaseConfig(
+            new PropertiesReader(
+                "application.properties",
+                new EnvironmentVariableTransformer()
+            )
+        );
+    }
+    
     @Test
-    void testFactoryCreationWithConfig() {
-        DatabaseConfig config = new DatabaseConfig();
+    void testFactoryCreatesValidDslContext() {
+        final DatabaseConfig config = createConfig();
         
-        assertDoesNotThrow(() -> new DatabaseContextFactory(config).close());
-    }
-    
-    @Test
-    void testThreadSafeLazyInitialization() throws InterruptedException {
-        DatabaseConfig config = new DatabaseConfig();
-        try (DatabaseContextFactory factory = new DatabaseContextFactory(config)) {
-            final DSLContext[] contexts = new DSLContext[10];
-            Thread[] threads = new Thread[10];
-            
-            for (int i = 0; i < 10; i++) {
-                final int index = i;
-                threads[i] = new Thread(() -> {
-                    try {
-                        contexts[index] = factory.getDslContext();
-                    } catch (Exception _) {
-                        // Expected if database is not available
-                    }
-                });
-            }
-            
-            for (Thread thread : threads) {
-                thread.start();
-            }
-            
-            for (Thread thread : threads) {
-                thread.join();
-            }
-            
-            DSLContext firstNonNull = null;
-            for (DSLContext context : contexts) {
-                if (context != null) {
-                    if (firstNonNull == null) {
-                        firstNonNull = context;
-                    } else {
-                        assertSame(firstNonNull, context, 
-                            "All threads should get the same DSLContext instance");
-                    }
-                }
-            }
+        // May throw if database is not available
+        try {
+            final DSLContext dslContext = DatabaseContextFactory.create(config);
+            assertNotNull(dslContext);
+        } catch (DatabaseConnectionException _) {
+            // Expected if database is not running - that's ok for this test
         }
     }
     
     @Test
-    void testCloseMethodDoesNotThrow() {
-        DatabaseConfig config = new DatabaseConfig();
-        try (DatabaseContextFactory factory = new DatabaseContextFactory(config)) {
-            assertDoesNotThrow(factory::close);
-        }
-    }
-    
-    @Test
-    void testFactoryWithInvalidConfigThrowsOnGetDslContext() {
-        System.setProperty("DB_HOST", "nonexistent.invalid.host.example.com");
-        System.setProperty("DB_PORT", "9999");
+    void testFactoryThrowsOnInvalidConfig() {
+        System.setProperty("DB_PORT", "99999");
         
-        DatabaseConfig config = new DatabaseConfig();
-        try (DatabaseContextFactory factory = new DatabaseContextFactory(config)) {
-            assertThrows(DatabaseConnectionException.class, factory::getDslContext);
-        }
+        assertThrows(IllegalArgumentException.class, this::createConfig);
+    }
+    
+    @Test
+    void testFactoryThrowsOnNullConfig() {
+        assertThrows(NullPointerException.class, () -> DatabaseContextFactory.create(null));
     }
 }

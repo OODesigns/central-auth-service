@@ -4,11 +4,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 
+import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
+import com.oodesigns.cas.util.properties.PropertiesReader;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for DatabaseConfig.
- * Tests property loading, validation, and explicit property definitions.
+ * Tests property loading, validation, and type conversion with dependency injection.
  */
 class DatabaseConfigTest {
     
@@ -23,14 +26,24 @@ class DatabaseConfigTest {
     void tearDown() {
         System.clearProperty("DB_HOST");
         System.clearProperty("DB_PORT");
+        System.clearProperty("DB_NAME");
+        System.clearProperty("DB_USER");
         System.clearProperty("APP_DB");
-        System.clearProperty("APP_USER");
         System.clearProperty("APP_PASSWORD");
+    }
+    
+    private DatabaseConfig createConfig() {
+        // Create a test PropertiesReader that uses environment variables with defaults
+        final PropertiesReader reader = new PropertiesReader(
+            "application.properties",
+            new EnvironmentVariableTransformer()
+        );
+        return new DatabaseConfig(reader);
     }
     
     @Test
     void testPropertyResolutionWithSystemProperty() {
-        DatabaseConfig config = new DatabaseConfig();
+        final DatabaseConfig config = createConfig();
         
         assertEquals("testhost", config.getHost());
         assertEquals(5433, config.getPort());
@@ -38,83 +51,59 @@ class DatabaseConfigTest {
     
     @Test
     void testPropertyResolutionWithDefault() {
-        DatabaseConfig config = new DatabaseConfig();
+        final DatabaseConfig config = createConfig();
         
         assertEquals("auth_db", config.getDatabaseName());
         assertEquals("app_user", config.getUsername());
     }
     
     @Test
-    void testGetPropertyMethodWithDefinedProperty() {
-        DatabaseConfig config = new DatabaseConfig();
-        
-        String host = config.getProperty("db.host");
-        assertEquals("testhost", host);
-    }
-    
-    @Test
-    void testGetPropertyThrowsForUndefinedProperty() {
-        DatabaseConfig config = new DatabaseConfig();
-        
-        assertThrows(DatabaseConfigurationException.class, 
-            () -> config.getProperty("undefined.property"));
-    }
-    
-    @Test
-    void testGetPropertyWithFallbackForUndefinedProperty() {
-        DatabaseConfig config = new DatabaseConfig();
-        
-        String value = config.getProperty("undefined.property", "fallback");
-        assertEquals("fallback", value);
-    }
-    
-    @Test
     void testInvalidPortThrowsInConstructor() {
         System.setProperty("DB_PORT", "99999");
         
-        assertThrows(DatabaseConfigurationException.class, DatabaseConfig::new);
+        assertThrows(IllegalArgumentException.class, this::createConfig);
     }
     
     @Test
     void testInvalidHostThrowsInConstructor() {
         System.setProperty("DB_HOST", "invalid..host");
         
-        assertThrows(DatabaseConfigurationException.class, DatabaseConfig::new);
+        assertThrows(IllegalArgumentException.class, this::createConfig);
     }
     
     @Test
     void testInvalidDatabaseNameThrowsInConstructor() {
         System.setProperty("APP_DB", "123invalid");
         
-        assertThrows(DatabaseConfigurationException.class, DatabaseConfig::new);
+        assertThrows(IllegalArgumentException.class, this::createConfig);
     }
     
     @Test
     void testValidPortRange() {
         System.setProperty("DB_PORT", "1");
-        assertDoesNotThrow(DatabaseConfig::new);
+        assertDoesNotThrow(this::createConfig);
         
         System.setProperty("DB_PORT", "65535");
-        assertDoesNotThrow(DatabaseConfig::new);
+        assertDoesNotThrow(this::createConfig);
     }
     
     @Test
     void testConfigIsImmutableAfterConstruction() {
-        DatabaseConfig config = new DatabaseConfig();
-        String host1 = config.getHost();
+        final DatabaseConfig config = createConfig();
+        final String host1 = config.getHost();
         
         System.setProperty("DB_HOST", "different_host");
         
-        String host2 = config.getHost();
+        final String host2 = config.getHost();
         assertEquals(host1, host2);
     }
     
     @Test
     void testMultipleConfigInstancesAreIndependent() {
-        DatabaseConfig config1 = new DatabaseConfig();
+        final DatabaseConfig config1 = createConfig();
         
         System.setProperty("DB_HOST", "newhost");
-        DatabaseConfig config2 = new DatabaseConfig();
+        final DatabaseConfig config2 = createConfig();
         
         assertEquals("testhost", config1.getHost());
         assertEquals("newhost", config2.getHost());
@@ -124,7 +113,7 @@ class DatabaseConfigTest {
     void testPasswordValidation() {
         System.setProperty("APP_PASSWORD", "ValidP@ss1");
         
-        DatabaseConfig config = new DatabaseConfig();
+        final DatabaseConfig config = createConfig();
         assertEquals("ValidP@ss1", config.getPassword());
     }
 
@@ -132,20 +121,20 @@ class DatabaseConfigTest {
     void testInvalidPasswordThrowsInConstructor() {
         System.setProperty("APP_PASSWORD", "weak");
         
-        assertThrows(DatabaseConfigurationException.class, DatabaseConfig::new);
+        assertThrows(IllegalArgumentException.class, this::createConfig);
     }
 
     @Test
     void testBlankHostThrowsInConstructor() {
         System.setProperty("DB_HOST", "   ");
         
-        assertThrows(DatabaseConfigurationException.class, DatabaseConfig::new);
+        assertThrows(IllegalArgumentException.class, this::createConfig);
     }
 
     @Test
     void testBlankPasswordThrowsInConstructor() {
         System.setProperty("APP_PASSWORD", "   ");
         
-        assertThrows(DatabaseConfigurationException.class, DatabaseConfig::new);
+        assertThrows(IllegalArgumentException.class, this::createConfig);
     }
 }

@@ -9,83 +9,51 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Factory for creating JOOQ DSLContext from DatabaseConfig.
- * - Immutable state after construction
- * - Pure functions with single responsibility
- * - Optional-based error handling where appropriate
- * - Clear separation of concerns
+ * Intended to be used as a Spring @Bean for singleton management.
+ * 
+ * Usage with Spring:
+ * @Configuration
+ * public class DatabaseConfiguration {
+ *     @Bean
+ *     public DSLContext dslContext(DatabaseConfig config) {
+ *         return DatabaseContextFactory.create(config);
+ *     }
+ * }
  */
-public final class DatabaseContextFactory implements AutoCloseable {
+public final class DatabaseContextFactory {
     
-    private static final Logger LOGGER = Logger.getLogger(DatabaseContextFactory.class.getName());
     private static final int CONNECTION_TIMEOUT_SECONDS = 30;
     private static final int VALIDATION_TIMEOUT_SECONDS = 5;
     
-    private final DatabaseConfig config;
-    private final Supplier<DSLContext> dslContextSupplier;
-    
-    public DatabaseContextFactory(final DatabaseConfig config) {
-        this.config = Objects.requireNonNull(config, "DatabaseConfig cannot be null");
-        this.dslContextSupplier = new MemoizedSupplier<>(this::createDslContext);
+    private DatabaseContextFactory() {
+        // Utility class
     }
     
     /**
-     * Get DSLContext for database operations.
-     * Thread-safe lazy initialization with memoization.
-     *
-     * @return DSLContext instance
-     * @throws DatabaseConnectionException if connection fails
+     * Create DSLContext from DatabaseConfig.
+     * Validates connection at creation time (fail fast).
+     * 
+     * @param config DatabaseConfig with connection parameters
+     * @return DSLContext ready for database operations
+     * @throws DatabaseConnectionException if connection validation fails
      */
-    public DSLContext getDslContext() {
-        return dslContextSupplier.get();
+    public static DSLContext create(final DatabaseConfig config) {
+        Objects.requireNonNull(config, "DatabaseConfig cannot be null");
+        
+        final DataSource dataSource = createAndConfigureDataSource(config);
+        validateConnection(dataSource);
+        
+        return DSL.using(dataSource, SQLDialect.POSTGRES);
     }
     
     /**
-     * Create DSLContext using functional pipeline:
-     * config -> dataSource -> validate -> DSLContext
+     * Create and configure PostgreSQL DataSource from config.
      */
-    private DSLContext createDslContext() {
-        return buildDataSource()
-            .flatMap(this::validateConnection)
-            .map(this::createContext)
-            .orElseThrow(() -> new DatabaseConnectionException(
-                "Failed to create database context"));
-    }
-    
-    /**
-     * Build PostgreSQL DataSource from configuration.
-     * Returns Optional to handle potential configuration errors gracefully.
-     */
-    private Optional<DataSource> buildDataSource() {
-        try {
-            return Optional.of(createConfiguredDataSource());
-        } catch (final RuntimeException e) {
-            logSevere("Failed to build data source", e);
-            return Optional.empty();
-        }
-    }
-    
-    /**
-     * Create and configure PostgreSQL DataSource.
-     * Pure function - all inputs from config, returns new DataSource.
-     */
-    private DataSource createConfiguredDataSource() {
-        PGSimpleDataSource dataSource = new PGSimpleDataSource();
-        configureDataSource(dataSource);
-        return dataSource;
-    }
-    
-    /**
-     * Configure DataSource with connection parameters from config.
-     */
-    private void configureDataSource(final PGSimpleDataSource dataSource) {
+    private static DataSource createAndConfigureDataSource(final DatabaseConfig config) {
+        final PGSimpleDataSource dataSource = new PGSimpleDataSource();
         dataSource.setServerNames(new String[]{config.getHost()});
         dataSource.setPortNumbers(new int[]{config.getPort()});
         dataSource.setDatabaseName(config.getDatabaseName());
@@ -93,100 +61,20 @@ public final class DatabaseContextFactory implements AutoCloseable {
         dataSource.setPassword(config.getPassword());
         dataSource.setConnectTimeout(CONNECTION_TIMEOUT_SECONDS);
         dataSource.setLoginTimeout(CONNECTION_TIMEOUT_SECONDS);
+        return dataSource;
     }
     
     /**
      * Validate database connection is available.
-     * Returns Optional<DataSource> to chain in pipeline.
+     * Fails fast on connection errors.
      */
-    private Optional<DataSource> validateConnection(final DataSource dataSource) {
+    private static void validateConnection(final DataSource dataSource) {
         try (Connection conn = dataSource.getConnection()) {
-            return isConnectionValid(conn)
-                ? successfulValidation(dataSource)
-                : failedValidation();
-        } catch (final SQLException e) {
-            logSevere("Connection validation error", e);
-            return Optional.empty();
-        }
-    }
-    
-    /**
-     * Check if connection is valid within timeout.
-     */
-    private boolean isConnectionValid(final Connection conn) throws SQLException {
-        return conn.isValid(VALIDATION_TIMEOUT_SECONDS);
-    }
-    
-    /**
-     * Handle successful connection validation.
-     */
-    private Optional<DataSource> successfulValidation(final DataSource dataSource) {
-        logInfo("Database connection validated successfully");
-        return Optional.of(dataSource);
-    }
-    
-    /**
-     * Handle failed connection validation.
-     */
-    private Optional<DataSource> failedValidation() {
-        logSevere("Database connection validation failed - connection not valid");
-        return Optional.empty();
-    }
-    
-    /**
-     * Create DSLContext from validated DataSource.
-     */
-    private DSLContext createContext(final DataSource dataSource) {
-        return DSL.using(dataSource, SQLDialect.POSTGRES);
-    }
-    
-    @Override
-    public void close() {
-        logInfo("DatabaseContextFactory closed");
-    }
-    
-    private void logInfo(final String message) {
-        LOGGER.log(Level.INFO, message);
-    }
-    
-    private void logSevere(final String message) {
-        LOGGER.log(Level.SEVERE, message);
-    }
-    
-    private void logSevere(final String message, final Throwable throwable) {
-        LOGGER.log(Level.SEVERE, message, throwable);
-    }
-    
-    /**
-     * Thread-safe lazy initialization with memoization.
-     * Uses AtomicReference for thread-safe caching without volatile.
-     * 
-     * Double-checked locking pattern ensures:
-     * - Single initialization even under concurrent access
-     * - No performance penalty after first initialization
-     * - Memory safety through AtomicReference
-     */
-    private static final class MemoizedSupplier<T> implements Supplier<T> {
-        private final Supplier<T> delegate;
-        private final AtomicReference<T> cached = new AtomicReference<>();
-        
-        MemoizedSupplier(final Supplier<T> delegate) {
-            this.delegate = Objects.requireNonNull(delegate, "Delegate supplier cannot be null");
-        }
-        
-        @Override
-        public T get() {
-            T value = cached.get();
-            if (value == null) {
-                synchronized (this) {
-                    value = cached.get();
-                    if (value == null) {
-                        value = delegate.get();
-                        cached.set(value);
-                    }
-                }
+            if (!conn.isValid(VALIDATION_TIMEOUT_SECONDS)) {
+                throw new DatabaseConnectionException("Database connection validation failed");
             }
-            return value;
+        } catch (final SQLException e) {
+            throw new DatabaseConnectionException("Unable to connect to database", e);
         }
     }
 }

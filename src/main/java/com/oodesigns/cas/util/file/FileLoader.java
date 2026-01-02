@@ -1,6 +1,7 @@
 package com.oodesigns.cas.util.file;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 
 
@@ -27,5 +28,9 @@ public class FileLoader{
     @Override
     public String toString() {
         return data;
+    }
+
+    public StringReader toReader() {
+        return new StringReader(data);
     }
 }
