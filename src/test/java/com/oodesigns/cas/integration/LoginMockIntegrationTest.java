@@ -38,7 +38,6 @@ class LoginMockIntegrationTest {
     private InMemoryUserRepository userRepository;
     private MockPasswordVerifier passwordHasher;
     private MockClock clock;
-    private Bucket4jRateLimiter rateLimiter;
 
     @BeforeEach
     void setUp() {
@@ -46,7 +45,7 @@ class LoginMockIntegrationTest {
         userRepository = new InMemoryUserRepository();
         passwordHasher = new MockPasswordVerifier();
         clock = new MockClock(Instant.now());
-        rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1)); // Allow 5 attempts per minute per IP
+        Bucket4jRateLimiter rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1)); // Allow 5 attempts per minute per IP
         MockTokenSigner tokenSigner = new MockTokenSigner();
 
         // Create domain services with injected ports
