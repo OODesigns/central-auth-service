@@ -79,9 +79,9 @@ class DatabaseContextFactoryTest {
     @Test
     void testCloseMethodDoesNotThrow() {
         DatabaseConfig config = new DatabaseConfig();
-        DatabaseContextFactory factory = new DatabaseContextFactory(config);
-        
-        assertDoesNotThrow(factory::close);
+        try (DatabaseContextFactory factory = new DatabaseContextFactory(config)) {
+            assertDoesNotThrow(factory::close);
+        }
     }
     
     @Test

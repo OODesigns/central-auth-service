@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for the login command handler using mock adapters.
- * 
  * Tests general login scenarios (not admin-specific) with in-memory mocks:
  * - Valid credentials login
  * - Invalid password handling
@@ -28,10 +27,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * - Multiple users in system
  * - Rate limiting behavior
  * - Token generation
- * 
  * Uses mock adapters (InMemoryUserRepository, MockPasswordVerifier, MockClock, etc.)
  * for fast unit-like testing without external dependencies.
- * 
  * For admin-specific scenarios with mocks, see: AdminLoginMockIntegrationTest
  * For real database testing, see: AdminLoginDatabaseIntegrationTest
  */
@@ -60,15 +57,6 @@ class LoginMockIntegrationTest {
         // Create command handler with injected dependencies
         // InMemoryUserRepository implements both UserCredentialReader and UserRepository
         loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, rateLimiter);
-    }
-
-    /**
-     * Clean up rate limiter state between tests.
-     */
-    void cleanUp() {
-        rateLimiter.reset();
-        userRepository.clear();
-        tokenSigner.reset();
     }
 
     /**
@@ -102,7 +90,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair().refreshToken());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Login should have succeeded");
                 return null;
             });
@@ -122,13 +110,13 @@ class LoginMockIntegrationTest {
         LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Failed login with generic error
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
                 fail("Login should have failed");
                 return null;
             })
-            .orElse(failure -> {
-                assertEquals("INVALID_CREDENTIALS", failure.errorCode());
-                assertTrue(failure.errorMessage().contains("Invalid username or password"));
+            .orElse(err -> {
+                assertEquals("INVALID_CREDENTIALS", err.errorCode());
+                assertTrue(err.errorMessage().contains("Invalid username or password"));
                 return null;
             });
     }
@@ -144,12 +132,12 @@ class LoginMockIntegrationTest {
         LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Generic error (no "user not found")
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
                 fail("Login should have failed");
                 return null;
             })
-            .orElse(failure -> {
-                assertEquals("INVALID_CREDENTIALS", failure.errorCode());
+            .orElse(err -> {
+                assertEquals("INVALID_CREDENTIALS", err.errorCode());
                 return null;
             });
     }
@@ -182,7 +170,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Alice login should have succeeded");
                 return null;
             });
@@ -191,7 +179,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Bob login should have succeeded");
                 return null;
             });
@@ -200,7 +188,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Charlie login should have succeeded");
                 return null;
             });
@@ -223,7 +211,7 @@ class LoginMockIntegrationTest {
                     assertNotNull(success.tokenPair());
                     return null;
                 })
-                .orElse(failure -> {
+                .orElse(ignored -> {
                     fail("Attempt " + attempt + " should succeed");
                     return null;
                 });
@@ -234,12 +222,12 @@ class LoginMockIntegrationTest {
             IpAddress.of(testIP));
         LoginResult blockedResult = loginHandler.handle(blockedCmd);
         
-        blockedResult.mapTo(success -> {
+        blockedResult.mapTo(ignored -> {
                 fail("Should have been rate limited");
                 return null;
             })
-            .orElse(failure -> {
-                assertEquals("RATE_LIMITED", failure.errorCode());
+            .orElse(err -> {
+                assertEquals("RATE_LIMITED", err.errorCode());
                 return null;
             });
     }
@@ -260,7 +248,7 @@ class LoginMockIntegrationTest {
                     assertNotNull(success.tokenPair());
                     return null;
                 })
-                .orElse(failure -> {
+                .orElse(ignored -> {
                     fail("Login from IP " + ip + " should succeed");
                     return null;
                 });
@@ -291,7 +279,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Login should have succeeded");
                 return null;
             });
@@ -311,11 +299,11 @@ class LoginMockIntegrationTest {
         LoginResult result = loginHandler.handle(cmd);
 
         // 3. Verify: Original user object unchanged
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
                 assertTrue(originalUser.permissions().isEmpty());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(error -> {
                 fail("Login should have succeeded");
                 return null;
             });
@@ -341,7 +329,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Login should have succeeded");
                 return null;
             });
@@ -367,7 +355,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Login should have succeeded");
                 return null;
             });
@@ -400,7 +388,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("First login should have succeeded");
                 return null;
             });
@@ -409,7 +397,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Second login should have succeeded");
                 return null;
             });
@@ -447,7 +435,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Correct login should have succeeded");
                 return null;
             });
@@ -456,12 +444,12 @@ class LoginMockIntegrationTest {
         LoginCommand wrongCmd = new LoginCommand(Username.of("secure_user"), new Password("WrongPassword".toCharArray()), 
             IpAddress.of("192.168.1.50"));
         LoginResult wrongResult = loginHandler.handle(wrongCmd);
-        wrongResult.mapTo(success -> {
+        wrongResult.mapTo(ignored -> {
                 fail("Wrong password login should have failed");
                 return null;
             })
-            .orElse(failure -> {
-                assertEquals("INVALID_CREDENTIALS", failure.errorCode());
+            .orElse(err -> {
+                assertEquals("INVALID_CREDENTIALS", err.errorCode());
                 return null;
             });
 
@@ -473,7 +461,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Another login should have succeeded");
                 return null;
             });
@@ -507,7 +495,7 @@ class LoginMockIntegrationTest {
                 assertNotNull(success.tokenPair().refreshToken());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Login should have succeeded");
                 return null;
             });
@@ -533,7 +521,7 @@ class LoginMockIntegrationTest {
             assertNotNull(success.tokenPair().refreshToken());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Login should have succeeded");
                 return null;
             });
