@@ -51,8 +51,8 @@ public final class LoginCommandHandler {
     }
 
     private LoginResult handleCommand(final LoginCommand command) {
-        return rateLimiter.checkLimit("login:" + command.ipAddress().asString())
-            .mapTo(allowed -> authenticateUser(command))
+        return rateLimiter.checkLimit(String.format("login:%s", command.ipAddress().asString()))
+            .mapTo(ignored -> authenticateUser(command))
             .orElse(blocked -> LoginResult.failure("RATE_LIMITED", blocked.message()));
     }
 
@@ -84,20 +84,16 @@ public final class LoginCommandHandler {
 
     /**
      * Immutable utility record for carrying both TokenPair and User through the Optional chain.
-     * 
      * Used to transport both the generated TokenPair and the authenticated User object
      * from token generation back to the login handler without losing the User data.
-     * 
      * This is necessary because TokenService.generateTokens() returns only the TokenPair,
      * but we need both the tokens AND the User's permissions/userId for the response.
-     * 
      * @param tokenPair the generated access and refresh tokens (must not be null)
      * @param user the authenticated user with permissions (must not be null)
      */
     private record TokenAndUserPair(TokenService.TokenPair tokenPair, User user) {
         /**
          * Compact constructor validates both values are non-null.
-         * 
          * @throws NullPointerException if either tokenPair or user is null
          */
         public TokenAndUserPair {

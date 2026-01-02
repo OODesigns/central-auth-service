@@ -138,21 +138,21 @@ public final class DatabaseConfig {
         try {
             return supplier.get();
         } catch (final IllegalArgumentException e) {
-            throw new DatabaseConfigurationException("Invalid value for '" + key + "': " + e.getMessage(), e);
+            throw new DatabaseConfigurationException(String.format("Invalid value for '%s': %s", key, e.getMessage()), e);
         }
     }
 
     private String required(final Properties props, final String key) {
         String value = props.getProperty(key);
         if (value == null) {
-            throw new DatabaseConfigurationException("Missing required property '" + key + "'");
+            throw new DatabaseConfigurationException(String.format("Missing required property '%s'", key));
         }
         return value;
     }
 
     private void assertDefinedKey(final String key) {
         if (!KNOWN_KEYS.contains(key)) {
-            throw new DatabaseConfigurationException("Property '" + key + "' is not defined");
+            throw new DatabaseConfigurationException(String.format("Property '%s' is not defined", key));
         }
     }
 
@@ -160,7 +160,7 @@ public final class DatabaseConfig {
         private Properties load() {
             return loadPropertiesFile()
                 .map(this::resolveAllProperties)
-                .orElseThrow(() -> new DatabaseConfigurationException("Failed to load " + PROPERTIES_FILE));
+                .orElseThrow(() -> new DatabaseConfigurationException(String.format("Failed to load %s", PROPERTIES_FILE)));
         }
 
         private Optional<Properties> loadPropertiesFile() {
@@ -171,10 +171,10 @@ public final class DatabaseConfig {
                 logInfo(() -> String.format("Loaded %d properties from %s", props.size(), PROPERTIES_FILE));
                 return Optional.of(props);
             } catch (final FileLoaderException e) {
-                logSevere("Unable to find " + PROPERTIES_FILE, e);
+                logSevere(String.format("Unable to find %s", PROPERTIES_FILE), e);
                 return Optional.empty();
             } catch (final IOException e) {
-                logSevere("Failed to parse " + PROPERTIES_FILE, e);
+                logSevere(String.format("Failed to parse %s", PROPERTIES_FILE), e);
                 return Optional.empty();
             }
         }

@@ -28,7 +28,7 @@ final class DatabaseName extends ValidatedValue<String, String> {
     @Override
     protected String validate(final String value) {
         if (!NAME_PATTERN.matcher(value).matches()) {
-            throw new IllegalArgumentException("db.name contains invalid characters: " + value);
+            throw new IllegalArgumentException(String.format("db.name contains invalid characters: %s", value));
         }
         return value;
     }

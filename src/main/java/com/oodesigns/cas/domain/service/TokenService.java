@@ -66,9 +66,11 @@ public final class TokenService {
 
 
     private Optional<String> getPermissionsList(Set<Permission> permissions) {
-        return Optional.of( "[" + permissions.stream()
-            .map(p -> "\"" + p.asString() + "\"")
-            .collect(Collectors.joining(",")) + "]");
+        String permissionsJson = String.format("[%s]",
+                permissions.stream()
+                    .map(p -> String.format("\"%s\"", p.asString()))
+                    .collect(Collectors.joining(",")));
+        return Optional.of(permissionsJson);
     }
 
     private Optional<String> createRefreshToken(final UserId userId, final Instant issuedAt) {

@@ -24,14 +24,14 @@ final class DatabasePort extends ValidatedValue<String, Integer> {
         try {
             return Integer.parseInt(value);
         } catch (final NumberFormatException e) {
-            throw new IllegalArgumentException("db.port must be a number: " + value, e);
+            throw new IllegalArgumentException(String.format("db.port must be a number: %s", value), e);
         }
     }
 
     @Override
     protected Integer validate(final Integer value) {
         if (value < MIN_PORT || value > MAX_PORT) {
-            throw new IllegalArgumentException("db.port must be between " + MIN_PORT + " and " + MAX_PORT + ": " + value);
+            throw new IllegalArgumentException(String.format("db.port must be between %d and %d: %s", MIN_PORT, MAX_PORT, value));
         }
         return value;
     }

@@ -28,10 +28,10 @@ final class DatabaseHost extends ValidatedValue<String, String> {
     @Override
     protected String validate(final String value) {
         if (!HOST_PATTERN.matcher(value).matches()) {
-            throw new IllegalArgumentException("db.host contains invalid characters: " + value);
+            throw new IllegalArgumentException(String.format("db.host contains invalid characters: %s", value));
         }
         if (value.contains("..")) {
-            throw new IllegalArgumentException("db.host cannot contain consecutive dots: " + value);
+            throw new IllegalArgumentException(String.format("db.host cannot contain consecutive dots: %s", value));
         }
         return value;
     }

@@ -16,7 +16,7 @@ public record IpAddress(String value) {
             throw new IllegalArgumentException("IP address cannot be null or blank");
         }
         if (!isValidIpAddress(value)) {
-            throw new IllegalArgumentException("Invalid IP address format: " + value);
+            throw new IllegalArgumentException(String.format("Invalid IP address format: %s", value));
         }
     }
 

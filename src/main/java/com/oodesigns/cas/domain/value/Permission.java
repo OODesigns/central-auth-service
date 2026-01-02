@@ -4,12 +4,9 @@ import jakarta.annotation.Nonnull;
 
 /**
  * Value object representing a fine-grained permission.
- * 
  * Permissions are loaded from the database (permissions table) at runtime.
  * This class represents those permissions in the domain model.
- * 
  * Database examples: create_user, update_user, delete_user, view_audit_log, etc.
- * 
  * The static factory methods are convenience shortcuts for common permissions,
  * but the primary pattern is to load permissions from the database via repositories.
  */
@@ -27,7 +24,6 @@ public record Permission(String value) {
     /**
      * Factory method to create a Permission from a database value.
      * The permission name should match a row in the permissions table.
-     * 
      * @param value the permission name from the database
      * @return new Permission instance
      */
@@ -37,7 +33,6 @@ public record Permission(String value) {
 
     /**
      * Convert Permission to its string value for serialization.
-     * 
      * @return the permission name (e.g., "create_user")
      */
     @Nonnull

@@ -1,11 +1,10 @@
 package com.oodesigns.cas.domain.entity;
 
+import jakarta.annotation.Nonnull;
 import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
 import com.oodesigns.cas.domain.value.Username;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -20,14 +19,12 @@ public record User(UserId userId, Username username, Set<Permission> permissions
         Objects.requireNonNull(username, "username cannot be null");
         Objects.requireNonNull(permissions, "permissions cannot be null");
         // Make permissions unmodifiable
-        permissions = Collections.unmodifiableSet(new HashSet<>(permissions));
+        permissions = Set.copyOf(permissions);
     }
 
+    @Nonnull
     @Override
     public String toString() {
-        return "User{" +
-                "userId=" + userId +
-                ", username=" + username +
-                '}';
+        return String.format("User{userId=%s, username=%s}", userId, username);
     }
 }

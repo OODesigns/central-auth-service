@@ -26,7 +26,7 @@ final class DatabasePassword extends ValidatedValue<String, String> {
     @Override
     protected String validate(final String value) {
         if (value.length() < MIN_LENGTH) {
-            throw new IllegalArgumentException("db.password must be at least " + MIN_LENGTH + " characters");
+            throw new IllegalArgumentException(String.format("db.password must be at least %d characters", MIN_LENGTH));
         }
         if (!hasUppercase(value)) {
             throw new IllegalArgumentException("db.password must contain at least one uppercase letter");

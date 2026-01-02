@@ -10,7 +10,6 @@ import java.util.Objects;
  * 
  * @param credential The user credential (userId + passwordHash) for verification (non-null)
  * @param password The user's password for verification (non-null)
- * @throws NullPointerException if credential or password is null
  */
 public record Credentials(UserCredential credential, Password password) implements AutoCloseable {
     

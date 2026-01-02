@@ -13,6 +13,6 @@ class FileLoaderTest {
     @Test
     void loadAndReadText(){
         final FileLoader fileLoader = new FileLoader("testfile.txt");
-        assertSame("some test data", fileLoader.toString());
+        assertEquals("some test data", fileLoader.toString());
     }
 }

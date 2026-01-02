@@ -18,7 +18,7 @@ public record UserId(UUID value) {
         try {
             return new UserId(UUID.fromString(value));
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid user ID format: " + value, e);
+            throw new IllegalArgumentException(String.format("Invalid user ID format: %s", value), e);
         }
     }
 

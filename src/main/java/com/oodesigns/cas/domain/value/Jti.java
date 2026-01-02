@@ -22,7 +22,7 @@ public record Jti(UUID value) {
         try {
             return new Jti(UUID.fromString(value));
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid JTI format: " + value, e);
+            throw new IllegalArgumentException(String.format("Invalid JTI format: %s", value), e);
         }
     }
 

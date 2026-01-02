@@ -28,7 +28,7 @@ final class DatabaseUser extends ValidatedValue<String, String> {
     @Override
     protected String validate(final String value) {
         if (!USER_PATTERN.matcher(value).matches()) {
-            throw new IllegalArgumentException("db.user contains invalid characters: " + value);
+            throw new IllegalArgumentException(String.format("db.user contains invalid characters: %s", value));
         }
         return value;
     }
