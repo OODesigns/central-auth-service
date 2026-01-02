@@ -33,7 +33,9 @@ class DatabaseContextFactoryTest {
     void testFactoryCreationWithConfig() {
         DatabaseConfig config = new DatabaseConfig();
         
-        assertDoesNotThrow(() -> new DatabaseContextFactory(config));
+        assertDoesNotThrow(() -> {
+            new DatabaseContextFactory(config).close();
+        });
     }
     
     @Test

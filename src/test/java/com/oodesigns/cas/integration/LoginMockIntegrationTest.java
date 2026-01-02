@@ -39,7 +39,6 @@ class LoginMockIntegrationTest {
     private MockPasswordVerifier passwordHasher;
     private MockClock clock;
     private Bucket4jRateLimiter rateLimiter;
-    private MockTokenSigner tokenSigner;
 
     @BeforeEach
     void setUp() {
@@ -48,7 +47,7 @@ class LoginMockIntegrationTest {
         passwordHasher = new MockPasswordVerifier();
         clock = new MockClock(Instant.now());
         rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1)); // Allow 5 attempts per minute per IP
-        tokenSigner = new MockTokenSigner();
+        MockTokenSigner tokenSigner = new MockTokenSigner();
 
         // Create domain services with injected ports
         AuthenticationService authService = new AuthenticationService(passwordHasher);
@@ -303,7 +302,7 @@ class LoginMockIntegrationTest {
                 assertTrue(originalUser.permissions().isEmpty());
                 return null;
             })
-            .orElse(error -> {
+            .orElse(ignored2 -> {
                 fail("Login should have succeeded");
                 return null;
             });
