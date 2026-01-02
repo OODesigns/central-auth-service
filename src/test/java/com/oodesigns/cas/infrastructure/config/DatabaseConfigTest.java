@@ -17,8 +17,9 @@ class DatabaseConfigTest {
     
     @BeforeEach
     void setUp() {
-        System.setProperty("DB_HOST", "testhost");
+        System.setProperty("DB_HOST", "test-host");
         System.setProperty("DB_PORT", "5433");
+        System.setProperty("DB_USER", "app_user");
         System.setProperty("APP_PASSWORD", "SecureP@ss123");
     }
     
@@ -45,7 +46,7 @@ class DatabaseConfigTest {
     void testPropertyResolutionWithSystemProperty() {
         final DatabaseConfig config = createConfig();
         
-        assertEquals("testhost", config.getHost());
+        assertEquals("test-host", config.getHost());
         assertEquals(5433, config.getPort());
     }
     
@@ -102,11 +103,11 @@ class DatabaseConfigTest {
     void testMultipleConfigInstancesAreIndependent() {
         final DatabaseConfig config1 = createConfig();
         
-        System.setProperty("DB_HOST", "newhost");
+        System.setProperty("DB_HOST", "new-host");
         final DatabaseConfig config2 = createConfig();
         
-        assertEquals("testhost", config1.getHost());
-        assertEquals("newhost", config2.getHost());
+        assertEquals("test-host", config1.getHost());
+        assertEquals("new-host", config2.getHost());
     }
     
     @Test

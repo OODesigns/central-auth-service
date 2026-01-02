@@ -15,8 +15,8 @@ class RateLimitResultTest {
         Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
 
         String mapped = result
-            .mapTo(allowed -> "success")
-            .orElse(blocked -> "blocked: " + blocked.message());
+            .mapTo(ignored -> "success")
+            .orElse(blocked -> "blocked: %s".formatted(blocked.message()));
 
         assertEquals("success", mapped);
     }
@@ -26,8 +26,8 @@ class RateLimitResultTest {
         Ports.RateLimitResult result = Ports.RateLimitResult.blocked("Rate limit exceeded");
 
         String mapped = result
-            .mapTo(allowed -> "success")
-            .orElse(blocked -> "blocked: " + blocked.message());
+            .mapTo(ignored -> "success")
+            .orElse(blocked -> "blocked: %s".formatted(blocked.message()));
 
         assertEquals("blocked: Rate limit exceeded", mapped);
     }
@@ -37,8 +37,8 @@ class RateLimitResultTest {
         Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
 
         Integer value = result
-            .mapTo(allowed -> 42)
-            .orElse(blocked -> -1);
+            .mapTo(ignored -> 42)
+            .orElse(ignored -> -1);
 
         assertEquals(42, value);
     }
@@ -48,11 +48,11 @@ class RateLimitResultTest {
         Ports.RateLimitResult result = Ports.RateLimitResult.blocked("Too many requests");
 
         Integer value = result
-            .mapTo(allowed -> {
+            .mapTo(ignored -> {
                 fail("Success function should not be called for blocked state");
                 return 42;
             })
-            .orElse(blocked -> -1);
+            .orElse(ignored -> -1);
 
         assertEquals(-1, value);
     }
@@ -62,7 +62,7 @@ class RateLimitResultTest {
         Ports.RateLimitResult result = Ports.RateLimitResult.blocked("Limit reached");
 
         String message = result
-            .mapTo(allowed -> "allowed")
+            .mapTo(ignored -> "allowed")
             .orElse(blocked -> blocked.message().toUpperCase());
 
         assertEquals("LIMIT REACHED", message);
@@ -73,8 +73,8 @@ class RateLimitResultTest {
         Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
 
         String value = result
-            .mapTo(allowed -> "success")
-            .orElse(blocked -> {
+            .mapTo(ignored -> "success")
+            .orElse(ignored -> {
                 fail("Failure function should not be called for allowed state");
                 return "failed";
             });
@@ -106,8 +106,8 @@ class RateLimitResultTest {
         Ports.RateLimitResult result = Ports.RateLimitResult.blocked(expectedMessage);
 
         String actualMessage = result
-            .mapTo(allowed -> "")
-            .orElse(blocked -> blocked.message());
+            .mapTo(ignored -> "")
+            .orElse(Ports.RateLimitResult.Blocked::message);
 
         assertEquals(expectedMessage, actualMessage);
     }
@@ -117,8 +117,8 @@ class RateLimitResultTest {
         Ports.RateLimitResult result1 = Ports.RateLimitResult.allowed();
         Ports.RateLimitResult result2 = Ports.RateLimitResult.allowed();
 
-        String value1 = result1.mapTo(a -> "first").orElse(b -> "blocked");
-        String value2 = result2.mapTo(a -> "second").orElse(b -> "blocked");
+        String value1 = result1.mapTo(ignored -> "first").orElse(ignored -> "blocked");
+        String value2 = result2.mapTo(ignored -> "second").orElse(ignored -> "blocked");
 
         assertEquals("first", value1);
         assertEquals("second", value2);
@@ -129,8 +129,8 @@ class RateLimitResultTest {
         Ports.RateLimitResult result1 = Ports.RateLimitResult.blocked("Error 1");
         Ports.RateLimitResult result2 = Ports.RateLimitResult.blocked("Error 2");
 
-        String msg1 = result1.mapTo(a -> "ok").orElse(Ports.RateLimitResult.Blocked::message);
-        String msg2 = result2.mapTo(a -> "ok").orElse(Ports.RateLimitResult.Blocked::message);
+        String msg1 = result1.mapTo(ignored -> "ok").orElse(Ports.RateLimitResult.Blocked::message);
+        String msg2 = result2.mapTo(ignored -> "ok").orElse(Ports.RateLimitResult.Blocked::message);
 
         assertEquals("Error 1", msg1);
         assertEquals("Error 2", msg2);
@@ -143,12 +143,12 @@ class RateLimitResultTest {
         Ports.RateLimitResult blocked = Ports.RateLimitResult.blocked("Too many attempts");
 
         boolean allowedResult = allowed
-            .mapTo(a -> true)
-            .orElse(b -> false);
+            .mapTo(ignored -> true)
+            .orElse(ignored -> false);
 
         boolean blockedResult = blocked
-            .mapTo(a -> true)
-            .orElse(b -> false);
+            .mapTo(ignored -> true)
+            .orElse(ignored -> false);
 
         assertTrue(allowedResult);
         assertFalse(blockedResult);
@@ -162,11 +162,11 @@ class RateLimitResultTest {
         Ports.RateLimitResult blocked = Ports.RateLimitResult.blocked("Rate exceeded");
 
         Response allowedResponse = allowed
-            .mapTo(a -> new Response(true, "Allowed"))
+            .mapTo(ignored -> new Response(true, "Allowed"))
             .orElse(b -> new Response(false, b.message()));
 
         Response blockedResponse = blocked
-            .mapTo(a -> new Response(true, "Allowed"))
+            .mapTo(ignored -> new Response(true, "Allowed"))
             .orElse(b -> new Response(false, b.message()));
 
         assertTrue(allowedResponse.success());
@@ -182,10 +182,10 @@ class RateLimitResultTest {
         Ports.RateLimitResult innerAllowed = Ports.RateLimitResult.allowed();
 
         String result = outerAllowed
-            .mapTo(outer -> innerAllowed
-                .mapTo(inner -> "both allowed")
-                .orElse(innerBlocked -> "inner blocked"))
-            .orElse(outerBlocked -> "outer blocked");
+            .mapTo(ignoredOuter -> innerAllowed
+                .mapTo(ignoredInner -> "both allowed")
+                .orElse(ignoredInnerBlocked -> "inner blocked"))
+            .orElse(ignoredOuterBlocked -> "outer blocked");
 
         assertEquals("both allowed", result);
     }

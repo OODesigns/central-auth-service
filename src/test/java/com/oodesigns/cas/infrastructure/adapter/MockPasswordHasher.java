@@ -44,7 +44,4 @@ public class MockPasswordHasher implements Ports.PasswordVerifier {
         return Optional.empty();
     }
 
-    public void clear() {
-        passwordMap.clear();
-    }
 }

@@ -1,12 +1,19 @@
 package com.oodesigns.cas.integration;
 
-import com.oodesigns.cas.application.command.*;
+import com.oodesigns.cas.application.command.LoginCommand;
+import com.oodesigns.cas.application.command.LoginCommandHandler;
+import com.oodesigns.cas.application.command.LoginResult;
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.IpAddress;
 import com.oodesigns.cas.domain.value.Password;
 import com.oodesigns.cas.domain.value.Username;
-import com.oodesigns.cas.infrastructure.adapter.*;
+import com.oodesigns.cas.infrastructure.adapter.BcryptPasswordVerifier;
+import com.oodesigns.cas.infrastructure.adapter.Bucket4jRateLimiter;
+import com.oodesigns.cas.infrastructure.adapter.JooqUserCredentialReader;
+import com.oodesigns.cas.infrastructure.adapter.JooqUserRepository;
+import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
+import com.oodesigns.cas.infrastructure.adapter.SystemClock;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
@@ -15,37 +22,15 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.sql.*;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Real database integration tests for admin user authentication.
- * 
- * Connects to the existing PostgreSQL database from docker-compose setup
- * and uses the actual infrastructure code (JOOQ-based repositories and adapters).
- * 
- * This test requires the docker-compose services to be running:
- *   docker-compose -f .devcontainer/docker-compose.yml up
- * 
- * Password Configuration:
- * - `ADMIN_PASSWORD_HASH`: Bcrypt hash from environment, used by Flyway to seed database
- * - `ADMIN_PASSWORD_PLAIN`: Plain text password from environment, used by this test for login
- * 
- * Tests the complete login flow with:
- * - Real PostgreSQL database (from docker-compose)
- * - Real JOOQ-based repositories (JooqUserRepository, JooqUserCredentialReader)
- * - Real BcryptPasswordVerifier
- * - Real JWT token signing
- * 
- * This is a true end-to-end test that validates the entire stack works correctly
- * with real infrastructure and a live database.
+ * Real database integration tests for admin user authentication using the docker-compose PostgreSQL stack, real JOOQ repositories, bcrypt verification, and JWT signing. Requires the compose services (docker-compose -f .devcontainer/docker-compose.yml up) with ENV-provided admin credentials (ADMIN_PASSWORD_HASH via Flyway seed, ADMIN_PASSWORD_PLAIN for login) to validate the full login flow against live infrastructure.
  */
 @Tag("integration")
 class AdminLoginDatabaseIntegrationTest {
 
     private LoginCommandHandler loginHandler;
-    private Bucket4jRateLimiter rateLimiter;
-    private JwtTokenSigner tokenSigner;
     private DSLContext dslContext;
 
     private static final String ADMIN_USERNAME = "admin";
@@ -118,12 +103,12 @@ class AdminLoginDatabaseIntegrationTest {
         var userRepository = new JooqUserRepository(dslContext);
         var passwordVerifier = new BcryptPasswordVerifier();
         
-        rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
+        final Bucket4jRateLimiter rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
         
         // Create real JWT token signer with secret from environment
         String jwtSecret = System.getenv().get("JWT_SECRET");
-        tokenSigner = new JwtTokenSigner(
-            keyId -> java.util.Optional.of(com.oodesigns.cas.domain.value.KeyPassword.fromString(jwtSecret)),
+        final JwtTokenSigner tokenSigner = new JwtTokenSigner(
+            ignoredKeyId -> java.util.Optional.of(com.oodesigns.cas.domain.value.KeyPassword.fromString(jwtSecret)),
             "default"
         );
 
@@ -137,11 +122,9 @@ class AdminLoginDatabaseIntegrationTest {
         // Create command handler with real database repositories
         loginHandler = new LoginCommandHandler(authService, tokenService, userCredentialReader, userRepository, rateLimiter);
     }
-
     /**
      * Create a DSL context connected to the docker-compose PostgreSQL database.
      * Uses JOOQ PostgreSQL dialect for type-safe queries.
-     * 
      * Connects to the existing database from docker-compose using:
      * - DB_HOST: postgres service name or IP (default: "db")
      * - DB_PORT: postgres port (default: 5432)
@@ -155,13 +138,14 @@ class AdminLoginDatabaseIntegrationTest {
             dataSource.setDatabaseName(getAppDb());
             dataSource.setUser(getAppUser());
             dataSource.setPassword(getAppPassword());
-            
             return DSL.using(dataSource, SQLDialect.POSTGRES);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to create DSL context for host=" + getDbHost() + ", port=" + getDbPort(), e);
+            throw new RuntimeException(
+                "Failed to create DSL context for host=%s, port=%d".formatted(getDbHost(), getDbPort()),
+                e
+            );
         }
     }
-
     /**
      * Test: Admin user can login with correct credentials from real database.
      * 
@@ -341,10 +325,11 @@ class AdminLoginDatabaseIntegrationTest {
             var tables = new String[]{"users", "roles", "permissions", "user_roles"};
             for (String table : tables) {
                 var rs = stmt.executeQuery(
-                    "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '" + table + "')"
+                    "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '%s')"
+                        .formatted(table)
                 );
                 assertTrue(rs.next() && rs.getBoolean(1),
-                    "Table " + table + " should exist");
+                    "Table %s should exist".formatted(table));
             }
             
             // Check PostgreSQL functions exist
@@ -429,7 +414,7 @@ stmt.close();
             rs = stmt.executeQuery(
                 "SELECT COUNT(*) as role_count FROM user_roles ur " +
                 "JOIN roles r ON ur.role_id = r.role_id " +
-                "WHERE ur.user_id = '" + userId + "' AND r.name = 'admin'"
+                "WHERE ur.user_id = '%s' AND r.name = 'admin'".formatted(userId)
             );
             assertTrue(rs.next(), "Query should return results");
             assertEquals(1, rs.getInt("role_count"),

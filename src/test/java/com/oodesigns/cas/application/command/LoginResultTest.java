@@ -31,7 +31,7 @@ class LoginResultTest {
                 assertEquals(permissions, success.permissions());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignored -> {
                 fail("Expected success result but got failure");
                 return null;
             });
@@ -41,7 +41,7 @@ class LoginResultTest {
     void testFailureResult() {
         LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
 
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
                 fail("Expected failure result but got success");
                 return null;
             })
@@ -58,7 +58,7 @@ class LoginResultTest {
         LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
 
         // This test verifies that FailureResult doesn't expose success methods
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
                 fail("FailureResult should never match success case");
                 return null;
             })
@@ -85,7 +85,7 @@ class LoginResultTest {
                 assertEquals(userId, success.userId());
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignoredFailure -> {
                 fail("Expected success result but got failure");
                 return null;
             });
@@ -148,8 +148,8 @@ class LoginResultTest {
             () -> createTokenPair("access_token", null));
     }
     
-    private TokenService.TokenPair createTokenPair(String access, String refresh) {
-        return new TokenService.TokenPair(access, refresh);
+    private void createTokenPair(String access, String refresh) {
+        new TokenService.TokenPair(access, refresh); // invocation for exception validation only
     }
 
     @Test
@@ -182,13 +182,13 @@ class LoginResultTest {
                         assertNotEquals(success1.userId(), success2.userId());
                         return null;
                     })
-                    .orElse(failure2 -> {
+                    .orElse(ignoredFailure2 -> {
                         fail("Expected success result for result2 but got failure");
                         return null;
                     });
                 return null;
             })
-            .orElse(failure1 -> {
+            .orElse(ignoredFailure1 -> {
                 fail("Expected success result for result1 but got failure");
                 return null;
             });
@@ -199,17 +199,17 @@ class LoginResultTest {
         LoginResult result1 = LoginResult.failure("ERROR_1", "message 1");
         LoginResult result2 = LoginResult.failure("ERROR_2", "message 2");
 
-        result1.mapTo(success1 -> {
+        result1.mapTo(ignored1 -> {
                 fail("Expected failure result for result1 but got success");
                 return null;
             })
-            .orElse(failure1 -> {
-                result2.mapTo(success2 -> {
+            .orElse(ignored1Failure -> {
+                result2.mapTo(ignored2 -> {
                         fail("Expected failure result for result2 but got success");
                         return null;
                     })
-                    .orElse(failure2 -> {
-                        assertNotEquals(failure1.errorCode(), failure2.errorCode());
+                    .orElse(ignored2Failure -> {
+                        assertNotEquals(ignored1Failure.errorCode(), ignored2Failure.errorCode());
                         return null;
                     });
                 return null;
@@ -226,20 +226,20 @@ class LoginResultTest {
         LoginResult failure = LoginResult.failure("CODE", "message");
 
         // Success cannot be failed and vice versa
-        success.mapTo(s -> {
+        success.mapTo(ignored -> {
                 assertTrue(true); // Success case verified
                 return null;
             })
-            .orElse(f -> {
+            .orElse(ignoredFailure -> {
                 fail("Expected success but got failure");
                 return null;
             });
 
-        failure.mapTo(s -> {
+        failure.mapTo(ignored2 -> {
                 fail("Expected failure but got success");
                 return null;
             })
-            .orElse(f -> {
+            .orElse(ignoredFailure2 -> {
                 assertTrue(true); // Failure case verified
                 return null;
             });

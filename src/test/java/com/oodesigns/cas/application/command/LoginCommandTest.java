@@ -114,9 +114,10 @@ class LoginCommandTest {
         Username username = Username.of("john_doe");
         Password password = new Password("password123".toCharArray());
         IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+        LoginCommand cmd1 = new LoginCommand(username, password, ipAddress);
+        LoginCommand cmd2 = new LoginCommand(username, password, ipAddress);
         
-        assertEquals(cmd, cmd);
+        assertEquals(cmd1, cmd2);
     }
 
     @Test
@@ -135,8 +136,9 @@ class LoginCommandTest {
         Password password = new Password("password123".toCharArray());
         IpAddress ipAddress = IpAddress.of("192.168.1.1");
         LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+        LoginCommand differentCmd = new LoginCommand(Username.of("jane_doe"), password, ipAddress);
         
-        assertNotEquals("string", cmd);
+        assertNotEquals(differentCmd, cmd);
     }
 
     @Test

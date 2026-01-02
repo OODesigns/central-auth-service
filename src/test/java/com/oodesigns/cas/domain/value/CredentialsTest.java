@@ -24,26 +24,32 @@ class CredentialsTest {
 
     @Test
     void testCreateValidCredentials() {
-        var credentials = new Credentials(testCredential, testPassword);
-        
-        assertNotNull(credentials);
-        assertEquals(testCredential, credentials.credential());
-        assertEquals(testPassword, credentials.password());
+        try (var credentials = new Credentials(testCredential, testPassword)) {
+            assertNotNull(credentials);
+            assertEquals(testCredential, credentials.credential());
+            assertEquals(testPassword, credentials.password());
+        }
     }
 
     @Test
     void testCredentialsWithNullCredentialThrowsNullPointerException() {
-        assertThrows(NullPointerException.class, () -> new Credentials(null, testPassword));
+        assertThrows(NullPointerException.class, () -> createAndClose(null, testPassword));
     }
 
     @Test
     void testCredentialsWithNullPasswordThrowsNullPointerException() {
-        assertThrows(NullPointerException.class, () -> new Credentials(testCredential, null));
+        assertThrows(NullPointerException.class, () -> createAndClose(testCredential, null));
+    }
+
+    private void createAndClose(UserCredential credential, Password password) {
+        try (Credentials ignored = new Credentials(credential, password)) {
+            java.util.Objects.requireNonNull(ignored); // touch to avoid empty try block
+        }
     }
 
     @Test
     void testCredentialsWithBothNullThrowsNullPointerException() {
-        assertThrows(NullPointerException.class, () -> new Credentials(null, null));
+        assertThrows(NullPointerException.class, () -> createAndClose(null, null));
     }
 
     @Test
@@ -96,31 +102,31 @@ class CredentialsTest {
 
     @Test
     void testCredentialsIsAutoCloseable() {
-        var credentials = new Credentials(testCredential, testPassword);
-        
-        // Verify Credentials implements AutoCloseable
-        assertInstanceOf(AutoCloseable.class, credentials);
+        try (var credentials = new Credentials(testCredential, testPassword)) {
+            // Verify Credentials implements AutoCloseable
+            assertInstanceOf(AutoCloseable.class, credentials);
+        }
     }
 
     @Test
     void testCredentialsClosesClearsPassword() {
         Password password = new Password("password123".toCharArray());
-        var credentials = new Credentials(testCredential, password);
-        
-        // Close credentials - should not throw
-        assertDoesNotThrow(credentials::close);
+        try (var credentials = new Credentials(testCredential, password)) {
+            // Close credentials - should not throw
+            assertDoesNotThrow(credentials::close);
+        }
     }
 
     @Test
     void testCredentialsCloseIsIdempotent() {
         Password password = new Password("password123".toCharArray());
-        var credentials = new Credentials(testCredential, password);
-        
-        // Call close multiple times - should not throw
-        assertDoesNotThrow(() -> {
-            credentials.close();
-            credentials.close();
-            credentials.close();
-        });
+        try (var credentials = new Credentials(testCredential, password)) {
+            // Call close multiple times - should not throw
+            assertDoesNotThrow(() -> {
+                credentials.close();
+                credentials.close();
+                credentials.close();
+            });
+        }
     }
 }

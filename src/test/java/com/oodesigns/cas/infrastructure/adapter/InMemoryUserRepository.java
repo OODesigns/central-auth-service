@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * In-memory test implementation of UserCredentialReader and UserRepository.
  * Used for testing without database dependencies.
- * 
  * Note: Tests must set up both User (for post-auth) and UserCredential (for auth)
  * separately, as User no longer contains password hash.
  */
@@ -63,12 +62,6 @@ public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports
             throw new IllegalArgumentException("User ID cannot be null");
         }
         return Optional.ofNullable(usersById.get(userId));
-    }
-
-    public void clear() {
-        usersById.clear();
-        usersByUsername.clear();
-        credentialsByUsername.clear();
     }
 
     public int size() {

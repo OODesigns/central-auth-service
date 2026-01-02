@@ -6,15 +6,6 @@ package com.oodesigns.cas.util.properties;
 public final class PropertiesReaderException extends RuntimeException {
 
     /**
-     * Creates an exception with a message.
-     *
-     * @param message The error message
-     */
-    public PropertiesReaderException(final String message) {
-        super(message);
-    }
-
-    /**
      * Creates an exception with a message and cause.
      *
      * @param message The error message

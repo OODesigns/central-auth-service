@@ -13,20 +13,18 @@ import java.util.regex.Pattern;
 public final class EnvironmentVariableTransformer implements UnaryOperator<String> {
 
     /**
-     * Regex pattern to match placeholder format: ${VARIABLE_NAME:default_value}
-     * 
+     * Regex pattern to match placeholder format: dollar-brace VARIABLE_NAME:default_value close-brace
      * Pattern breakdown:
-     *   \$\{           - Matches literal "${"
-     *   ([^:}]+)       - Group 1: Variable name (one or more chars that aren't ':' or '}')
-     *   (?::([^}]*))?  - Group 2: Optional default value preceded by ':' (zero or more chars until '}')
-     *   \}             - Matches literal "}"
-     * 
+     * - Literal opening: dollar and brace
+     * - Group 1: Variable name (chars excluding colon and brace)
+     * - Group 2: Optional default value preceded by colon (chars until brace)
+     * - Literal closing: brace
      * Examples matched:
-     *   ${DB_HOST}              -> varName="DB_HOST", default=null
-     *   ${DB_HOST:localhost}    -> varName="DB_HOST", default="localhost"
-     *   ${DB_HOST:}             -> varName="DB_HOST", default=""
+     * - DB_HOST -> varName="DB_HOST", default=null
+     * - DB_HOST:localhost -> varName="DB_HOST", default="localhost"
+     * - DB_HOST: -> varName="DB_HOST", default=""
      */
-    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^:}]+)(?::([^}]*))?\\}");
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^:}]+)(?::([^}]*))?}");
 
     /**
      * Transforms a property value by resolving environment variable references.
@@ -53,7 +51,6 @@ public final class EnvironmentVariableTransformer implements UnaryOperator<Strin
 
     /**
      * Resolves a single placeholder by checking environment variables and system properties.
-     * 
      * Resolution order:
      *   1. Environment variable (System.getenv)
      *   2. System property (System.getProperty)
@@ -64,8 +61,10 @@ public final class EnvironmentVariableTransformer implements UnaryOperator<Strin
      * @return The resolved value
      */
     private String resolvePlaceholder(final String varName, final String defaultValue) {
+        // Treat empty strings the same as missing to allow defaults to apply
         return Optional.ofNullable(System.getenv(varName))
-            .or(() -> Optional.ofNullable(System.getProperty(varName)))
+            .filter(value -> !value.isEmpty())
+            .or(() -> Optional.ofNullable(System.getProperty(varName)).filter(value -> !value.isEmpty()))
             .orElse(defaultValue);
     }
 }

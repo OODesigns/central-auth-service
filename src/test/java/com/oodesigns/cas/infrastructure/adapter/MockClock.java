@@ -14,10 +14,6 @@ public class MockClock implements Ports.Clock {
         this.currentTime = initialTime;
     }
 
-    public MockClock() {
-        this.currentTime = Instant.now();
-    }
-
     @Override
     public Instant now() {
         return currentTime;

@@ -26,7 +26,7 @@ public class MockTokenSigner implements Ports.TokenSigner {
             return java.util.Optional.empty();
         }
 
-        return java.util.Optional.of("mock." + tokenCounter.incrementAndGet() + "." + payload.value());
+        return java.util.Optional.of("mock.%d.%s".formatted(tokenCounter.incrementAndGet(), payload.value()));
     }
 
     /**

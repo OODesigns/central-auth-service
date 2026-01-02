@@ -78,7 +78,7 @@ class DatabaseValueObjectsTest {
 
     @Test
     void databasePasswordRejectsNoUppercase() {
-        assertThrows(IllegalArgumentException.class, () -> new DatabasePassword("nouppercase@1234"));
+        assertThrows(IllegalArgumentException.class, () -> new DatabasePassword("no-uppercase@1234"));
     }
 
     @Test

@@ -63,7 +63,7 @@ class LoginCommandHandlerTest {
 
     private void mockSuccessfulFlow() {
         when(tokenSigner.sign(any(), any()))
-            .thenAnswer(invocation -> Optional.of("signed.token"));
+            .thenAnswer(ignored -> Optional.of("signed.token"));
         when(rateLimiter.checkLimit(anyString()))
             .thenReturn(Ports.RateLimitResult.allowed());
         when(clock.now()).thenReturn(Instant.now());
@@ -83,9 +83,9 @@ class LoginCommandHandlerTest {
             assertNotNull(success.tokenPair());
             assertEquals(testCredential.userId(), success.userId());
             assertNotNull(success.permissions());
-            assertTrue(success.permissions().size() > 0);  // User should have some permissions
+            assertFalse(success.permissions().isEmpty());  // User should have some permissions
             return null;
-        }).orElse(failure -> {
+        }).orElse(ignored -> {
             fail("Login should succeed");
             return null;
         });
@@ -98,10 +98,10 @@ class LoginCommandHandlerTest {
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
         when(passwordHasher.verify(any())).thenReturn(Optional.empty());
 
-        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("wrongpass".toCharArray()), IpAddress.of("192.168.1.1"));
+        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("wrong_pass".toCharArray()), IpAddress.of("192.168.1.1"));
         LoginResult result = loginHandler.handle(cmd);
 
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
             fail("Login should fail");
             return null;
         }).orElse(failure -> {
@@ -119,7 +119,7 @@ class LoginCommandHandlerTest {
         LoginCommand cmd = new LoginCommand(Username.of("unknown"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
         LoginResult result = loginHandler.handle(cmd);
 
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
             fail("Login should fail");
             return null;
         }).orElse(failure -> {
@@ -136,7 +136,7 @@ class LoginCommandHandlerTest {
         LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
         LoginResult result = loginHandler.handle(cmd);
 
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
             fail("Should be rate limited");
             return null;
         }).orElse(failure -> {
@@ -149,7 +149,7 @@ class LoginCommandHandlerTest {
     void testLoginNullCommand() {
         LoginResult result = loginHandler.handle(null);
 
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
             fail("Should fail");
             return null;
         }).orElse(failure -> {
@@ -168,7 +168,7 @@ class LoginCommandHandlerTest {
         LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
         LoginResult result = loginHandler.handle(cmd);
 
-        result.mapTo(success -> {
+        result.mapTo(ignored -> {
             fail("Should fail");
             return null;
         }).orElse(failure -> {

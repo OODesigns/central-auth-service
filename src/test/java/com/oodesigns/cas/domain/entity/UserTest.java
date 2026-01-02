@@ -35,16 +35,14 @@ class UserTest {
 
     @Test
     void testCreateThrowsWithNullUserId() {
-        UserId nullUserId = null;
         Set<Permission> permissions = Set.of();
-        assertThrows(NullPointerException.class, () -> new User(nullUserId, username, permissions));
+        assertThrows(NullPointerException.class, () -> new User(null, username, permissions));
     }
 
     @Test
     void testCreateThrowsWithNullUsername() {
-        Username nullUsername = null;
         Set<Permission> permissions = Set.of();
-        assertThrows(NullPointerException.class, () -> new User(userId, nullUsername, permissions));
+        assertThrows(NullPointerException.class, () -> new User(userId, null, permissions));
     }
 
     @Test

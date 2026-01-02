@@ -47,9 +47,7 @@ class BcryptPasswordVerifierTest {
         );
         
         final Password password = new Password("correct_password".toCharArray());
-        final Credentials credentials = new Credentials(testCredential, password);
-        
-        try (final Credentials creds = credentials) {
+        try (final Credentials creds = new Credentials(testCredential, password)) {
             final Optional<UserId> result = verifier.verify(creds);
             
             // Note: This will fail if BCrypt is not available, but that's expected
@@ -67,9 +65,7 @@ class BcryptPasswordVerifierTest {
         );
         
         final Password wrongPassword = new Password("wrong_password".toCharArray());
-        final Credentials credentials = new Credentials(testCredential, wrongPassword);
-        
-        try (final Credentials creds = credentials) {
+        try (final Credentials creds = new Credentials(testCredential, wrongPassword)) {
             final Optional<UserId> result = verifier.verify(creds);
             
             assertNotNull(result, "Result should not be null");
@@ -91,9 +87,7 @@ class BcryptPasswordVerifierTest {
     @DisplayName("Should return Optional (never null)")
     void shouldReturnOptionalNeverNull() {
         final Password password = new Password("any_password".toCharArray());
-        final Credentials credentials = new Credentials(testCredential, password);
-        
-        try (final Credentials creds = credentials) {
+        try (final Credentials creds = new Credentials(testCredential, password)) {
             final Optional<UserId> result = verifier.verify(creds);
             
             assertNotNull(result, "Result Optional should never be null");
@@ -106,10 +100,9 @@ class BcryptPasswordVerifierTest {
     void shouldHandleCredentialsWithAutoCloseable() {
         final Password password = new Password("test_password".toCharArray());
         final int originalLength = password.chars().length;
-        final Credentials credentials = new Credentials(testCredential, password);
         
         // Test that credentials can be used with try-with-resources
-        try (final Credentials creds = credentials) {
+        try (final Credentials creds = new Credentials(testCredential, password)) {
             final Optional<UserId> result = verifier.verify(creds);
             assertNotNull(result);
         }
@@ -122,9 +115,7 @@ class BcryptPasswordVerifierTest {
     @DisplayName("Should handle short password gracefully")
     void shouldHandleShortPasswordGracefully() {
         final Password shortPassword = new Password("a".toCharArray());
-        final Credentials credentials = new Credentials(testCredential, shortPassword);
-        
-        try (final Credentials creds = credentials) {
+        try (final Credentials creds = new Credentials(testCredential, shortPassword)) {
             final Optional<UserId> result = verifier.verify(creds);
             
             assertNotNull(result, "Should handle short password gracefully");
@@ -148,10 +139,8 @@ class BcryptPasswordVerifierTest {
         final Password pwd1 = new Password("password1".toCharArray());
         final Password pwd2 = new Password("password2".toCharArray());
         
-        final Credentials creds1 = new Credentials(cred1, pwd1);
-        final Credentials creds2 = new Credentials(cred2, pwd2);
-        
-        try (final Credentials c1 = creds1; final Credentials c2 = creds2) {
+           try (final Credentials c1 = new Credentials(cred1, pwd1);
+               final Credentials c2 = new Credentials(cred2, pwd2)) {
             final Optional<UserId> result1 = verifier.verify(c1);
             final Optional<UserId> result2 = verifier.verify(c2);
             

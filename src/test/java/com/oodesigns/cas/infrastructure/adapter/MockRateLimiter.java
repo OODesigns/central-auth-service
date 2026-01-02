@@ -15,10 +15,6 @@ public class MockRateLimiter implements Ports.RateLimiter {
     private final int maxAttempts;
     private final Set<String> blockedKeys = ConcurrentHashMap.newKeySet();
 
-    public MockRateLimiter() {
-        this(3); // Default: 3 attempts per key
-    }
-
     public MockRateLimiter(int maxAttempts) {
         this.maxAttempts = maxAttempts;
     }
@@ -30,14 +26,14 @@ public class MockRateLimiter implements Ports.RateLimiter {
         }
 
         if (blockedKeys.contains(key)) {
-            return Ports.RateLimitResult.blocked("Rate limit exceeded for: " + key);
+            return Ports.RateLimitResult.blocked("Rate limit exceeded for: %s".formatted(key));
         }
 
-        int currentCount = callCounts.computeIfAbsent(key, k -> new AtomicInteger(0)).incrementAndGet();
+        int currentCount = callCounts.computeIfAbsent(key, ignored -> new AtomicInteger(0)).incrementAndGet();
 
         if (currentCount > maxAttempts) {
             blockedKeys.add(key);
-            return Ports.RateLimitResult.blocked("Rate limit exceeded for: " + key);
+            return Ports.RateLimitResult.blocked("Rate limit exceeded for: %s".formatted(key));
         }
 
         return Ports.RateLimitResult.allowed();

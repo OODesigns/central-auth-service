@@ -23,10 +23,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class JwtTokenSignerTest {
     private static final String TEST_SECRET = "this-is-a-test-secret-key-with-32-chars!";
     private JwtTokenSigner signer;
+    private static final String DIFFERENT_KEY = "different-secret-key-with-32-chars!";
 
     @BeforeEach
     void setUp() {
-        signer = new JwtTokenSigner(keyId -> java.util.Optional.of(KeyPassword.fromString(TEST_SECRET)), "test-key");
+        signer = new JwtTokenSigner(_ -> java.util.Optional.of(KeyPassword.fromString(TEST_SECRET)), "test-key");
     }
 
     @Test
@@ -45,10 +46,10 @@ class JwtTokenSignerTest {
     @Test
     @DisplayName("Should return empty Optional for insufficient key length")
     void shouldReturnEmptyForInsufficientKeyLength() {
-        final JwtTokenSigner shortKeySigner = new JwtTokenSigner(keyId -> {
+        final JwtTokenSigner shortKeySigner = new JwtTokenSigner(ignored -> {
             try {
                 return java.util.Optional.of(KeyPassword.fromString("short"));
-            } catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException _) {
                 return java.util.Optional.empty();
             }
         }, "test-key");
@@ -61,7 +62,7 @@ class JwtTokenSignerTest {
     @Test
         @DisplayName("Should return empty Optional when KeySupplier returns empty")
         void shouldReturnEmptyWhenKeySupplierReturnsEmpty() {
-        final JwtTokenSigner nullPasswordSigner = new JwtTokenSigner(keyId -> java.util.Optional.empty(), "test-key");
+        final JwtTokenSigner nullPasswordSigner = new JwtTokenSigner(_ -> java.util.Optional.empty(), "test-key");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final var result = nullPasswordSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
@@ -153,11 +154,9 @@ class JwtTokenSignerTest {
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final String token = signer.sign(payload, expiresAt).orElseThrow();
-        final String differentKey = "different-secret-key-with-32-chars!";
 
-        assertThrows(Exception.class, () -> {
-            parseTokenWithKey(token, differentKey);
-        }, "Should reject token signed with different key");
+        assertThrows(Exception.class, () -> parseTokenWithDifferentKey(token),
+            "Should reject token signed with different key");
     }
 
     @Test
@@ -187,11 +186,11 @@ class JwtTokenSignerTest {
     /**
      * Parse a JWT token with a specific key (for testing invalid signatures).
      */
-    private io.jsonwebtoken.Claims parseTokenWithKey(final String token, final String key) {
-        return Jwts.parser()
-                .verifyWith(Keys.hmacShaKeyFor(key.getBytes(StandardCharsets.UTF_8)))
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+    private void parseTokenWithDifferentKey(final String token) {
+        Jwts.parser()
+            .verifyWith(Keys.hmacShaKeyFor(DIFFERENT_KEY.getBytes(StandardCharsets.UTF_8)))
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
     }
 }

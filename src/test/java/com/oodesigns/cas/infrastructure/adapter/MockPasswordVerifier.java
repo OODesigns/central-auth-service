@@ -36,11 +36,11 @@ public class MockPasswordVerifier implements Ports.PasswordVerifier {
      */
     public PasswordHash hash(final char[] rawPassword) {
         // For testing, create a mock bcrypt-formatted hash
-        // Bcrypt format: $2a$10$SSSSSSSSSSSSSSSSSSSSUU where SS=salt(22 chars), U=hash(31 chars)
+        // Bcrypt format: $2a$10$SS... (22 chars salt) + U... (31 chars hash)
         final String uuid = UUID.randomUUID().toString().replace("-", "");
         final String salt = uuid.substring(0, 22);  // 22 chars for salt
         final String hashPart = (uuid + uuid).substring(0, 31);  // 31 chars for hash
-        final String mockBcryptHash = "$2a$10$" + salt + hashPart;
+        final String mockBcryptHash = "$2a$10$%s%s".formatted(salt, hashPart);
         registerPasswordHash(mockBcryptHash, new String(rawPassword));
         return new PasswordHash(mockBcryptHash);
     }
@@ -58,8 +58,12 @@ public class MockPasswordVerifier implements Ports.PasswordVerifier {
         return Optional.empty();
     }
 
+    /**
+     * Clear all registered password mappings (test helper).
+     */
     public void clear() {
         passwordMap.clear();
     }
+
 }
 
