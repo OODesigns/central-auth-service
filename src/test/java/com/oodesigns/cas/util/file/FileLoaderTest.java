@@ -1,9 +1,7 @@
 package com.oodesigns.cas.util.file;
 
 import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 class FileLoaderTest {
 
@@ -15,7 +13,6 @@ class FileLoaderTest {
     @Test
     void loadAndReadText(){
         final FileLoader fileLoader = new FileLoader("testfile.txt");
-        assertThat(fileLoader.toString()).contains("some test data");
+        assertSame("some test data", fileLoader.toString());
     }
-
 }

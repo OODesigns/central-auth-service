@@ -16,6 +16,7 @@ class DatabaseConfigTest {
     void setUp() {
         System.setProperty("DB_HOST", "testhost");
         System.setProperty("DB_PORT", "5433");
+        System.setProperty("APP_PASSWORD", "SecureP@ss123");
     }
     
     @AfterEach
@@ -120,10 +121,31 @@ class DatabaseConfigTest {
     }
     
     @Test
-    void testPasswordHasNoValidation() {
-        System.setProperty("APP_PASSWORD", "any!@#$%^&*()_+{}|:<>?");
+    void testPasswordValidation() {
+        System.setProperty("APP_PASSWORD", "ValidP@ss1");
         
         DatabaseConfig config = new DatabaseConfig();
-        assertEquals("any!@#$%^&*()_+{}|:<>?", config.getPassword());
+        assertEquals("ValidP@ss1", config.getPassword());
+    }
+
+    @Test
+    void testInvalidPasswordThrowsInConstructor() {
+        System.setProperty("APP_PASSWORD", "weak");
+        
+        assertThrows(DatabaseConfigurationException.class, DatabaseConfig::new);
+    }
+
+    @Test
+    void testBlankHostThrowsInConstructor() {
+        System.setProperty("DB_HOST", "   ");
+        
+        assertThrows(DatabaseConfigurationException.class, DatabaseConfig::new);
+    }
+
+    @Test
+    void testBlankPasswordThrowsInConstructor() {
+        System.setProperty("APP_PASSWORD", "   ");
+        
+        assertThrows(DatabaseConfigurationException.class, DatabaseConfig::new);
     }
 }

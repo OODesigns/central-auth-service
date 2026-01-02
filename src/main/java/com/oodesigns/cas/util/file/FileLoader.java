@@ -1,4 +1,4 @@
-package com.oodesigns.cas.file;
+package com.oodesigns.cas.util.file;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

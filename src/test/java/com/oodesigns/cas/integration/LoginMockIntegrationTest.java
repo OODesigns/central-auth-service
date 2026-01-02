@@ -333,9 +333,7 @@ class LoginMockIntegrationTest {
             IpAddress.of("192.168.1.100"));
         
         // Clear the original char array after command creation
-        for (int i = 0; i < password.length; i++) {
-            password[i] = '\0';
-        }
+        Arrays.fill(password, '\0');
 
         // 3. Verify: Command still has the correct password (cloned)
         LoginResult result = loginHandler.handle(cmd);

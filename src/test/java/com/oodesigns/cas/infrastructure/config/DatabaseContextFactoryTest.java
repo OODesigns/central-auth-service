@@ -17,6 +17,7 @@ class DatabaseContextFactoryTest {
     void setUp() {
         System.setProperty("DB_HOST", "localhost");
         System.setProperty("DB_PORT", "5432");
+        System.setProperty("APP_PASSWORD", "TestP@ss123");
     }
     
     @AfterEach
