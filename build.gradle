@@ -99,57 +99,166 @@ jacocoTestReport {
 }
 
 jacocoTestCoverageVerification {
+    dependsOn test
     violationRules {
-        // Domain layer: ultra-strict (98% line, 95% branch)
+        // Application command layer: excellent (100% line, 100% branch)
         rule {
             element = 'PACKAGE'
-            includes = ['com.oodesigns.cas.domain.*']
+            includes = ['com.oodesigns.cas.application.command']
             
             limit {
                 counter = 'LINE'
                 value = 'COVEREDRATIO'
-                minimum = 0.98
+                minimum = 1.00
             }
             
             limit {
                 counter = 'BRANCH'
                 value = 'COVEREDRATIO'
-                minimum = 0.95
+                minimum = 1.00
             }
         }
         
-        // Utility/application layer: strict (95% line, 90% branch)
+        // Domain service layer: excellent (100% line, 100% branch)
         rule {
             element = 'PACKAGE'
-            includes = ['com.oodesigns.cas.util.*', 'com.oodesigns.cas.application.*']
+            includes = ['com.oodesigns.cas.domain.service']
             
             limit {
                 counter = 'LINE'
                 value = 'COVEREDRATIO'
-                minimum = 0.95
+                minimum = 1.00
             }
             
             limit {
                 counter = 'BRANCH'
                 value = 'COVEREDRATIO'
-                minimum = 0.90
+                minimum = 1.00
             }
         }
         
-        // Overall project minimum (80% line, 75% branch)
+        // Infrastructure adapter layer: excellent (97% line, 100% branch)
+        rule {
+            element = 'PACKAGE'
+            includes = ['com.oodesigns.cas.infrastructure.adapter']
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.97
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+        }
+        
+        // Infrastructure config layer: very good (98% line, 95% branch)
+        rule {
+            element = 'PACKAGE'
+            includes = ['com.oodesigns.cas.infrastructure.config']
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+        }
+        
+        // Utility properties layer: very good (96% line, 100% branch)
+        rule {
+            element = 'PACKAGE'
+            includes = ['com.oodesigns.cas.util.properties']
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+        }
+        
+        // Utility validation layer: excellent (100% line, 100% branch)
+        rule {
+            element = 'PACKAGE'
+            includes = ['com.oodesigns.cas.util.validation']
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+        }
+        
+        // Utility file layer: good (90% line, 83% branch)
+        rule {
+            element = 'PACKAGE'
+            includes = ['com.oodesigns.cas.util.file']
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+        }
+        
+        // Domain value layer: good (96% line, 67% branch)
+        rule {
+            element = 'PACKAGE'
+            includes = ['com.oodesigns.cas.domain.value']
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 1.00
+            }
+        }
+        
+        // Overall project minimum (97.5% line, 84% branch)
         rule {
             element = 'BUNDLE'
             
             limit {
                 counter = 'LINE'
                 value = 'COVEREDRATIO'
-                minimum = 0.80
+                minimum = 1.00
             }
             
             limit {
                 counter = 'BRANCH'
                 value = 'COVEREDRATIO'
-                minimum = 0.75
+                minimum = 1.00
             }
         }
     }
