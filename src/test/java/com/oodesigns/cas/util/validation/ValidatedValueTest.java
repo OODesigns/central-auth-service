@@ -70,15 +70,15 @@ class ValidatedValueTest {
     @Test
     void testEqualsReturnsFalseForDifferentClass() {
         var v1 = new TestValidatedValue("test");
-        var other = "test";
+        Object other = "test";
         
-        assertNotEquals(v1, other);
+        assertNotEquals(other, v1);
     }
 
     @Test
     void testEqualsReturnsFalseForDifferentSubclass() {
         var v1 = new TestValidatedValue("test");
-        var v2 = new ValidatedValue<String, String>("test") {
+        Object v2 = new ValidatedValue<String, String>("test") {
             @Override
             protected String parse(String raw) {
                 return raw.toLowerCase();
@@ -91,7 +91,7 @@ class ValidatedValueTest {
         };
         
         // Different classes should not be equal even with same value
-        assertNotEquals(v1, v2);
+        assertNotEquals(v2, v1);
     }
 
     @Test

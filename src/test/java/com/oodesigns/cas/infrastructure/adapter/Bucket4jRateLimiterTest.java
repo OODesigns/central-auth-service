@@ -24,12 +24,12 @@ class Bucket4jRateLimiterTest {
     }
 
     private boolean isAllowed(RateLimitResult result) {
-        return result.mapTo(allowed -> true).orElse(blocked -> false);
+        return result.mapTo(_ -> true).orElse(_ -> false);
     }
 
     private String getBlockedMessage(RateLimitResult result) {
         AtomicReference<String> msg = new AtomicReference<>();
-        result.mapTo(allowed -> null).orElse(blocked -> {
+        result.mapTo(_ -> null).orElse(blocked -> {
             msg.set(blocked.message());
             return null;
         });
