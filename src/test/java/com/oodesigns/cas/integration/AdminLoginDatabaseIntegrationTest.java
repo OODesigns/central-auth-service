@@ -147,8 +147,7 @@ class AdminLoginDatabaseIntegrationTest {
         }
     }
     /**
-     * Test: Admin user can login with correct credentials from real database.
-     * 
+     * Test: Admin user can log in with correct credentials from real database.
      * Verifies:
      * - Admin user exists in database (seeded by test setup)
      * - JOOQ repository successfully retrieves credentials from auth.find_user_credentials()
@@ -159,33 +158,41 @@ class AdminLoginDatabaseIntegrationTest {
     void testAdminLoginWithDatabaseCredentials() {
         // Spring Security's BCryptPasswordEncoder supports all bcrypt hash formats ($2a$, $2b$, $2y$)
         // Ensure the admin user has a valid bcrypt hash in the database
-        String actualHash = null;
+        String actualHash;
         try {
             String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", getDbHost(), getDbPort(), getAppDb());
             Connection conn = DriverManager.getConnection(jdbcUrl, getAppUser(), getAppPassword());
             
             // Check if admin user exists and has valid password hash
             Statement stmt = conn.createStatement();
+            //noinspection SqlResolve
             var rs = stmt.executeQuery("SELECT user_id, password_hash FROM users WHERE username = 'admin'");
             if (!rs.next()) {
                 fail("Admin user not found in database");
             }
             actualHash = rs.getString("password_hash");
-            System.out.println("DEBUG: Password hash in DB: " + actualHash);
-            System.out.println("DEBUG: Plain password to test: " + ADMIN_PASSWORD);
+            System.out.printf("""
+                    DEBUG: Password hash in DB: %s
+                    DEBUG: Plain password to test: %s
+                    %n""", actualHash, ADMIN_PASSWORD);
             
             // Test bcrypt directly
             org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder = 
                 new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
             boolean directMatch = encoder.matches(ADMIN_PASSWORD, actualHash);
-            System.out.println("DEBUG: Direct BCrypt match: " + directMatch);
+            System.out.printf("""
+                    DEBUG: Direct BCrypt match: %s
+                    %n""", directMatch);
             
             // Test auth.find_user_credentials function
+            //noinspection SqlResolve
             var rs2 = stmt.executeQuery("SELECT * FROM auth.find_user_credentials('admin')");
             if (rs2.next()) {
                 String funcHash = rs2.getString("password_hash");
-                System.out.println("DEBUG: Hash from auth.find_user_credentials: " + funcHash);
-                System.out.println("DEBUG: Hashes match: " + actualHash.equals(funcHash));
+                System.out.printf("""
+                        DEBUG: Hash from auth.find_user_credentials: %s
+                        DEBUG: Hashes match: %s
+                        %n""", funcHash, actualHash.equals(funcHash));
             } else {
                 System.out.println("DEBUG: auth.find_user_credentials returned no rows!");
             }
@@ -193,7 +200,9 @@ class AdminLoginDatabaseIntegrationTest {
             stmt.close();
             conn.close();
         } catch (Exception e) {
-            fail("Database error: " + e.getMessage());
+            fail("""
+                Database error: %s
+                """.formatted(e.getMessage()));
         }
         
         // Arrange: Admin credentials (use plain password for login)
@@ -216,14 +225,16 @@ class AdminLoginDatabaseIntegrationTest {
                 return null;
             })
             .orElse(failure -> {
-                fail("Admin login with real database credentials should succeed. Error: " + failure.errorMessage());
+                fail("""
+                    Admin login with real database credentials should succeed.
+                    Error: %s
+                    """.formatted(failure.errorMessage()));
                 return null;
             });
     }
 
     /**
-     * Test: Admin user cannot login with wrong password against real database.
-     * 
+     * Test: Admin user cannot log in with wrong password against real database.
      * Verifies:
      * - BcryptPasswordVerifier correctly rejects wrong password
      * - BCrypt constant-time comparison prevents timing attacks
@@ -241,7 +252,7 @@ class AdminLoginDatabaseIntegrationTest {
         LoginResult result = loginHandler.handle(loginCmd);
 
         // Assert: Login fails with proper error
-        result.mapTo(success -> {
+        result.mapTo(ignoredSuccess -> {
                 fail("Admin login with wrong password should fail");
                 return null;
             })
@@ -256,7 +267,7 @@ class AdminLoginDatabaseIntegrationTest {
 
     /**
      * Test: JOOQ queries work correctly against real database.
-     * 
+     * <p>
      * Verifies:
      * - auth.find_user_credentials() PostgreSQL function accessible via JOOQ
      * - Correct credentials returned for admin user
@@ -272,13 +283,12 @@ class AdminLoginDatabaseIntegrationTest {
         // Assert: Credentials found and have correct data
         assertTrue(credentials.isPresent(), 
             "JOOQ should retrieve admin user credentials from database");
-        assertTrue(!credentials.get().passwordHash().asString().isEmpty(),
+        assertFalse(credentials.get().passwordHash().asString().isEmpty(),
             "Password hash should be populated from database");
     }
 
     /**
      * JOOQ user repository retrieves user with permissions.
-     * 
      * Verifies:
      * - auth.get_user() PostgreSQL function accessible via JOOQ
      * - User permissions array correctly converted to Set
@@ -302,13 +312,12 @@ class AdminLoginDatabaseIntegrationTest {
         assertEquals(ADMIN_USERNAME, user.get().username().value(),
             "Username should match from database");
         // Admin should have permissions loaded from database (admin role permissions)
-        assertTrue(user.get().permissions().size() > 0,
+        assertFalse(user.get().permissions().isEmpty(),
             "Admin user should have permissions loaded from database");
     }
 
     /**
      * Test: Database schema was properly created.
-     * 
      * Verifies:
      * - All required tables exist (users, roles, permissions, user_roles)
      * - PostgreSQL functions exist (auth.find_user_credentials, auth.get_user)
@@ -333,13 +342,15 @@ class AdminLoginDatabaseIntegrationTest {
             }
             
             // Check PostgreSQL functions exist
+            //noinspection SqlResolve
             var rs = stmt.executeQuery(
                 "SELECT EXISTS (SELECT 1 FROM information_schema.routines " +
                 "WHERE routine_schema = 'auth' AND routine_name = 'find_user_credentials')"
             );
             assertTrue(rs.next() && rs.getBoolean(1),
                 "Function auth.find_user_credentials() should exist");
-            
+
+            //noinspection SqlResolve
             rs = stmt.executeQuery(
                 "SELECT EXISTS (SELECT 1 FROM information_schema.routines " +
                 "WHERE routine_schema = 'auth' AND routine_name = 'get_user')"
@@ -349,13 +360,14 @@ class AdminLoginDatabaseIntegrationTest {
 stmt.close();
             conn.close();
         } catch (SQLException e) {
-            fail("Failed to verify database schema: " + e.getMessage());
+            fail("""
+                Failed to verify database schema: %s
+                """.formatted(e.getMessage()));
         }
     }
 
     /**
      * Test: Flyway migration history is tracked.
-     * 
      * Verifies:
      * - Migrations were executed successfully
      * - Migration tracking table exists
@@ -366,7 +378,8 @@ stmt.close();
             String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", getDbHost(), getDbPort(), getAppDb());
             Connection conn = DriverManager.getConnection(jdbcUrl, getAppUser(), getAppPassword());
             Statement stmt = conn.createStatement();
-            
+
+            //noinspection SqlResolve
             var rs = stmt.executeQuery(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = true"
             );
@@ -386,7 +399,6 @@ stmt.close();
 
     /**
      * Test: Admin user exists in database with correct role.
-     * 
      * Verifies:
      * - Admin user created by Flyway migration
      * - Admin role assigned to admin user
@@ -400,6 +412,7 @@ stmt.close();
             Statement stmt = conn.createStatement();
             
             // Check admin user exists
+            //noinspection SqlResolve
             var rs = stmt.executeQuery(
                 "SELECT user_id, password_hash FROM users WHERE username = 'admin'"
             );
@@ -411,18 +424,20 @@ stmt.close();
             assertFalse(passwordHash.isEmpty(), "Password hash should not be empty");
             
             // Check admin role assignment
-            rs = stmt.executeQuery(
-                "SELECT COUNT(*) as role_count FROM user_roles ur " +
-                "JOIN roles r ON ur.role_id = r.role_id " +
-                "WHERE ur.user_id = '%s' AND r.name = 'admin'".formatted(userId)
-            );
+            rs = stmt.executeQuery("""
+                SELECT COUNT(*) as role_count FROM user_roles ur
+                JOIN roles r ON ur.role_id = r.role_id
+                WHERE ur.user_id = '%s' AND r.name = 'admin'
+                """.formatted(userId));
             assertTrue(rs.next(), "Query should return results");
             assertEquals(1, rs.getInt("role_count"),
                 "Admin user should have exactly one admin role");
             stmt.close();
             conn.close();
         } catch (SQLException e) {
-            fail("Failed to verify admin user in database: " + e.getMessage());
+            fail("""
+                Failed to verify admin user in database: %s
+                """.formatted(e.getMessage()));
         }
     }
 }
