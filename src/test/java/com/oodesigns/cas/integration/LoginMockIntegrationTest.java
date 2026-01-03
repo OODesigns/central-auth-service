@@ -58,7 +58,7 @@ class LoginMockIntegrationTest {
     }
 
     /**
-     * Test helper: Setup a user with credentials for authentication.
+     * Test helper: Set up a user with credentials for authentication.
      * Saves both the User (for post-auth) and UserCredential (for authentication).
      */
     private void setupUserWithCredentials(UserId userId, Username username, String password) {
@@ -210,7 +210,7 @@ class LoginMockIntegrationTest {
                     return null;
                 })
                 .orElse(ignored -> {
-                    fail("Attempt " + attempt + " should succeed");
+                    fail("Attempt %d should succeed".formatted(attempt));
                     return null;
                 });
         }
@@ -247,7 +247,7 @@ class LoginMockIntegrationTest {
                     return null;
                 })
                 .orElse(ignored -> {
-                    fail("Login from IP " + ip + " should succeed");
+                    fail("Login from IP %s should succeed".formatted(ip));
                     return null;
                 });
         }
