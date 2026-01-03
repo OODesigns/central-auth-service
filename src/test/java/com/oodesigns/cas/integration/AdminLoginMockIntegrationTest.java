@@ -18,17 +18,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for admin user authentication using mock adapters.
- * 
+ * <p>
  * Tests admin-specific scenarios with in-memory mocks:
  * - Admin login with correct credentials
  * - Admin login with incorrect password
  * - Admin role verification
  * - Rate limiting per IP address
  * - Token timestamp validation
- * 
+ * <p>
  * Uses mock adapters for fast unit-like testing without external dependencies.
  * Focuses specifically on admin user behaviors and permissions.
- * 
+ * <p>
  * For general login scenarios, see: LoginMockIntegrationTest
  * For real database testing, see: AdminLoginDatabaseIntegrationTest
  */
@@ -38,8 +38,6 @@ class AdminLoginMockIntegrationTest {
     private InMemoryUserRepository userRepository;
     private MockPasswordVerifier passwordVerifier;
     private MockClock clock;
-    private Bucket4jRateLimiter rateLimiter;
-    private MockTokenSigner tokenSigner;
 
     private static final String ADMIN_USERNAME = "admin";
     private static final String ADMIN_PASSWORD = "admin_initial_password";
@@ -50,8 +48,8 @@ class AdminLoginMockIntegrationTest {
         userRepository = new InMemoryUserRepository();
         passwordVerifier = new MockPasswordVerifier();
         clock = new MockClock(Instant.now());
-        rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
-        tokenSigner = new MockTokenSigner();
+        var rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
+        var tokenSigner = new MockTokenSigner();
 
         // Create domain services with injected ports
         AuthenticationService authService = new AuthenticationService(passwordVerifier);
@@ -85,8 +83,8 @@ class AdminLoginMockIntegrationTest {
     }
 
     /**
-     * Test: Admin user can login with correct credentials.
-     * 
+     * Test: Admin user can log in with correct credentials.
+     * <p>
      * Verifies:
      * - Login succeeds
      * - Access token is generated
@@ -118,14 +116,17 @@ class AdminLoginMockIntegrationTest {
                 return null;
             })
             .orElse(failure -> {
-                fail("Admin login should have succeeded. Error: " + failure.errorMessage());
+                fail("""
+                    Admin login should have succeeded.
+                    Error: %s
+                    """.formatted(failure.errorMessage()));
                 return null;
             });
     }
 
     /**
      * Test: Admin user login fails with incorrect password.
-     * 
+     * <p>
      * Verifies:
      * - Login fails with generic error (no information leakage)
      * - Error code is INVALID_CREDENTIALS
@@ -144,7 +145,7 @@ class AdminLoginMockIntegrationTest {
         LoginResult result = loginHandler.handle(loginCmd);
 
         // Assert: Login fails with generic error
-        result.mapTo(success -> {
+        result.mapTo(ignoredSuccess -> {
                 fail("Admin login with wrong password should have failed");
                 return null;
             })
@@ -159,7 +160,7 @@ class AdminLoginMockIntegrationTest {
 
     /**
      * Test: Admin user has admin role assigned.
-     * 
+     * <p>
      * Verifies:
      * - Admin user is created
      * - User can be retrieved from repository by ID
@@ -182,10 +183,10 @@ class AdminLoginMockIntegrationTest {
     }
 
     /**
-     * Test: Multiple login attempts from same IP are rate limited.
-     * 
+     * Test: Multiple login attempts from the same IP are rate limited.
+     * <p>
      * Verifies:
-     * - First 5 login attempts succeed (or fail based on credentials, but not rate limited)
+     * - First 5 login attempts will succeed (or fail based on credentials, but not rate limited)
      * - 6th attempt is rate limited
      * - Rate limit is per IP address
      */
@@ -207,7 +208,8 @@ class AdminLoginMockIntegrationTest {
             // First 5 should succeed (not rate limited)
             final int attempt = attemptNumber;
             result.mapTo(success -> {
-                    assertNotNull(success.tokenPair(), "Attempt " + attempt + " should succeed");
+                    assertNotNull(success.tokenPair(), 
+                        "Attempt %d should succeed".formatted(attempt));
                     return null;
                 })
                 .orElse(failure -> {
@@ -228,7 +230,7 @@ class AdminLoginMockIntegrationTest {
         LoginResult rateLimitedResult = loginHandler.handle(rateLimitedCmd);
         
         // Assert: 6th attempt is rate limited
-        rateLimitedResult.mapTo(success -> {
+        rateLimitedResult.mapTo(ignoredSuccess -> {
                 fail("6th login attempt should be rate limited");
                 return null;
             })
@@ -241,10 +243,10 @@ class AdminLoginMockIntegrationTest {
 
     /**
      * Test: Admin login from different IP addresses are independently rate limited.
-     * 
+     * <p>
      * Verifies:
      * - Rate limiting is per IP address
-     * - Admin can login from different IPs without hitting rate limit
+     * - Admin can log in from different IPs without hitting rate limit
      */
     @Test
     void testAdminLoginRateLimitingPerIP() {
@@ -265,14 +267,17 @@ class AdminLoginMockIntegrationTest {
 
             LoginResult result = loginHandler.handle(loginCmd);
 
-            // Assert: Each IP address should be able to login
+            // Assert: Each IP address should be able to log in
             result.mapTo(success -> {
                     assertNotNull(success.tokenPair(), 
-                        "Login from IP " + ipAddress + " should succeed");
+                        "Login from IP %s should succeed".formatted(ipAddress));
                     return null;
                 })
                 .orElse(failure -> {
-                    fail("Login from IP " + ipAddress + " should have succeeded. Error: " + failure.errorMessage());
+                    fail("""
+                        Login from IP %s should have succeeded.
+                        Error: %s
+                        """.formatted(ipAddress, failure.errorMessage()));
                     return null;
                 });
         }
@@ -280,7 +285,7 @@ class AdminLoginMockIntegrationTest {
 
     /**
      * Test: Admin token contains correct timestamp information.
-     * 
+     * <p>
      * Verifies:
      * - Token is generated with current timestamp
      * - Token timestamp matches clock instance
@@ -306,7 +311,7 @@ class AdminLoginMockIntegrationTest {
                 assertNotNull(success.tokenPair(), "Token pair should be generated");
                 return null;
             })
-            .orElse(failure -> {
+            .orElse(ignoredFailure -> {
                 fail("Admin login should succeed for timestamp test");
                 return null;
             });
