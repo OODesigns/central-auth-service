@@ -32,16 +32,20 @@ class KeyPasswordTest {
     }
 
     @Test
+    @SuppressWarnings("ConstantValue")
     void ofWithExactly32CharactersSucceeds() {
         final char[] validChars = VALID_SECRET_32_CHARS.toCharArray();
-        assertTrue(validChars.length >= 32);
+        boolean result = validChars.length >= 32;
+        assertTrue(result);
         final KeyPassword keyPassword = KeyPassword.of(validChars);
         assertNotNull(keyPassword);
     }
 
     @Test
+    @SuppressWarnings("ConstantValue")
     void ofWithMoreThan32CharactersSucceeds() {
-        assertTrue(VALID_SECRET_64_CHARS.length() > 32);
+        boolean result = VALID_SECRET_64_CHARS.length() > 32;
+        assertTrue(result);
         final char[] validChars = VALID_SECRET_64_CHARS.toCharArray();
         final KeyPassword keyPassword = KeyPassword.of(validChars);
         assertNotNull(keyPassword);
@@ -137,7 +141,7 @@ class KeyPasswordTest {
     @Test
     void toUtf8BytesWithUnicodeCharactersEncodesCorrectly() {
         // Test with emoji and other Unicode characters
-        String secret = "🔐".repeat(16) + "x".repeat(16); // Mix of multi-byte and single-byte
+        String secret = "🔐".repeat(16) + "x".repeat(16); // Mix of multibyte and single-byte
         KeyPassword keyPassword = KeyPassword.fromString(secret);
         byte[] bytes = keyPassword.toUtf8Bytes();
         
