@@ -116,4 +116,20 @@ class UserTest {
         assertTrue(users.contains(user1));
         assertTrue(users.contains(user2));
     }
+
+    @Test
+    void testToStringContainsUserIdAndUsername() {
+        User user = new User(userId, username, Set.of());
+        
+        String str = user.toString();
+        
+        assertTrue(str.contains("User{"), "Should contain class name");
+        assertTrue(str.contains(userId.toString()), "Should contain userId");
+        assertTrue(str.contains(username.value()), "Should contain username");
+    }
+
+    @Test
+    void testCreateThrowsWithNullPermissions() {
+        assertThrows(NullPointerException.class, () -> new User(userId, username, null));
+    }
 }

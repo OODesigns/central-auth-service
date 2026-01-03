@@ -1,0 +1,119 @@
+package com.oodesigns.cas.util.validation;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Unit tests for ValidatedValue abstract base class.
+ * Tests: toString(), equals(), hashCode() contract.
+ */
+class ValidatedValueTest {
+
+    /**
+     * Test implementation of ValidatedValue for testing purposes.
+     */
+    static class TestValidatedValue extends ValidatedValue<String, String> {
+        TestValidatedValue(String raw) {
+            super(raw);
+        }
+
+        @Override
+        protected String parse(String raw) {
+            return raw.trim().toLowerCase();
+        }
+
+        @Override
+        protected String validate(String value) {
+            if (value.isEmpty()) {
+                throw new IllegalArgumentException("Value cannot be empty");
+            }
+            return value;
+        }
+    }
+
+    @Test
+    void testValueReturnsValidatedValue() {
+        var validated = new TestValidatedValue("  HELLO  ");
+        assertEquals("hello", validated.value());
+    }
+
+    @Test
+    void testToStringReturnsStringValueOfValue() {
+        var validated = new TestValidatedValue("World");
+        assertEquals("world", validated.toString());
+    }
+
+    @Test
+    void testEqualsReturnsTrueForSameValue() {
+        var v1 = new TestValidatedValue("test");
+        var v2 = new TestValidatedValue("TEST");
+        
+        assertEquals(v1, v2);
+    }
+
+    @Test
+    void testEqualsReturnsFalseForDifferentValues() {
+        var v1 = new TestValidatedValue("one");
+        var v2 = new TestValidatedValue("two");
+        
+        assertNotEquals(v1, v2);
+    }
+
+    @Test
+    void testEqualsReturnsFalseForNull() {
+        var v1 = new TestValidatedValue("test");
+        
+        assertNotEquals(null, v1);
+    }
+
+    @Test
+    void testEqualsReturnsFalseForDifferentClass() {
+        var v1 = new TestValidatedValue("test");
+        var other = "test";
+        
+        assertNotEquals(v1, other);
+    }
+
+    @Test
+    void testEqualsReturnsFalseForDifferentSubclass() {
+        var v1 = new TestValidatedValue("test");
+        var v2 = new ValidatedValue<String, String>("test") {
+            @Override
+            protected String parse(String raw) {
+                return raw.toLowerCase();
+            }
+
+            @Override
+            protected String validate(String value) {
+                return value;
+            }
+        };
+        
+        // Different classes should not be equal even with same value
+        assertNotEquals(v1, v2);
+    }
+
+    @Test
+    void testHashCodeConsistentWithEquals() {
+        var v1 = new TestValidatedValue("test");
+        var v2 = new TestValidatedValue("TEST");
+        
+        assertEquals(v1, v2);
+        assertEquals(v1.hashCode(), v2.hashCode());
+    }
+
+    @Test
+    void testHashCodeDifferentForDifferentValues() {
+        var v1 = new TestValidatedValue("one");
+        var v2 = new TestValidatedValue("two");
+        
+        // While not strictly required, different values should typically have different hash codes
+        assertNotEquals(v1.hashCode(), v2.hashCode());
+    }
+
+    @Test
+    void testValidationThrowsForInvalidInput() {
+        assertThrows(IllegalArgumentException.class, () -> new TestValidatedValue("   "));
+    }
+}
