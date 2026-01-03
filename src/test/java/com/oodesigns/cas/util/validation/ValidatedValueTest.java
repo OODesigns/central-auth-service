@@ -116,4 +116,51 @@ class ValidatedValueTest {
     void testValidationThrowsForInvalidInput() {
         assertThrows(IllegalArgumentException.class, () -> new TestValidatedValue("   "));
     }
+
+    @Test
+    void testEqualsWithSameInstance() {
+        var v1 = new TestValidatedValue("test");
+        
+        // Same instance should be equal to itself
+        assertEquals(v1, v1);
+    }
+
+    @Test
+    void testEqualsSymmetry() {
+        var v1 = new TestValidatedValue("abc");
+        var v2 = new TestValidatedValue("ABC");
+        
+        // Symmetric: if v1.equals(v2) then v2.equals(v1)
+        assertEquals(v1, v2);
+        assertEquals(v2, v1);
+    }
+
+    @Test
+    void testEqualsWithObjectExplicitlyNull() {
+        var v1 = new TestValidatedValue("test");
+        Object nullObj = null;
+        
+        assertNotEquals(v1, nullObj);
+    }
+
+    @Test
+    void testEqualsWithDifferentValidatedValueSubtype() {
+        var v1 = new TestValidatedValue("hello");
+        
+        // Create another ValidatedValue subclass with the same underlying value
+        ValidatedValue<String, String> v2 = new ValidatedValue<>("hello") {
+            @Override
+            protected String parse(String raw) {
+                return raw;
+            }
+
+            @Override
+            protected String validate(String value) {
+                return value;
+            }
+        };
+        
+        // Different classes, so not equal even if values match
+        assertNotEquals(v1, v2);
+    }
 }

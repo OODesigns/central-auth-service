@@ -33,6 +33,11 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void testConstructorWithNullPasswordVerifierThrows() {
+        assertThrows(NullPointerException.class, () -> new AuthenticationService(null));
+    }
+
+    @Test
     void testAuthenticateValidPassword() {
         Password password = new Password("password123".toCharArray());
         try (var credentials = new Credentials(testCredential, password)) {
@@ -76,6 +81,55 @@ class AuthenticationServiceTest {
     private void createCredentialsAndClose(UserCredential credential, Password password) {
         try (Credentials credentials = new Credentials(credential, password)) {
             java.util.Objects.requireNonNull(credentials); // touch to satisfy analysis; construction is what we validate
+        }
+    }
+
+    @Test
+    void testAuthenticateClosesCredentialsAfterVerification() {
+        char[] passwordChars = "password123".toCharArray();
+        Password password = new Password(passwordChars);
+        Credentials credentials = new Credentials(testCredential, password);
+        when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential.userId()));
+
+        authService.getAuthenticatedUser(credentials);
+
+        // After getAuthenticatedUser, the password should be cleared (close() was called)
+        // Verify by checking that chars() returns zeroed array
+        char[] clearedChars = password.chars();
+        for (char c : clearedChars) {
+            assertEquals('\0', c, "Password should be cleared after authentication");
+        }
+    }
+
+    @Test
+    void testAuthenticateClosesCredentialsEvenWhenVerificationFails() {
+        char[] passwordChars = "wrong_password".toCharArray();
+        Password password = new Password(passwordChars);
+        Credentials credentials = new Credentials(testCredential, password);
+        when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.empty());
+
+        authService.getAuthenticatedUser(credentials);
+
+        // After getAuthenticatedUser, the password should be cleared even on failure
+        char[] clearedChars = password.chars();
+        for (char c : clearedChars) {
+            assertEquals('\0', c, "Password should be cleared after failed authentication");
+        }
+    }
+
+    @Test
+    void testAuthenticateClosesCredentialsWhenVerifierThrows() {
+        char[] passwordChars = "password123".toCharArray();
+        Password password = new Password(passwordChars);
+        Credentials credentials = new Credentials(testCredential, password);
+        when(passwordHasher.verify(credentials)).thenThrow(new RuntimeException("Verifier error"));
+
+        assertThrows(RuntimeException.class, () -> authService.getAuthenticatedUser(credentials));
+
+        // After exception, the password should still be cleared (try-with-resources)
+        char[] clearedChars = password.chars();
+        for (char c : clearedChars) {
+            assertEquals('\0', c, "Password should be cleared after exception");
         }
     }
 }

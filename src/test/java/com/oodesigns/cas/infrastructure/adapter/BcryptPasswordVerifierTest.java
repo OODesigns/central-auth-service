@@ -148,4 +148,29 @@ class BcryptPasswordVerifierTest {
             assertTrue(result2.isPresent());
         }
     }
+
+    @Test
+    @DisplayName("Should handle invalid hash format gracefully")
+    void shouldHandleInvalidHashFormatGracefully() {
+        // Mock the encoder to throw an exception
+        BCryptPasswordEncoder mockEncoder = org.mockito.Mockito.mock(BCryptPasswordEncoder.class);
+        org.mockito.Mockito.when(mockEncoder.matches(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
+            .thenThrow(new IllegalArgumentException("Invalid salt"));
+            
+        // Inject the mock encoder
+        BcryptPasswordVerifier verifierWithMock = new BcryptPasswordVerifier(mockEncoder);
+        
+        // Valid format to pass PasswordHash check (60 chars total)
+        String validFormatHash = "$2a$10$12345678901234567890123456789012345678901234567890123";
+        PasswordHash hash = new PasswordHash(validFormatHash); 
+        UserCredential credential = new UserCredential(UserId.generate(), hash);
+        
+        Password password = new Password("password".toCharArray());
+        try (Credentials creds = new Credentials(credential, password)) {
+            Optional<UserId> result = verifierWithMock.verify(creds);
+            
+            // Should return empty Optional instead of propagating the exception
+            assertTrue(result.isEmpty(), "Should return empty Optional when encoder throws exception");
+        }
+    }
 }

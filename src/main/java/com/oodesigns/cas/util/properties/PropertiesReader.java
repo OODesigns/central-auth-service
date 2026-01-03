@@ -6,8 +6,8 @@ import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.oodesigns.cas.util.file.FileLoader;
 import com.oodesigns.cas.util.file.FileLoaderException;
+import com.oodesigns.cas.util.file.FileLoaderProvider;
 
 /**
  * Reads and parses properties files using FileLoader.
@@ -26,15 +26,15 @@ public final class PropertiesReader {
      * Fails fast if the file cannot be found or parsed.
      *
      * @param fileName The name of the resource file to load
-     * @param transformer The function to transform property values (e.g., for environment variable resolution)
+     * @param transformer The function to transform property values
+     * @param fileLoaderProvider The provider for loading file content (allows dependency injection for testing)
      * @throws PropertiesReaderException if the file cannot be loaded or parsed
      */
-    public PropertiesReader(final String fileName, final UnaryOperator<String> transformer) {
+    public PropertiesReader(final String fileName, final UnaryOperator<String> transformer, FileLoaderProvider fileLoaderProvider) {
         this.transformer = transformer;
+        this.properties = new Properties();
         try {
-            final FileLoader fileLoader = new FileLoader(fileName);
-            this.properties = new Properties();
-            this.properties.load(fileLoader.toReader());
+            this.properties.load(fileLoaderProvider.loadFile(fileName));
             logInfo(() -> String.format("Loaded %d properties from %s", this.properties.size(), fileName));
         } catch (final FileLoaderException e) {
             throw new PropertiesReaderException(String.format("Unable to find %s", fileName), e);

@@ -1,0 +1,148 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
+  <title>Coverage Report > Jti</title>
+  <style type="text/css">
+    @import "../../css/coverage.css";
+    @import "../../css/idea.min.css";
+  </style>
+  <script type="text/javascript" src="../../js/highlight.min.js"></script>
+  <script type="text/javascript" src="../../js/highlightjs-line-numbers.min.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.oodesigns.cas.domain.value</a>
+</div>
+
+<h1>Coverage Summary for Class: Jti (com.oodesigns.cas.domain.value)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Jti</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (7/7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (12/12)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.oodesigns.cas.domain.value;
+&nbsp;
+&nbsp;import jakarta.annotation.Nonnull;
+&nbsp;import java.util.Objects;
+&nbsp;import java.util.UUID;
+&nbsp;
+&nbsp;/**
+&nbsp; * Value object representing a JWT ID (jti claim).
+&nbsp; * Used to track and revoke individual access tokens.
+&nbsp; */
+<b class="fc">&nbsp;public record Jti(UUID value) {</b>
+<b class="fc">&nbsp;    public Jti {</b>
+<b class="fc">&nbsp;        Objects.requireNonNull(value, &quot;JTI cannot be null&quot;);</b>
+<b class="fc">&nbsp;    }</b>
+&nbsp;
+&nbsp;    public static Jti generate() {
+<b class="fc">&nbsp;        return new Jti(UUID.randomUUID());</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    public static Jti of(final String value) {
+<b class="fc">&nbsp;        Objects.requireNonNull(value, &quot;JTI string cannot be null&quot;);</b>
+&nbsp;        try {
+<b class="fc">&nbsp;            return new Jti(UUID.fromString(value));</b>
+<b class="fc">&nbsp;        } catch (IllegalArgumentException e) {</b>
+<b class="fc">&nbsp;            throw new IllegalArgumentException(String.format(&quot;Invalid JTI format: %s&quot;, value), e);</b>
+&nbsp;        }
+&nbsp;    }
+&nbsp;
+&nbsp;    @Nonnull
+&nbsp;    public UUID asUUID() {
+<b class="fc">&nbsp;        return value;</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    @Nonnull
+&nbsp;    public String asString() {
+<b class="fc">&nbsp;        return value.toString();</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    @Nonnull
+&nbsp;    @Override
+&nbsp;    public String toString() {
+<b class="fc">&nbsp;        return value.toString();</b>
+&nbsp;    }
+&nbsp;}
+</code>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+      hljs.highlightAll()
+      hljs.initLineNumbersOnLoad();
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2026-01-03 17:28</div>
+</div>
+</body>
+</html>

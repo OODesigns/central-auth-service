@@ -1,0 +1,342 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
+  <title>Coverage Report > LoginResult</title>
+  <style type="text/css">
+    @import "../../css/coverage.css";
+    @import "../../css/idea.min.css";
+  </style>
+  <script type="text/javascript" src="../../js/highlight.min.js"></script>
+  <script type="text/javascript" src="../../js/highlightjs-line-numbers.min.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.oodesigns.cas.application.command</a>
+</div>
+
+<h1>Coverage Summary for Class: LoginResult (com.oodesigns.cas.application.command)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Branch, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LoginResult</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">LoginResult$FailureResult</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (3/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (8/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (8/8)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">LoginResult$FailureResult$MapperFailure</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (4/4)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">LoginResult$Mapper</td>
+  </tr>
+  <tr>
+    <td class="name">LoginResult$SuccessResult</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (3/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (6/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (10/10)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">LoginResult$SuccessResult$MapperSuccess</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (4/4)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (12/12)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (14/14)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (28/28)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.oodesigns.cas.application.command;
+&nbsp;
+&nbsp;import com.oodesigns.cas.domain.service.TokenService;
+&nbsp;import com.oodesigns.cas.domain.value.Permission;
+&nbsp;import com.oodesigns.cas.domain.value.UserId;
+&nbsp;import java.util.Set;
+&nbsp;import java.util.function.Function;
+&nbsp;
+&nbsp;/**
+&nbsp; * Result of login command execution using a fluent mapTo(...).orElse(...) pattern.
+&nbsp; * Implementations provide their own mapping without runtime type checks.
+&nbsp; */
+&nbsp;public sealed interface LoginResult
+&nbsp;    permits LoginResult.SuccessResult, LoginResult.FailureResult {
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Fluent mapping API: map success, then provide fallback for failure.
+&nbsp;     * Usage:
+&nbsp;     * &lt;pre&gt;
+&nbsp;     * LoginResponseDTO dto = result
+&nbsp;     *     .mapTo(success -&gt; ...)
+&nbsp;     *     .orElse(failure -&gt; ...);
+&nbsp;     * &lt;/pre&gt;
+&nbsp;     */
+&nbsp;    &lt;T&gt; Mapper&lt;T&gt; mapTo(Function&lt;SuccessResult, T&gt; successMapper);
+&nbsp;
+&nbsp;    static SuccessResult success(final TokenService.TokenPair tokenPair, final UserId userId, final Set&lt;Permission&gt; permissions) {
+<b class="fc">&nbsp;        return new SuccessResult(tokenPair, userId, permissions);</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    static FailureResult failure(final String errorCode, final String errorMessage) {
+<b class="fc">&nbsp;        return new FailureResult(errorCode, errorMessage);</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Successful login result containing token information and user metadata.
+&nbsp;     * Permissions and userId are included so client can immediately use them
+&nbsp;     * without needing to decode the JWT.
+&nbsp;     */
+<b class="fc">&nbsp;    record SuccessResult(</b>
+&nbsp;        TokenService.TokenPair tokenPair,
+&nbsp;        UserId userId,
+&nbsp;        Set&lt;Permission&gt; permissions
+&nbsp;    ) implements LoginResult {
+&nbsp;
+<b class="fc">&nbsp;        public SuccessResult {</b>
+<b class="fc">&nbsp;            if (tokenPair == null) {</b>
+<b class="fc">&nbsp;                throw new IllegalArgumentException(&quot;Token pair is required&quot;);</b>
+&nbsp;            }
+<b class="fc">&nbsp;            if (userId == null) {</b>
+<b class="fc">&nbsp;                throw new IllegalArgumentException(&quot;User ID is required&quot;);</b>
+&nbsp;            }
+<b class="fc">&nbsp;            if (permissions == null) {</b>
+<b class="fc">&nbsp;                throw new IllegalArgumentException(&quot;Permissions cannot be null&quot;);</b>
+&nbsp;            }
+<b class="fc">&nbsp;        }</b>
+&nbsp;
+&nbsp;        @Override
+&nbsp;        public &lt;T&gt; Mapper&lt;T&gt; mapTo(Function&lt;SuccessResult, T&gt; successMapper) {
+<b class="fc">&nbsp;            return new MapperSuccess&lt;&gt;(successMapper.apply(this));</b>
+&nbsp;        }
+&nbsp;
+&nbsp;        /**
+&nbsp;         * Mapper returned when the result is a success.
+&nbsp;         */
+&nbsp;        static final class MapperSuccess&lt;T&gt; implements Mapper&lt;T&gt; {
+&nbsp;            private final T value;
+&nbsp;
+<b class="fc">&nbsp;            MapperSuccess(T value) {</b>
+<b class="fc">&nbsp;                this.value = value;</b>
+<b class="fc">&nbsp;            }</b>
+&nbsp;
+&nbsp;            @Override
+&nbsp;            public T orElse(Function&lt;FailureResult, T&gt; failureMapper) {
+<b class="fc">&nbsp;                return value;</b>
+&nbsp;            }
+&nbsp;        }
+&nbsp;    }
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Failed login result containing error details.
+&nbsp;     */
+<b class="fc">&nbsp;    record FailureResult(String errorCode, String errorMessage) implements LoginResult {</b>
+&nbsp;
+<b class="fc">&nbsp;        public FailureResult {</b>
+<b class="fc">&nbsp;            if (errorCode == null || errorCode.isBlank()) {</b>
+<b class="fc">&nbsp;                throw new IllegalArgumentException(&quot;Error code is required&quot;);</b>
+&nbsp;            }
+<b class="fc">&nbsp;            if (errorMessage == null || errorMessage.isBlank()) {</b>
+<b class="fc">&nbsp;                throw new IllegalArgumentException(&quot;Error message is required&quot;);</b>
+&nbsp;            }
+<b class="fc">&nbsp;        }</b>
+&nbsp;
+&nbsp;        @Override
+&nbsp;        public &lt;T&gt; Mapper&lt;T&gt; mapTo(Function&lt;SuccessResult, T&gt; successMapper) {
+&nbsp;            // Success mapper intentionally ignored for failures
+<b class="fc">&nbsp;            return new MapperFailure&lt;&gt;(this);</b>
+&nbsp;        }
+&nbsp;
+&nbsp;        /**
+&nbsp;         * Mapper returned when the result is a failure.
+&nbsp;         */
+&nbsp;        static final class MapperFailure&lt;T&gt; implements Mapper&lt;T&gt; {
+&nbsp;            private final FailureResult failure;
+&nbsp;
+<b class="fc">&nbsp;            MapperFailure(FailureResult failure) {</b>
+<b class="fc">&nbsp;                this.failure = failure;</b>
+<b class="fc">&nbsp;            }</b>
+&nbsp;
+&nbsp;            @Override
+&nbsp;            public T orElse(Function&lt;FailureResult, T&gt; failureMapper) {
+<b class="fc">&nbsp;                return failureMapper.apply(failure);</b>
+&nbsp;            }
+&nbsp;        }
+&nbsp;    }
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Common mapper contract for the fluent API.
+&nbsp;     */
+&nbsp;    interface Mapper&lt;T&gt; {
+&nbsp;        T orElse(Function&lt;FailureResult, T&gt; failureMapper);
+&nbsp;    }
+&nbsp;
+&nbsp;}
+</code>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+      hljs.highlightAll()
+      hljs.initLineNumbersOnLoad();
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2026-01-03 17:28</div>
+</div>
+</body>
+</html>

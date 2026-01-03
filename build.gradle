@@ -48,6 +48,15 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.1'
 }
 
+// Configuration to resolve Mockito agent path
+configurations {
+    mockitoAgent
+}
+
+dependencies {
+    mockitoAgent('org.mockito:mockito-core:5.14.1') { transitive = false }
+}
+
 test {
     useJUnitPlatform {
         excludeTags 'integration'
@@ -57,7 +66,8 @@ test {
         '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
         '--add-opens', 'java.base/java.lang.invoke=ALL-UNNAMED',
         '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
-        '--add-opens', 'java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED'
+        '--add-opens', 'java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED',
+        "-javaagent:${configurations.mockitoAgent.asPath}"
     ]
     finalizedBy jacocoTestReport
 }
@@ -68,6 +78,14 @@ tasks.register('integrationTest', Test) {
     useJUnitPlatform {
         includeTags 'integration'
     }
+    jvmArgs = [
+        '--enable-preview',
+        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.lang.invoke=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+        '--add-opens', 'java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED',
+        "-javaagent:${configurations.mockitoAgent.asPath}"
+    ]
     shouldRunAfter test
 }
 
@@ -82,9 +100,56 @@ jacocoTestReport {
 
 jacocoTestCoverageVerification {
     violationRules {
+        // Domain layer: ultra-strict (98% line, 95% branch)
         rule {
+            element = 'PACKAGE'
+            includes = ['com.oodesigns.cas.domain.*']
+            
             limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.98
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.95
+            }
+        }
+        
+        // Utility/application layer: strict (95% line, 90% branch)
+        rule {
+            element = 'PACKAGE'
+            includes = ['com.oodesigns.cas.util.*', 'com.oodesigns.cas.application.*']
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.95
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.90
+            }
+        }
+        
+        // Overall project minimum (80% line, 75% branch)
+        rule {
+            element = 'BUNDLE'
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
                 minimum = 0.80
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.75
             }
         }
     }

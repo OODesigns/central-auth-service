@@ -70,4 +70,11 @@ class JtiTest {
     void testNullFromStringThrows() {
         assertThrows(NullPointerException.class, () -> Jti.of(null));
     }
+
+    @Test
+    void testToStringReturnsUUIDString() {
+        UUID uuid = UUID.randomUUID();
+        Jti jti = new Jti(uuid);
+        assertEquals(uuid.toString(), jti.toString());
+    }
 }

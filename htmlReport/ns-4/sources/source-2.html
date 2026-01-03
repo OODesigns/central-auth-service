@@ -1,0 +1,170 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
+  <title>Coverage Report > IpAddress</title>
+  <style type="text/css">
+    @import "../../css/coverage.css";
+    @import "../../css/idea.min.css";
+  </style>
+  <script type="text/javascript" src="../../js/highlight.min.js"></script>
+  <script type="text/javascript" src="../../js/highlightjs-line-numbers.min.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.oodesigns.cas.domain.value</a>
+</div>
+
+<h1>Coverage Summary for Class: IpAddress (com.oodesigns.cas.domain.value)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Branch, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">IpAddress</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (6/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (6/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (13/13)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.oodesigns.cas.domain.value;
+&nbsp;
+&nbsp;import java.net.InetAddress;
+&nbsp;import java.net.UnknownHostException;
+&nbsp;
+&nbsp;import jakarta.annotation.Nonnull;
+&nbsp;
+&nbsp;/**
+&nbsp; * Value object representing an IP address.
+&nbsp; * Validates both IPv4 and IPv6 formats using Java&#39;s built-in validation.
+&nbsp; */
+<b class="fc">&nbsp;public record IpAddress(String value) {</b>
+&nbsp;
+<b class="fc">&nbsp;    public IpAddress {</b>
+<b class="fc">&nbsp;        if (value == null || value.isBlank()) {</b>
+<b class="fc">&nbsp;            throw new IllegalArgumentException(&quot;IP address cannot be null or blank&quot;);</b>
+&nbsp;        }
+<b class="fc">&nbsp;        if (!isValidIpAddress(value)) {</b>
+<b class="fc">&nbsp;            throw new IllegalArgumentException(String.format(&quot;Invalid IP address format: %s&quot;, value));</b>
+&nbsp;        }
+<b class="fc">&nbsp;    }</b>
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Check if the given string is a valid IPv4 or IPv6 address.
+&nbsp;     * Uses Java&#39;s InetAddress for standard validation.
+&nbsp;     * 
+&nbsp;     * @param ip the IP address to validate
+&nbsp;     * @return true if valid IPv4 or IPv6, false otherwise
+&nbsp;     */
+&nbsp;    private static boolean isValidIpAddress(final String ip) {
+&nbsp;        try {
+&nbsp;            //noinspection ResultOfMethodCallIgnored
+<b class="fc">&nbsp;            InetAddress.getByName(ip);</b>
+<b class="fc">&nbsp;            return true;</b>
+&nbsp;        } catch (final UnknownHostException _) {
+<b class="fc">&nbsp;            return false;</b>
+&nbsp;        }
+&nbsp;    }
+&nbsp;
+&nbsp;    public static IpAddress of(final String value) {
+<b class="fc">&nbsp;        return new IpAddress(value);</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    @Nonnull
+&nbsp;    public String asString() {
+<b class="fc">&nbsp;        return value;</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    @Nonnull
+&nbsp;    @Override
+&nbsp;    public String toString() {
+<b class="fc">&nbsp;        return value;</b>
+&nbsp;    }
+&nbsp;}
+</code>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+      hljs.highlightAll()
+      hljs.initLineNumbersOnLoad();
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2026-01-03 17:28</div>
+</div>
+</body>
+</html>

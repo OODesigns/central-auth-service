@@ -9,6 +9,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Factory for creating JOOQ DSLContext from DatabaseConfig.
@@ -25,8 +26,8 @@ import java.util.Objects;
  */
 public final class DatabaseContextFactory {
     
-    private static final int CONNECTION_TIMEOUT_SECONDS = 30;
-    private static final int VALIDATION_TIMEOUT_SECONDS = 5;
+    static final int CONNECTION_TIMEOUT_SECONDS = 30;
+    static final int VALIDATION_TIMEOUT_SECONDS = 5;
     
     private DatabaseContextFactory() {
         // Utility class
@@ -41,9 +42,18 @@ public final class DatabaseContextFactory {
      * @throws DatabaseConnectionException if connection validation fails
      */
     public static DSLContext create(final DatabaseConfig config) {
+        return create(config, DatabaseContextFactory::createDataSource);
+    }
+    
+    /**
+     * Create DSLContext with custom DataSource factory (for testing).
+     */
+    static DSLContext create(final DatabaseConfig config, 
+                             final Function<DatabaseConfig, DataSource> dataSourceFactory) {
         Objects.requireNonNull(config, "DatabaseConfig cannot be null");
+        Objects.requireNonNull(dataSourceFactory, "DataSource factory cannot be null");
         
-        final DataSource dataSource = createAndConfigureDataSource(config);
+        final DataSource dataSource = dataSourceFactory.apply(config);
         validateConnection(dataSource);
         
         return DSL.using(dataSource, SQLDialect.POSTGRES);
@@ -52,7 +62,7 @@ public final class DatabaseContextFactory {
     /**
      * Create and configure PostgreSQL DataSource from config.
      */
-    private static DataSource createAndConfigureDataSource(final DatabaseConfig config) {
+    static DataSource createDataSource(final DatabaseConfig config) {
         final PGSimpleDataSource dataSource = new PGSimpleDataSource();
         dataSource.setServerNames(new String[]{config.getHost()});
         dataSource.setPortNumbers(new int[]{config.getPort()});
@@ -68,7 +78,7 @@ public final class DatabaseContextFactory {
      * Validate database connection is available.
      * Fails fast on connection errors.
      */
-    private static void validateConnection(final DataSource dataSource) {
+    static void validateConnection(final DataSource dataSource) {
         try (Connection conn = dataSource.getConnection()) {
             if (!conn.isValid(VALIDATION_TIMEOUT_SECONDS)) {
                 throw new DatabaseConnectionException("Database connection validation failed");

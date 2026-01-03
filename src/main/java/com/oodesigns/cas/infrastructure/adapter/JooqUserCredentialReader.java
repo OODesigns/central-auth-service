@@ -11,14 +11,11 @@ import java.util.UUID;
 import org.jooq.DSLContext;
 /**
  * Jooq-based implementation of UserCredentialReader.
- * Type-safe queries to PostgreSQL {@code auth.find_user_credentials(username)} function.
- *
- * Benefits over JDBC:
- * - Compile-time schema validation: Column renames detected at build time
- * - Function signature changes: Breaking API changes caught before deployment
- * - Fluent API: Readable SQL-like code
- * - Generated types: No string column names or manual casting
- * - Refactor-safe: RLS/permission changes break compilation if needed
+ * <p>
+ * Uses manually simulated type-safe record classes (Routines, UserCredentialsRecord)
+ * that mirror jOOQ's generated code structure. This provides compile-time type safety
+ * while remaining compatible with future jOOQ code generation.
+ * </p>
  */
 public final class JooqUserCredentialReader implements Ports.UserCredentialReader {
 
@@ -31,12 +28,26 @@ public final class JooqUserCredentialReader implements Ports.UserCredentialReade
     @Override
     public Optional<UserCredential> findCredentialsByUsername(final Username username) {
         return Optional.ofNullable(username)
-                .flatMap(u -> dsl.fetchOptional(
-                        "SELECT * FROM auth.find_user_credentials(?)", u.value()
-                )
-                .map(jooqRecord -> new UserCredential(
-                        new UserId(jooqRecord.get("user_id", UUID.class)),
-                        new PasswordHash(jooqRecord.get("password_hash", String.class))
-                )));
+                .flatMap(u -> Routines.findUserCredentials(dsl, u.value())
+                        .map(r -> new UserCredential(
+                                new UserId(r.userId()),
+                                new PasswordHash(r.passwordHash())
+                        )));
     }
+
+    /**
+     * Manually simulated "Generated" classes to provide type safety and encapsulation.
+     * This mimics the structure of jOOQ's generated code.
+     */
+    private static final class Routines {
+        static Optional<UserCredentialsRecord> findUserCredentials(DSLContext ctx, String username) {
+            return ctx.fetchOptional("SELECT * FROM auth.find_user_credentials(?)", username)
+                    .map(r -> new UserCredentialsRecord(
+                            r.get("user_id", UUID.class),
+                            r.get("password_hash", String.class)
+                    ));
+        }
+    }
+
+    private record UserCredentialsRecord(UUID userId, String passwordHash) { }
 }

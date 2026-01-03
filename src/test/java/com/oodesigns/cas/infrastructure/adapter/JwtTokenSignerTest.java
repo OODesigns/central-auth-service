@@ -14,6 +14,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for JwtTokenSigner production implementation.
@@ -41,6 +43,13 @@ class JwtTokenSignerTest {
     void shouldThrowForNullSupplier() {
         assertThrows(NullPointerException.class, () -> new JwtTokenSigner(null, "test-key"),
                 "Should throw NullPointerException for null supplier");
+    }
+
+    @Test
+    @DisplayName("Should throw NullPointerException for null keyId")
+    void shouldThrowForNullKeyId() {
+        assertThrows(NullPointerException.class, () -> new JwtTokenSigner(_ -> java.util.Optional.of(KeyPassword.fromString(TEST_SECRET)), null),
+                "Should throw NullPointerException for null keyId");
     }
 
     @Test
@@ -192,5 +201,23 @@ class JwtTokenSignerTest {
             .build()
             .parseSignedClaims(token)
             .getPayload();
+    }
+
+    @Test
+    @DisplayName("Should return empty Optional when signing throws RuntimeException")
+    void shouldReturnEmptyWhenSigningThrowsException() {
+        // Create a mock KeyPassword that returns a key too short for HS256
+        // This will cause Keys.hmacShaKeyFor() to throw WeakKeyException
+        final KeyPassword mockPassword = mock(KeyPassword.class);
+        when(mockPassword.toUtf8Bytes()).thenReturn(new byte[16]); // HS256 requires 32+ bytes
+
+        final JwtTokenSigner exceptionSigner = new JwtTokenSigner(
+                _ -> java.util.Optional.of(mockPassword), "test-key"
+        );
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        final var result = exceptionSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
+        
+        assertTrue(result.isEmpty(), "Should return empty Optional when signing fails");
     }
 }

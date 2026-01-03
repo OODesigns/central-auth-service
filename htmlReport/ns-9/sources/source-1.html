@@ -1,0 +1,155 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
+  <title>Coverage Report > ValidatedValue</title>
+  <style type="text/css">
+    @import "../../css/coverage.css";
+    @import "../../css/idea.min.css";
+  </style>
+  <script type="text/javascript" src="../../js/highlight.min.js"></script>
+  <script type="text/javascript" src="../../js/highlightjs-line-numbers.min.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.oodesigns.cas.util.validation</a>
+</div>
+
+<h1>Coverage Summary for Class: ValidatedValue (com.oodesigns.cas.util.validation)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Branch, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ValidatedValue</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (5/5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (6/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (9/9)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.oodesigns.cas.util.validation;
+&nbsp;
+&nbsp;/**
+&nbsp; * Base type for values that parse and validate a raw input before use.
+&nbsp; * Subclasses implement parse and validate; failures throw at construction time.
+&nbsp; */
+&nbsp;public abstract class ValidatedValue&lt;R, V&gt; {
+&nbsp;
+&nbsp;    private final V value;
+&nbsp;
+<b class="fc">&nbsp;    protected ValidatedValue(final R raw) {</b>
+<b class="fc">&nbsp;        this.value = validate(parse(raw));</b>
+<b class="fc">&nbsp;    }</b>
+&nbsp;
+&nbsp;    protected abstract V parse(R raw);
+&nbsp;
+&nbsp;    protected abstract V validate(V value);
+&nbsp;
+&nbsp;    public final V value() {
+<b class="fc">&nbsp;        return value;</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    @Override
+&nbsp;    public final String toString() {
+<b class="fc">&nbsp;        return String.valueOf(value);</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    @Override
+&nbsp;    public final boolean equals(final Object o) {
+<b class="fc">&nbsp;        return o != null</b>
+<b class="fc">&nbsp;            &amp;&amp; o.getClass() == getClass()</b>
+<b class="fc">&nbsp;            &amp;&amp; value.equals(((ValidatedValue&lt;?, ?&gt;) o).value);</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    @Override
+&nbsp;    public final int hashCode() {
+<b class="fc">&nbsp;        return value.hashCode();</b>
+&nbsp;    }
+&nbsp;}
+</code>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+      hljs.highlightAll()
+      hljs.initLineNumbersOnLoad();
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2026-01-03 17:28</div>
+</div>
+</body>
+</html>

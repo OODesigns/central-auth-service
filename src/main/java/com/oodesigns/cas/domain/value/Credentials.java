@@ -27,8 +27,6 @@ public record Credentials(UserCredential credential, Password password) implemen
      */
     @Override
     public void close() {
-        if (password != null) {
-            password.clear();
-        }
+        password.clear();
     }
 }

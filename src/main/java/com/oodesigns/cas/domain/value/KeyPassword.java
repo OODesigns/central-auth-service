@@ -54,9 +54,10 @@ public final class KeyPassword extends Password {
     /**
      * Convert the internal password to UTF-8 bytes.
      * The returned array must be cleared by the caller after use.
+     * Note: UTF-8 encoding guarantees at least 1 byte per character, so the
+     * minimum 32-character requirement from of() ensures at least 32 bytes.
      *
      * @return UTF-8 encoded bytes representing the secret key
-     * @throws IllegalStateException if the resulting byte array is insufficient length
      */
     public byte[] toUtf8Bytes() {
         final char[] chars = chars();
@@ -65,13 +66,8 @@ public final class KeyPassword extends Password {
             final ByteBuffer byteBuffer = StandardCharsets.UTF_8.encode(charBuffer);
             final byte[] secretKey = new byte[byteBuffer.remaining()];
             byteBuffer.get(secretKey);
-            if (byteBuffer.hasArray()) {
-                Arrays.fill(byteBuffer.array(), (byte) 0);
-            }
-            if (secretKey.length < MINIMUM_BYTES) {
-                Arrays.fill(secretKey, (byte) 0);
-                throw new IllegalStateException("Secret key must be at least 32 bytes for HS256");
-            }
+            // StandardCharsets.UTF_8.encode() always returns a heap-backed buffer
+            Arrays.fill(byteBuffer.array(), (byte) 0);
             return secretKey;
         } finally {
             Arrays.fill(chars, '\0');

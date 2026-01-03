@@ -21,7 +21,15 @@ import java.util.Optional;
  * Requires Spring Security: org.springframework.security:spring-security-crypto:6.3.0
  */
 public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
-    private static final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final BCryptPasswordEncoder encoder;
+
+    public BcryptPasswordVerifier() {
+        this(new BCryptPasswordEncoder());
+    }
+
+    public BcryptPasswordVerifier(final BCryptPasswordEncoder encoder) {
+        this.encoder = encoder;
+    }
 
     /**
      * Verify credentials by checking password against stored bcrypt hash.
@@ -32,42 +40,41 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
     @Override
     public Optional<UserId> verify(final Credentials credentials) {
         return Optional.ofNullable(credentials)
-            .flatMap(this::authenticateCredentials);
+            .flatMap(this::authenticate);
     }
 
     /**
-     * Authenticate credentials by verifying password against stored bcrypt hash.
-     * Uses Spring Security BCryptPasswordEncoder for constant-time comparison resistant to timing attacks.
-     * Password char[] is automatically cleared via Credentials AutoCloseable interface.
-     * 
-     * @param credentials the credentials to verify
-     * @return Optional containing user ID if password matches, empty if invalid
+     * Authenticates the credentials and returns the User ID if successful.
+     * Handles exceptions gracefully by returning empty.
      */
-    private Optional<UserId> authenticateCredentials(final Credentials credentials) {
+    private Optional<UserId> authenticate(final Credentials credentials) {
         try {
-            // Convert char[] to String with minimal lifetime for BCrypt verification
-            // Note: Java strings are immutable and will be GC'd after this block
-            String providedPassword = new String(credentials.password().chars());
-            final String storedHash = credentials.credential().passwordHash().asString();
-            
-            // Spring Security's matches() performs constant-time comparison resistant to timing attacks
-            // Supports all bcrypt hash formats: $2a$, $2b$, $2y$
-            final boolean matches = encoder.matches(providedPassword, storedHash);
-            
-            // Clear the password string from memory as soon as possible
-            // Note: Java strings cannot be truly wiped, but setting to null enables GC sooner
-            // This is intentional for security - SonarQube false positive
-            providedPassword = null; // NOSONAR - intentional null assignment for security
-            
-            if (matches) {
-                return Optional.of(credentials.credential().userId());
-            }
-            return Optional.empty();
-            
-        } catch (final RuntimeException e) {
-            // Invalid bcrypt hash format, parsing error, or unexpected error
+            return performBcryptCheck(credentials);
+        } catch (final IllegalArgumentException _) {
+            // Invalid bcrypt hash format or other illegal arguments
             // Return empty without logging to prevent information disclosure
             return Optional.empty();
         }
+    }
+
+    /**
+     * Performs the actual BCrypt comparison.
+     * Uses Spring Security BCryptPasswordEncoder for constant-time comparison.
+     */
+    private Optional<UserId> performBcryptCheck(final Credentials credentials) {
+        // Convert char[] to String with minimal lifetime for BCrypt verification
+        String providedPassword = new String(credentials.password().chars());
+        final String storedHash = credentials.credential().passwordHash().asString();
+        
+        // Spring Security's matches() performs constant-time comparison
+        final boolean matches = encoder.matches(providedPassword, storedHash);
+        
+        // Clear the password string reference to encourage GC
+        providedPassword = null; // NOSONAR - intentional null assignment for security
+        
+        if (matches) {
+            return Optional.of(credentials.credential().userId());
+        }
+        return Optional.empty();
     }
 }

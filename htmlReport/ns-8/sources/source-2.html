@@ -1,0 +1,178 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
+  <title>Coverage Report > PropertiesReader</title>
+  <style type="text/css">
+    @import "../../css/coverage.css";
+    @import "../../css/idea.min.css";
+  </style>
+  <script type="text/javascript" src="../../js/highlight.min.js"></script>
+  <script type="text/javascript" src="../../js/highlightjs-line-numbers.min.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.oodesigns.cas.util.properties</a>
+</div>
+
+<h1>Coverage Summary for Class: PropertiesReader (com.oodesigns.cas.util.properties)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Branch, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">PropertiesReader</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (4/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (16/16)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.oodesigns.cas.util.properties;
+&nbsp;
+&nbsp;import java.io.IOException;
+&nbsp;import java.util.Properties;
+&nbsp;import java.util.function.UnaryOperator;
+&nbsp;import java.util.logging.Level;
+&nbsp;import java.util.logging.Logger;
+&nbsp;
+&nbsp;import com.oodesigns.cas.util.file.FileLoaderException;
+&nbsp;import com.oodesigns.cas.util.file.FileLoaderProvider;
+&nbsp;
+&nbsp;/**
+&nbsp; * Reads and parses properties files using FileLoader.
+&nbsp; * Applies transformations to property values using an injected transformer.
+&nbsp; */
+&nbsp;public final class PropertiesReader {
+&nbsp;
+<b class="fc">&nbsp;    private static final Logger LOGGER = Logger.getLogger(PropertiesReader.class.getName());</b>
+&nbsp;    
+&nbsp;    private final Properties properties;
+&nbsp;    private final UnaryOperator&lt;String&gt; transformer;
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Creates a PropertiesReader by loading and parsing the specified properties file.
+&nbsp;     * The transformer is applied to all property values after loading.
+&nbsp;     * Fails fast if the file cannot be found or parsed.
+&nbsp;     *
+&nbsp;     * @param fileName The name of the resource file to load
+&nbsp;     * @param transformer The function to transform property values
+&nbsp;     * @param fileLoaderProvider The provider for loading file content (allows dependency injection for testing)
+&nbsp;     * @throws PropertiesReaderException if the file cannot be loaded or parsed
+&nbsp;     */
+<b class="fc">&nbsp;    public PropertiesReader(final String fileName, final UnaryOperator&lt;String&gt; transformer, FileLoaderProvider fileLoaderProvider) {</b>
+<b class="fc">&nbsp;        this.transformer = transformer;</b>
+<b class="fc">&nbsp;        this.properties = new Properties();</b>
+&nbsp;        try {
+<b class="fc">&nbsp;            this.properties.load(fileLoaderProvider.loadFile(fileName));</b>
+<b class="fc">&nbsp;            logInfo(() -&gt; String.format(&quot;Loaded %d properties from %s&quot;, this.properties.size(), fileName));</b>
+<b class="fc">&nbsp;        } catch (final FileLoaderException e) {</b>
+<b class="fc">&nbsp;            throw new PropertiesReaderException(String.format(&quot;Unable to find %s&quot;, fileName), e);</b>
+<b class="fc">&nbsp;        } catch (final IOException e) {</b>
+<b class="fc">&nbsp;            throw new PropertiesReaderException(String.format(&quot;Failed to parse %s&quot;, fileName), e);</b>
+&nbsp;        }
+<b class="fc">&nbsp;    }</b>
+&nbsp;    /**
+&nbsp;     * Gets a property value by key.
+&nbsp;     * The value is transformed when requested.
+&nbsp;     *
+&nbsp;     * @param key The property key
+&nbsp;     * @return The transformed property value, or empty string if not found
+&nbsp;     */
+&nbsp;    public String get(final String key) {
+<b class="fc">&nbsp;        final String value = properties.getProperty(key, &quot;&quot;);</b>
+<b class="fc">&nbsp;        return transformer.apply(value);</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    private void logInfo(final java.util.function.Supplier&lt;String&gt; message) {
+<b class="fc">&nbsp;        if (LOGGER.isLoggable(Level.INFO)) {</b>
+<b class="fc">&nbsp;            LOGGER.info(message.get());</b>
+&nbsp;        }
+<b class="fc">&nbsp;    }</b>
+&nbsp;}
+</code>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+      hljs.highlightAll()
+      hljs.initLineNumbersOnLoad();
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2026-01-03 17:28</div>
+</div>
+</body>
+</html>

@@ -13,6 +13,28 @@ import java.util.regex.Pattern;
 public final class EnvironmentVariableTransformer implements UnaryOperator<String> {
 
     /**
+     * Provider for environment variables and system properties.
+     */
+    public interface VariableProvider {
+        String getenv(String name);
+        String getProperty(String name);
+    }
+
+    /**
+     * Default provider using System.getenv and System.getProperty.
+     */
+    public static final VariableProvider SYSTEM_PROVIDER = new VariableProvider() {
+        @Override
+        public String getenv(String name) {
+            return System.getenv(name);
+        }
+        @Override
+        public String getProperty(String name) {
+            return System.getProperty(name);
+        }
+    };
+
+    /**
      * Regex pattern to match placeholder format: dollar-brace VARIABLE_NAME:default_value close-brace
      * Pattern breakdown:
      * - Literal opening: dollar and brace
@@ -25,6 +47,22 @@ public final class EnvironmentVariableTransformer implements UnaryOperator<Strin
      * - DB_HOST: -> varName="DB_HOST", default=""
      */
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^:}]+)(?::([^}]*))?}");
+
+    private final VariableProvider provider;
+
+    /**
+     * Constructs with the default system provider.
+     */
+    public EnvironmentVariableTransformer() {
+        this(SYSTEM_PROVIDER);
+    }
+
+    /**
+     * Constructs with a custom variable provider (for testing).
+     */
+    public EnvironmentVariableTransformer(VariableProvider provider) {
+        this.provider = provider;
+    }
 
     /**
      * Transforms a property value by resolving environment variable references.
@@ -62,9 +100,9 @@ public final class EnvironmentVariableTransformer implements UnaryOperator<Strin
      */
     private String resolvePlaceholder(final String varName, final String defaultValue) {
         // Treat empty strings the same as missing to allow defaults to apply
-        return Optional.ofNullable(System.getenv(varName))
+        return Optional.ofNullable(provider.getenv(varName))
             .filter(value -> !value.isEmpty())
-            .or(() -> Optional.ofNullable(System.getProperty(varName)).filter(value -> !value.isEmpty()))
+            .or(() -> Optional.ofNullable(provider.getProperty(varName)).filter(value -> !value.isEmpty()))
             .orElse(defaultValue);
     }
 }

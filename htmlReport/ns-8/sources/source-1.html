@@ -1,0 +1,261 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
+  <title>Coverage Report > EnvironmentVariableTransformer</title>
+  <style type="text/css">
+    @import "../../css/coverage.css";
+    @import "../../css/idea.min.css";
+  </style>
+  <script type="text/javascript" src="../../js/highlight.min.js"></script>
+  <script type="text/javascript" src="../../js/highlightjs-line-numbers.min.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.oodesigns.cas.util.properties</a>
+</div>
+
+<h1>Coverage Summary for Class: EnvironmentVariableTransformer (com.oodesigns.cas.util.properties)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Branch, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">EnvironmentVariableTransformer</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (6/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (10/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (18/18)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">EnvironmentVariableTransformer$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (3/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (3/3)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">EnvironmentVariableTransformer$VariableProvider</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (9/9)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (10/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (21/21)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.oodesigns.cas.util.properties;
+&nbsp;
+&nbsp;import java.util.Optional;
+&nbsp;import java.util.function.UnaryOperator;
+&nbsp;import java.util.regex.Matcher;
+&nbsp;import java.util.regex.Pattern;
+&nbsp;
+&nbsp;/**
+&nbsp; * Transforms property values by resolving environment variable references.
+&nbsp; * Supports format: ${VARIABLE_NAME:default_value}
+&nbsp; * Checks both environment variables and system properties.
+&nbsp; */
+&nbsp;public final class EnvironmentVariableTransformer implements UnaryOperator&lt;String&gt; {
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Provider for environment variables and system properties.
+&nbsp;     */
+&nbsp;    public interface VariableProvider {
+&nbsp;        String getenv(String name);
+&nbsp;        String getProperty(String name);
+&nbsp;    }
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Default provider using System.getenv and System.getProperty.
+&nbsp;     */
+<b class="fc">&nbsp;    public static final VariableProvider SYSTEM_PROVIDER = new VariableProvider() {</b>
+&nbsp;        @Override
+&nbsp;        public String getenv(String name) {
+<b class="fc">&nbsp;            return System.getenv(name);</b>
+&nbsp;        }
+&nbsp;        @Override
+&nbsp;        public String getProperty(String name) {
+<b class="fc">&nbsp;            return System.getProperty(name);</b>
+&nbsp;        }
+&nbsp;    };
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Regex pattern to match placeholder format: dollar-brace VARIABLE_NAME:default_value close-brace
+&nbsp;     * Pattern breakdown:
+&nbsp;     * - Literal opening: dollar and brace
+&nbsp;     * - Group 1: Variable name (chars excluding colon and brace)
+&nbsp;     * - Group 2: Optional default value preceded by colon (chars until brace)
+&nbsp;     * - Literal closing: brace
+&nbsp;     * Examples matched:
+&nbsp;     * - DB_HOST -&gt; varName=&quot;DB_HOST&quot;, default=null
+&nbsp;     * - DB_HOST:localhost -&gt; varName=&quot;DB_HOST&quot;, default=&quot;localhost&quot;
+&nbsp;     * - DB_HOST: -&gt; varName=&quot;DB_HOST&quot;, default=&quot;&quot;
+&nbsp;     */
+<b class="fc">&nbsp;    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile(&quot;\\$\\{([^:}]+)(?::([^}]*))?}&quot;);</b>
+&nbsp;
+&nbsp;    private final VariableProvider provider;
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Constructs with the default system provider.
+&nbsp;     */
+&nbsp;    public EnvironmentVariableTransformer() {
+<b class="fc">&nbsp;        this(SYSTEM_PROVIDER);</b>
+<b class="fc">&nbsp;    }</b>
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Constructs with a custom variable provider (for testing).
+&nbsp;     */
+<b class="fc">&nbsp;    public EnvironmentVariableTransformer(VariableProvider provider) {</b>
+<b class="fc">&nbsp;        this.provider = provider;</b>
+<b class="fc">&nbsp;    }</b>
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Transforms a property value by resolving environment variable references.
+&nbsp;     * Uses regex pattern matching to find and replace all ${VAR:default} placeholders
+&nbsp;     * in a single pass.
+&nbsp;     *
+&nbsp;     * @param value The property value potentially containing ${VAR:default} references
+&nbsp;     * @return The transformed value with environment variables substituted
+&nbsp;     */
+&nbsp;    @Override
+&nbsp;    public String apply(final String value) {
+<b class="fc">&nbsp;        if (value == null || !value.contains(&quot;${&quot;)) {</b>
+<b class="fc">&nbsp;            return value;</b>
+&nbsp;        }
+&nbsp;
+<b class="fc">&nbsp;        final Matcher matcher = PLACEHOLDER_PATTERN.matcher(value);</b>
+&nbsp;        // Replace all matches with resolved values using regex groups
+<b class="fc">&nbsp;        return matcher.replaceAll(matchResult -&gt; {</b>
+<b class="fc">&nbsp;            final String varName = matchResult.group(1);      // Variable name from group 1</b>
+<b class="fc">&nbsp;            final String defaultValue = matchResult.group(2) != null ? matchResult.group(2) : &quot;&quot;;  // Default from group 2, empty string if not provided</b>
+<b class="fc">&nbsp;            return resolvePlaceholder(varName, defaultValue);</b>
+&nbsp;        });
+&nbsp;    }
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Resolves a single placeholder by checking environment variables and system properties.
+&nbsp;     * Resolution order:
+&nbsp;     *   1. Environment variable (System.getenv)
+&nbsp;     *   2. System property (System.getProperty)
+&nbsp;     *   3. Default value (fallback)
+&nbsp;     *
+&nbsp;     * @param varName The variable name to resolve
+&nbsp;     * @param defaultValue The value to use if variable is not found
+&nbsp;     * @return The resolved value
+&nbsp;     */
+&nbsp;    private String resolvePlaceholder(final String varName, final String defaultValue) {
+&nbsp;        // Treat empty strings the same as missing to allow defaults to apply
+<b class="fc">&nbsp;        return Optional.ofNullable(provider.getenv(varName))</b>
+<b class="fc">&nbsp;            .filter(value -&gt; !value.isEmpty())</b>
+<b class="fc">&nbsp;            .or(() -&gt; Optional.ofNullable(provider.getProperty(varName)).filter(value -&gt; !value.isEmpty()))</b>
+<b class="fc">&nbsp;            .orElse(defaultValue);</b>
+&nbsp;    }
+&nbsp;}
+</code>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+      hljs.highlightAll()
+      hljs.initLineNumbersOnLoad();
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2026-01-03 17:28</div>
+</div>
+</body>
+</html>

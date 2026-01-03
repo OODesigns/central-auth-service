@@ -118,5 +118,12 @@ class PasswordTest {
         pwd1.clear();
         assertFalse(Arrays.equals(pwd1.chars(), pwd2.chars()));
     }
+
+    @Test
+    void testPasswordToStringDefaultResponse() {
+        Password password = new Password("anyPassword".toCharArray());
+        String str = password.toString();
+        assertEquals("Password{***}", str);
+    }
 }
 

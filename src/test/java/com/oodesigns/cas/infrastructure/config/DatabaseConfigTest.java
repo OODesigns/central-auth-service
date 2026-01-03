@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 
+import com.oodesigns.cas.util.file.FileLoaderProviderFactory;
 import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
 import com.oodesigns.cas.util.properties.PropertiesReader;
 
@@ -37,7 +38,8 @@ class DatabaseConfigTest {
         // Create a test PropertiesReader that uses environment variables with defaults
         final PropertiesReader reader = new PropertiesReader(
             "application.properties",
-            new EnvironmentVariableTransformer()
+            new EnvironmentVariableTransformer(),
+            FileLoaderProviderFactory.defaultProvider()
         );
         return new DatabaseConfig(reader);
     }

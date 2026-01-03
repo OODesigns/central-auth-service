@@ -57,15 +57,11 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
      */
     @Override
     public Optional<String> sign(final Payload payload, final Instant expiresAt) {
-        return validateInputs(payload, expiresAt)
-                .flatMap(valid -> retrievePassword())
+        if (payload == null || expiresAt == null) {
+            return Optional.empty();
+        }
+        return retrievePassword()
                 .flatMap(password -> signWithPassword(payload, expiresAt, password));
-    }
-
-    private Optional<Boolean> validateInputs(final Payload payload, final Instant expiresAt) {
-        return (payload == null || expiresAt == null)
-                ? Optional.empty()
-                : Optional.of(true);
     }
 
     private Optional<KeyPassword> retrievePassword() {
@@ -81,7 +77,7 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
                     .signWith(Keys.hmacShaKeyFor(secretKey), Jwts.SIG.HS256)
                     .compact();
             return Optional.of(token);
-        } catch (final RuntimeException e) {
+        } catch (final RuntimeException _) {
             return Optional.empty();
         } finally {
             Arrays.fill(secretKey, (byte) 0);

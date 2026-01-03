@@ -7,13 +7,14 @@ import java.nio.charset.StandardCharsets;
 
 public class FileLoader{
 
-    public static final String RESOURCE_S_NOT_FOUND = "Resource %s not found";
+    private static final String RESOURCE_S_NOT_FOUND = "Resource %s not found";
     private final String data;
 
     public FileLoader(final String fileName) {
+        this(fileName, FileLoader.class.getClassLoader());
+    }
 
-        final ClassLoader classLoader = FileLoader.class.getClassLoader();
-
+    FileLoader(final String fileName, final ClassLoader classLoader) {
         try (final InputStream inputStream = classLoader.getResourceAsStream(fileName)) {
             if (inputStream == null)
                 throw new IOException(String.format(RESOURCE_S_NOT_FOUND, fileName));

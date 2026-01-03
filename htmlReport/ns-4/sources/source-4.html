@@ -1,0 +1,192 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
+  <title>Coverage Report > KeyPassword</title>
+  <style type="text/css">
+    @import "../../css/coverage.css";
+    @import "../../css/idea.min.css";
+  </style>
+  <script type="text/javascript" src="../../js/highlight.min.js"></script>
+  <script type="text/javascript" src="../../js/highlightjs-line-numbers.min.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.oodesigns.cas.domain.value</a>
+</div>
+
+<h1>Coverage Summary for Class: KeyPassword (com.oodesigns.cas.domain.value)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Branch, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">KeyPassword</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (4/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    85.7%
+  </span>
+  <span class="absValue">
+    (24/28)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (20/20)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.oodesigns.cas.domain.value;
+&nbsp;
+&nbsp;import java.nio.ByteBuffer;
+&nbsp;import java.nio.CharBuffer;
+&nbsp;import java.nio.charset.StandardCharsets;
+&nbsp;import java.util.Arrays;
+&nbsp;import java.util.Objects;
+&nbsp;
+&nbsp;/**
+&nbsp; * Represents a secret key password suitable for HMAC signing.
+&nbsp; * Ensures the underlying secret meets minimum length requirements and
+&nbsp; * provides secure conversion to UTF-8 byte arrays.
+&nbsp; */
+&nbsp;public final class KeyPassword extends Password {
+&nbsp;    private static final int MINIMUM_BYTES = 32;
+&nbsp;
+&nbsp;    private KeyPassword(final char[] passwordChars) {
+<b class="fc">&nbsp;        super(passwordChars);</b>
+<b class="fc">&nbsp;    }</b>
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Create a KeyPassword from a char array, enforcing minimum length requirements.
+&nbsp;     * The provided array is not retained; callers should clear it after invocation.
+&nbsp;     *
+&nbsp;     * @param passwordChars secret key characters
+&nbsp;     * @return validated KeyPassword instance
+&nbsp;     * @throws IllegalArgumentException if characters are null or insufficient length
+&nbsp;     */
+&nbsp;    public static KeyPassword of(final char[] passwordChars) {
+<b class="fc">&nbsp;        Objects.requireNonNull(passwordChars, &quot;Secret key cannot be null&quot;);</b>
+<b class="fc">&nbsp;        if (passwordChars.length &lt; MINIMUM_BYTES) {</b>
+<b class="fc">&nbsp;            throw new IllegalArgumentException(&quot;Secret key must be at least 32 characters (256 bits) for HS256&quot;);</b>
+&nbsp;        }
+<b class="fc">&nbsp;        return new KeyPassword(passwordChars);</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Convenience factory for creating a KeyPassword from a String.
+&nbsp;     * Intended for testing; avoid using in production code where Strings cannot be cleared.
+&nbsp;     *
+&nbsp;     * @param secret secret key as String
+&nbsp;     * @return KeyPassword instance
+&nbsp;     */
+&nbsp;    public static KeyPassword fromString(final String secret) {
+<b class="pc">&nbsp;        Objects.requireNonNull(secret, &quot;Secret key cannot be null&quot;);</b>
+<b class="fc">&nbsp;        final char[] chars = secret.toCharArray();</b>
+&nbsp;        try {
+<b class="fc">&nbsp;            return of(chars);</b>
+&nbsp;        } finally {
+<b class="fc">&nbsp;            Arrays.fill(chars, &#39;\0&#39;);</b>
+<b class="pc">&nbsp;        }</b>
+&nbsp;    }
+&nbsp;
+&nbsp;    /**
+&nbsp;     * Convert the internal password to UTF-8 bytes.
+&nbsp;     * The returned array must be cleared by the caller after use.
+&nbsp;     * Note: UTF-8 encoding guarantees at least 1 byte per character, so the
+&nbsp;     * minimum 32-character requirement from of() ensures at least 32 bytes.
+&nbsp;     *
+&nbsp;     * @return UTF-8 encoded bytes representing the secret key
+&nbsp;     */
+&nbsp;    public byte[] toUtf8Bytes() {
+<b class="pc">&nbsp;        final char[] chars = chars();</b>
+&nbsp;        try {
+<b class="fc">&nbsp;            final CharBuffer charBuffer = CharBuffer.wrap(chars);</b>
+<b class="fc">&nbsp;            final ByteBuffer byteBuffer = StandardCharsets.UTF_8.encode(charBuffer);</b>
+<b class="fc">&nbsp;            final byte[] secretKey = new byte[byteBuffer.remaining()];</b>
+<b class="fc">&nbsp;            byteBuffer.get(secretKey);</b>
+&nbsp;            // StandardCharsets.UTF_8.encode() always returns a heap-backed buffer
+<b class="fc">&nbsp;            Arrays.fill(byteBuffer.array(), (byte) 0);</b>
+<b class="fc">&nbsp;            return secretKey;</b>
+&nbsp;        } finally {
+<b class="fc">&nbsp;            Arrays.fill(chars, &#39;\0&#39;);</b>
+<b class="fc">&nbsp;        }</b>
+&nbsp;    }
+&nbsp;}
+</code>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+      hljs.highlightAll()
+      hljs.initLineNumbersOnLoad();
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2026-01-03 17:28</div>
+</div>
+</body>
+</html>

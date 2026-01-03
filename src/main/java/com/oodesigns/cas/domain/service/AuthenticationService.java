@@ -20,11 +20,13 @@ public final class AuthenticationService {
     /**
      * Authenticate a user by verifying password.
      * Returns Optional containing user ID if password matches, empty if invalid.
-     * Password is automatically cleared via Credentials.close() in try-with-resources.
+     * Password is automatically cleared via Credentials.close() in finally block.
      */
     public Optional<UserId> getAuthenticatedUser(final Credentials credentials) {
-        try (final Credentials creds = credentials) {
-            return passwordVerifier.verify(creds);
+        try {
+            return passwordVerifier.verify(credentials);
+        } finally {
+            credentials.close();
         }
     }
 }

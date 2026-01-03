@@ -1,24 +1,28 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
+import com.oodesigns.cas.domain.value.KeyPassword;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for EnvironmentKeySupplier adapter.
  * Tests environment variable reading and KeyPassword creation.
- * <p>
- * Note: These tests verify behavior with null/blank keyIds since
- * environment variables cannot be easily mocked without reflection.
  */
 class EnvironmentKeySupplierTest {
 
     private EnvironmentKeySupplier keySupplier;
+    private Map<String, String> mockEnv;
 
     @BeforeEach
     void setUp() {
-        keySupplier = new EnvironmentKeySupplier();
+        mockEnv = new HashMap<>();
+        keySupplier = new EnvironmentKeySupplier(mockEnv::get);
     }
 
     @Test
@@ -44,21 +48,47 @@ class EnvironmentKeySupplierTest {
 
     @Test
     void testGetPasswordReturnsEmptyForNonExistentEnvVar() {
-        // Use a key that definitely doesn't exist
-        var result = keySupplier.getPassword("NONEXISTENT_KEY_THAT_SHOULD_NOT_EXIST_12345");
+        var result = keySupplier.getPassword("NON_EXISTENT_KEY");
         
         assertTrue(result.isEmpty(), "Should return empty for non-existent env var");
     }
 
     @Test
     void testGetPasswordReturnsValueForExistingEnvVar() {
-        // PATH is typically always set on all systems
-        var result = keySupplier.getPassword("PATH");
+        String validKey = "12345678901234567890123456789012"; // 32 chars
+        mockEnv.put("TEST_KEY", validKey);
+
+        Optional<KeyPassword> result = keySupplier.getPassword("TEST_KEY");
         
-        // PATH should exist and have a value
-        if (System.getenv("PATH") != null && !System.getenv("PATH").isBlank()) {
-            assertTrue(result.isPresent(), "Should return value for existing env var");
-        }
+        assertTrue(result.isPresent(), "Should return value for existing env var");
+        // We can't easily check the value of KeyPassword as it doesn't expose it directly safely, 
+        // but presence confirms it was created.
+    }
+
+    @Test
+    void testGetPasswordReturnsEmptyForShortKey() {
+        String shortKey = "too_short";
+        mockEnv.put("SHORT_KEY", shortKey);
+
+        Optional<KeyPassword> result = keySupplier.getPassword("SHORT_KEY");
+        
+        assertTrue(result.isEmpty(), "Should return empty for key shorter than 32 chars");
+    }
+
+    @Test
+    void testGetPasswordReturnsEmptyForBlankEnvVar() {
+        mockEnv.put("BLANK_KEY", "   ");
+        
+        Optional<KeyPassword> result = keySupplier.getPassword("BLANK_KEY");
+        
+        assertTrue(result.isEmpty(), "Should return empty for blank env var value");
+    }
+
+    @Test
+    void testDefaultConstructor() {
+        // Just verify it doesn't crash and is the right type
+        EnvironmentKeySupplier defaultSupplier = new EnvironmentKeySupplier();
+        assertInstanceOf(EnvironmentKeySupplier.class, defaultSupplier);
     }
 
     @Test
