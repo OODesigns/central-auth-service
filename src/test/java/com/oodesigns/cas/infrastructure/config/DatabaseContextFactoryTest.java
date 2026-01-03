@@ -156,4 +156,81 @@ class DatabaseContextFactoryTest {
             assertNotNull(result);
         }
     }
+
+    @Test
+    void testValidateConnectionWithValidConnectionSucceeds() throws SQLException {
+        final DataSource mockDataSource = mock(DataSource.class);
+        final Connection mockConnection = mock(Connection.class);
+        
+        when(mockDataSource.getConnection()).thenReturn(mockConnection);
+        when(mockConnection.isValid(DatabaseContextFactory.VALIDATION_TIMEOUT_SECONDS)).thenReturn(true);
+        
+        // Should not throw
+        DatabaseContextFactory.validateConnection(mockDataSource);
+        
+        verify(mockConnection).isValid(DatabaseContextFactory.VALIDATION_TIMEOUT_SECONDS);
+        verify(mockConnection).close();
+    }
+
+    @Test
+    void testValidateConnectionWithInvalidConnectionThrows() throws SQLException {
+        final DataSource mockDataSource = mock(DataSource.class);
+        final Connection mockConnection = mock(Connection.class);
+        
+        when(mockDataSource.getConnection()).thenReturn(mockConnection);
+        when(mockConnection.isValid(DatabaseContextFactory.VALIDATION_TIMEOUT_SECONDS)).thenReturn(false);
+        
+        final DatabaseConnectionException exception = assertThrows(
+            DatabaseConnectionException.class,
+            () -> DatabaseContextFactory.validateConnection(mockDataSource)
+        );
+        
+        assertEquals("Database connection validation failed", exception.getMessage());
+    }
+
+    @Test
+    void testValidateConnectionWithSQLExceptionThrows() throws SQLException {
+        final DataSource mockDataSource = mock(DataSource.class);
+        final SQLException sqlException = new SQLException("Connection refused");
+        
+        when(mockDataSource.getConnection()).thenThrow(sqlException);
+        
+        final DatabaseConnectionException exception = assertThrows(
+            DatabaseConnectionException.class,
+            () -> DatabaseContextFactory.validateConnection(mockDataSource)
+        );
+        
+        assertEquals("Unable to connect to database", exception.getMessage());
+        assertSame(sqlException, exception.getCause());
+    }
+
+    @Test
+    void testCreateDataSourceReturnsValidDataSource() {
+        final DatabaseConfig config = createConfig();
+        
+        final DataSource dataSource = DatabaseContextFactory.createDataSource(config);
+        
+        assertNotNull(dataSource);
+        assertTrue(dataSource instanceof DataSource);
+    }
+
+    @Test
+    void testConnectionTimeoutConstantsAreSet() {
+        assertEquals(30, DatabaseContextFactory.CONNECTION_TIMEOUT_SECONDS);
+        assertEquals(5, DatabaseContextFactory.VALIDATION_TIMEOUT_SECONDS);
+    }
+
+    @Test
+    void testFactoryMethodsWithValidConfigAndDataSource() throws SQLException {
+        final DatabaseConfig config = createConfig();
+        final DataSource mockDataSource = mock(DataSource.class);
+        final Connection mockConnection = mock(Connection.class);
+        
+        when(mockDataSource.getConnection()).thenReturn(mockConnection);
+        when(mockConnection.isValid(DatabaseContextFactory.VALIDATION_TIMEOUT_SECONDS)).thenReturn(true);
+        
+        final DSLContext dslContext = DatabaseContextFactory.create(config, c -> mockDataSource);
+        
+        assertNotNull(dslContext);
+    }
 }

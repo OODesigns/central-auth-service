@@ -39,4 +39,44 @@ class FileLoaderTest {
 
         verify(mockStream).close();
     }
+
+    @Test
+    void publicConstructorLoadsFileFromClasspath() {
+        final FileLoader fileLoader = new FileLoader("testfile.txt");
+        assertNotNull(fileLoader);
+        assertEquals("some test data", fileLoader.toString());
+    }
+
+    @Test
+    void publicConstructorWithNonExistentFileThrows() {
+        assertThrows(FileLoaderException.class, () -> new FileLoader("nonexistent-file-xyz.txt"));
+    }
+
+    @Test
+    void toReaderMultipleCallsReturnIndependentReaders() {
+        final FileLoader fileLoader = new FileLoader("testfile.txt");
+        final StringReader reader1 = fileLoader.toReader();
+        final StringReader reader2 = fileLoader.toReader();
+        
+        assertNotNull(reader1);
+        assertNotNull(reader2);
+        assertNotSame(reader1, reader2);
+    }
+
+    @Test
+    void fileLoaderWithNullResourceThrows() {
+        ClassLoader mockLoader = mock(ClassLoader.class);
+        when(mockLoader.getResourceAsStream("missing.txt")).thenReturn(null);
+
+        assertThrows(FileLoaderException.class, () -> new FileLoader("missing.txt", mockLoader));
+    }
+
+    @Test
+    void fileLoaderPreservesFileContent() {
+        final FileLoader fileLoader = new FileLoader("testfile.txt");
+        final String content1 = fileLoader.toString();
+        final String content2 = fileLoader.toString();
+        
+        assertEquals(content1, content2);
+    }
 }
