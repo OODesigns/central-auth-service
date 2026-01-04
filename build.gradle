@@ -78,7 +78,12 @@ tasks.register('integrationTest', Test) {
 }
 
 // Helper function to open report files
-void openReport(String reportPath) {
+def openReport = { String reportPath ->
+    // Do not open report on CI environments
+    if (System.getenv("CI")) {
+        return
+    }
+
     def reportFile = new File(reportPath)
     if (reportFile.exists()) {
         def isWindows = System.getProperty("os.name").toLowerCase().contains("windows")
@@ -87,11 +92,11 @@ void openReport(String reportPath) {
         
         try {
             if (isWindows) {
-                Runtime.getRuntime().exec("cmd /c start ${reportFile.absolutePath}")
+                new ProcessBuilder("cmd", "/c", "start", reportFile.absolutePath).start()
             } else if (isMac) {
-                Runtime.getRuntime().exec("open ${reportFile.absolutePath}")
+                new ProcessBuilder("open", reportFile.absolutePath).start()
             } else if (isLinux) {
-                Runtime.getRuntime().exec("xdg-open ${reportFile.absolutePath}")
+                new ProcessBuilder("xdg-open", reportFile.absolutePath).start()
             }
         } catch (Exception e) {
             logger.warn("Could not automatically open report: ${e.message}")
@@ -137,4 +142,3 @@ jacocoTestCoverageVerification {
         }
     }
 }
-
