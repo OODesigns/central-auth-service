@@ -9,7 +9,7 @@ import com.oodesigns.cas.util.file.FileLoaderProviderFactory;
  * Provider for creating PropertiesReaderFactory instances.
  */
 public final class PropertiesReaderFactoryProvider {
-    
+
     private PropertiesReaderFactoryProvider() {
         // Prevent instantiation
     }

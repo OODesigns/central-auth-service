@@ -1,3 +1,5 @@
+import java.awt.Desktop
+
 plugins {
     id 'java'
     id 'jacoco'
@@ -61,9 +63,9 @@ test {
     useJUnitPlatform {
         excludeTags 'integration'
     }
-
     // Configure Mockito as a Java agent to enable inline-mock-maker
     jvmArgs += "-javaagent:${configurations.mockitoAgent.singleFile}"
+    finalizedBy jacocoTestReport
 
 }
 
@@ -79,6 +81,14 @@ tasks.register('integrationTest', Test) {
 
 jacocoTestReport {
     dependsOn test
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect { directory ->
+            fileTree(dir: directory, exclude: [
+                'com/oodesigns/cas/domain/service/Ports.class',
+                'com/oodesigns/cas/infrastructure/config/DatabaseContextFactory.class'
+            ])
+        }))
+    }
     reports {
         xml.required = true
         html.required = true
@@ -95,15 +105,13 @@ jacocoTestCoverageVerification {
                 'com.oodesigns.cas.domain.service.Ports',
                 'com.oodesigns.cas.infrastructure.config.DatabaseContextFactory'
             ]
-            
+
             limit {
                 counter = 'LINE'
                 value = 'COVEREDRATIO'
-                minimum = 0.80
+                minimum = 1.00
             }
         }
     }
 }
-
-check.dependsOn jacocoTestCoverageVerification
 

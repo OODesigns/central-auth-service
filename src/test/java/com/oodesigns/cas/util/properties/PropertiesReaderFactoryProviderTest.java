@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import java.util.function.Supplier;
 
 import com.oodesigns.cas.util.file.FileLoaderProvider;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class PropertiesReaderFactoryProviderTest {

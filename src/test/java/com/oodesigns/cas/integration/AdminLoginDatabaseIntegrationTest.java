@@ -14,9 +14,12 @@ import com.oodesigns.cas.infrastructure.adapter.JooqUserCredentialReader;
 import com.oodesigns.cas.infrastructure.adapter.JooqUserRepository;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
 import com.oodesigns.cas.infrastructure.adapter.SystemClock;
+import com.oodesigns.cas.infrastructure.config.DatabaseConfig;
+import com.oodesigns.cas.infrastructure.config.DatabaseContextFactory;
+import com.oodesigns.cas.util.file.FileLoaderProviderFactory;
+import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
+import com.oodesigns.cas.util.properties.PropertiesReader;
 import org.jooq.DSLContext;
-import org.jooq.SQLDialect;
-import org.jooq.impl.DSL;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -32,52 +35,10 @@ class AdminLoginDatabaseIntegrationTest {
 
     private LoginCommandHandler loginHandler;
     private DSLContext dslContext;
+    private DatabaseConfig databaseConfig;
 
     private static final String ADMIN_USERNAME = "admin";
     private static final String ADMIN_PASSWORD = getAdminPasswordPlain(); // Plain password from environment
-
-    /**
-     * Get database host from environment or .env file.
-     * When running in dev container: use "auth-db" (the postgres container name)
-     * When running locally: use "localhost"
-     * Defaults to "auth-db" if not set.
-     */
-    private static String getDbHost() {
-        return System.getenv().getOrDefault("DB_HOST", "auth-db");
-    }
-
-    /**
-     * Get database port from environment or .env file.
-     * Defaults to 5432 if not set.
-     */
-    private static int getDbPort() {
-        String port = System.getenv().getOrDefault("DB_PORT", "5432");
-        return Integer.parseInt(port);
-    }
-
-    /**
-     * Get APP_DB from environment or .env file.
-     * Defaults to "auth_db" if not set.
-     */
-    private static String getAppDb() {
-        return System.getenv().getOrDefault("APP_DB", "auth_db");
-    }
-
-    /**
-     * Get APP_USER from environment or .env file.
-     * Defaults to "app_user" if not set.
-     */
-    private static String getAppUser() {
-        return System.getenv().getOrDefault("APP_USER", "app_user");
-    }
-
-    /**
-     * Get APP_PASSWORD from environment or .env file.
-     * Defaults to "password" if not set.
-     */
-    private static String getAppPassword() {
-        return System.getenv().getOrDefault("APP_PASSWORD", "password");
-    }
 
     /**
      * Get plain ADMIN_PASSWORD from environment or .env file.
@@ -95,8 +56,16 @@ class AdminLoginDatabaseIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Create DSL context from real database connection
-        dslContext = createDslContext();
+        // Create DatabaseConfig from properties file with environment variable resolution
+        final PropertiesReader propertiesReader = new PropertiesReader(
+            "application.properties",
+            new EnvironmentVariableTransformer(),
+            FileLoaderProviderFactory.defaultProvider()
+        );
+        databaseConfig = new DatabaseConfig(propertiesReader);
+        
+        // Create DSL context using DatabaseContextFactory
+        dslContext = DatabaseContextFactory.create(databaseConfig);
         
         // Create real adapters from infrastructure layer
         var userCredentialReader = new JooqUserCredentialReader(dslContext);
@@ -122,30 +91,7 @@ class AdminLoginDatabaseIntegrationTest {
         // Create command handler with real database repositories
         loginHandler = new LoginCommandHandler(authService, tokenService, userCredentialReader, userRepository, rateLimiter);
     }
-    /**
-     * Create a DSL context connected to the docker-compose PostgreSQL database.
-     * Uses JOOQ PostgreSQL dialect for type-safe queries.
-     * Connects to the existing database from docker-compose using:
-     * - DB_HOST: postgres service name or IP (default: "db")
-     * - DB_PORT: postgres port (default: 5432)
-     * - APP_DB, APP_USER, APP_PASSWORD: application credentials
-     */
-    private DSLContext createDslContext() {
-        try {
-            var dataSource = new org.postgresql.ds.PGSimpleDataSource();
-            dataSource.setServerNames(new String[]{getDbHost()});           // Connect to docker-compose postgres
-            dataSource.setPortNumbers(new int[]{getDbPort()});
-            dataSource.setDatabaseName(getAppDb());
-            dataSource.setUser(getAppUser());
-            dataSource.setPassword(getAppPassword());
-            return DSL.using(dataSource, SQLDialect.POSTGRES);
-        } catch (Exception e) {
-            throw new RuntimeException(
-                "Failed to create DSL context for host=%s, port=%d".formatted(getDbHost(), getDbPort()),
-                e
-            );
-        }
-    }
+
     /**
      * Test: Admin user can log in with correct credentials from real database.
      * Verifies:
@@ -160,8 +106,8 @@ class AdminLoginDatabaseIntegrationTest {
         // Ensure the admin user has a valid bcrypt hash in the database
         String actualHash;
         try {
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", getDbHost(), getDbPort(), getAppDb());
-            Connection conn = DriverManager.getConnection(jdbcUrl, getAppUser(), getAppPassword());
+            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+            Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
             
             // Check if admin user exists and has valid password hash
             Statement stmt = conn.createStatement();
@@ -326,8 +272,8 @@ class AdminLoginDatabaseIntegrationTest {
     @Test
     void testDatabaseSchemaCreatedByFlyway() {
         try {
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", getDbHost(), getDbPort(), getAppDb());
-            Connection conn = DriverManager.getConnection(jdbcUrl, getAppUser(), getAppPassword());
+            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+            Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
             Statement stmt = conn.createStatement();
             
             // Check required tables
@@ -375,8 +321,8 @@ stmt.close();
     @Test
     void testFlywayMigrationHistoryTracked() {
         try {
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", getDbHost(), getDbPort(), getAppDb());
-            Connection conn = DriverManager.getConnection(jdbcUrl, getAppUser(), getAppPassword());
+            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+            Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
             Statement stmt = conn.createStatement();
 
             //noinspection SqlResolve
@@ -407,8 +353,8 @@ stmt.close();
     @Test
     void testAdminUserExistsInDatabaseWithRole() {
         try {
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", getDbHost(), getDbPort(), getAppDb());
-            Connection conn = DriverManager.getConnection(jdbcUrl, getAppUser(), getAppPassword());
+            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+            Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
             Statement stmt = conn.createStatement();
             
             // Check admin user exists
