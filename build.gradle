@@ -1,3 +1,5 @@
+import java.awt.Desktop
+
 plugins {
     id 'java'
     id 'jacoco'
@@ -77,33 +79,6 @@ tasks.register('integrationTest', Test) {
     shouldRunAfter test
 }
 
-// Helper function to open report files
-def openReport = { String reportPath ->
-    // Do not open report on CI environments
-    if (System.getenv("CI")) {
-        return
-    }
-
-    def reportFile = new File(reportPath)
-    if (reportFile.exists()) {
-        def isWindows = System.getProperty("os.name").toLowerCase().contains("windows")
-        def isLinux = System.getProperty("os.name").toLowerCase().contains("linux")
-        def isMac = System.getProperty("os.name").toLowerCase().contains("mac")
-        
-        try {
-            if (isWindows) {
-                new ProcessBuilder("cmd", "/c", "start", reportFile.absolutePath).start()
-            } else if (isMac) {
-                new ProcessBuilder("open", reportFile.absolutePath).start()
-            } else if (isLinux) {
-                new ProcessBuilder("xdg-open", reportFile.absolutePath).start()
-            }
-        } catch (Exception e) {
-            logger.warn("Could not automatically open report: ${e.message}")
-        }
-    }
-}
-
 jacocoTestReport {
     dependsOn test
     afterEvaluate {
@@ -120,7 +95,30 @@ jacocoTestReport {
         csv.required = false
     }
     doLast {
-        openReport("${reports.html.outputLocation.get()}/index.html")
+        def reportPath = "${reports.html.outputLocation.get()}/index.html"
+        if (!System.getenv("CI")) {
+            def reportFile = new File(reportPath)
+            if (reportFile.exists()) {
+                try {
+                    // Try using Java Desktop API first
+                    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                        Desktop.getDesktop().browse(reportFile.toURI())
+                    } else {
+                        // Fallback to command line tools
+                        def os = System.getProperty("os.name").toLowerCase()
+                        if (os.contains("windows")) {
+                            new ProcessBuilder("cmd", "/c", "start", reportFile.absolutePath).start()
+                        } else if (os.contains("mac")) {
+                            new ProcessBuilder("open", reportFile.absolutePath).start()
+                        } else if (os.contains("linux")) {
+                            new ProcessBuilder("xdg-open", reportFile.absolutePath).start()
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.warn("Could not automatically open report: ${e.message}")
+                }
+            }
+        }
     }
 }
 
