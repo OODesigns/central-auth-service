@@ -3,21 +3,36 @@ package com.oodesigns.cas.domain.value;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import jakarta.annotation.Nonnull;
+import com.oodesigns.cas.util.validation.ValidatedValue;
 
 /**
  * Value object representing an IP address.
  * Validates both IPv4 and IPv6 formats using Java's built-in validation.
  */
-public record IpAddress(String value) {
+public final class IpAddress extends ValidatedValue<String, String> {
 
-    public IpAddress {
-        if (value == null || value.isBlank()) {
+    public IpAddress(final String value) {
+        super(value);
+    }
+
+    public static IpAddress of(final String value) {
+        return new IpAddress(value);
+    }
+
+    @Override
+    protected String parse(final String raw) {
+        if (raw == null || raw.isBlank()) {
             throw new IllegalArgumentException("IP address cannot be null or blank");
         }
+        return raw;
+    }
+
+    @Override
+    protected String validate(final String value) {
         if (!isValidIpAddress(value)) {
             throw new IllegalArgumentException(String.format("Invalid IP address format: %s", value));
         }
+        return value;
     }
 
     /**
@@ -35,20 +50,5 @@ public record IpAddress(String value) {
         } catch (final UnknownHostException _) {
             return false;
         }
-    }
-
-    public static IpAddress of(final String value) {
-        return new IpAddress(value);
-    }
-
-    @Nonnull
-    public String asString() {
-        return value;
-    }
-
-    @Nonnull
-    @Override
-    public String toString() {
-        return value;
     }
 }

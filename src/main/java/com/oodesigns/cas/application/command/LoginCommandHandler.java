@@ -51,7 +51,7 @@ public final class LoginCommandHandler {
     }
 
     private LoginResult handleCommand(final LoginCommand command) {
-        return rateLimiter.checkLimit(String.format("login:%s", command.ipAddress().asString()))
+        return rateLimiter.checkLimit(String.format("login:%s", command.ipAddress().value()))
             .mapTo(ignored -> authenticateUser(command))
             .orElse(blocked -> LoginResult.failure("RATE_LIMITED", blocked.message()));
     }

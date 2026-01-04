@@ -4,6 +4,7 @@ import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Credentials;
 import com.oodesigns.cas.domain.value.UserId;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
@@ -21,13 +22,13 @@ import java.util.Optional;
  * Requires Spring Security: org.springframework.security:spring-security-crypto:6.3.0
  */
 public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
-    private final BCryptPasswordEncoder encoder;
+    private final PasswordEncoder encoder;
 
     public BcryptPasswordVerifier() {
         this(new BCryptPasswordEncoder());
     }
 
-    public BcryptPasswordVerifier(final BCryptPasswordEncoder encoder) {
+    public BcryptPasswordVerifier(final PasswordEncoder encoder) {
         this.encoder = encoder;
     }
 
@@ -64,8 +65,8 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
     private Optional<UserId> performBcryptCheck(final Credentials credentials) {
         // Convert char[] to String with minimal lifetime for BCrypt verification
         String providedPassword = new String(credentials.password().chars());
-        final String storedHash = credentials.credential().passwordHash().asString();
-        
+        final String storedHash = credentials.credential().passwordHash().value();
+
         // Spring Security's matches() performs constant-time comparison
         final boolean matches = encoder.matches(providedPassword, storedHash);
         

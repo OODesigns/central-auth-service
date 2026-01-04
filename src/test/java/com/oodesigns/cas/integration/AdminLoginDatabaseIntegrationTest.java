@@ -283,7 +283,7 @@ class AdminLoginDatabaseIntegrationTest {
         // Assert: Credentials found and have correct data
         assertTrue(credentials.isPresent(), 
             "JOOQ should retrieve admin user credentials from database");
-        assertFalse(credentials.get().passwordHash().asString().isEmpty(),
+        assertFalse(credentials.get().passwordHash().value().isEmpty(),
             "Password hash should be populated from database");
     }
 

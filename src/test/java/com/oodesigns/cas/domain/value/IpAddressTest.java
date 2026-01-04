@@ -13,37 +13,37 @@ class IpAddressTest {
     @Test
     void testValidIPv4() {
         IpAddress ipv4 = IpAddress.of("192.168.1.1");
-        assertEquals("192.168.1.1", ipv4.asString());
+        assertEquals("192.168.1.1", ipv4.value());
     }
 
     @Test
     void testValidIPv4Localhost() {
         IpAddress localhost = IpAddress.of("127.0.0.1");
-        assertEquals("127.0.0.1", localhost.asString());
+        assertEquals("127.0.0.1", localhost.value());
     }
 
     @Test
     void testValidIPv4Broadcast() {
         IpAddress broadcast = IpAddress.of("255.255.255.255");
-        assertEquals("255.255.255.255", broadcast.asString());
+        assertEquals("255.255.255.255", broadcast.value());
     }
 
     @Test
     void testValidIPv6() {
         IpAddress ipv6 = IpAddress.of("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
-        assertEquals("2001:0db8:85a3:0000:0000:8a2e:0370:7334", ipv6.asString());
+        assertEquals("2001:0db8:85a3:0000:0000:8a2e:0370:7334", ipv6.value());
     }
 
     @Test
     void testValidIPv6Shortened() {
         IpAddress ipv6 = IpAddress.of("::1");
-        assertEquals("::1", ipv6.asString());
+        assertEquals("::1", ipv6.value());
     }
 
     @Test
     void testValidIPv6Localhost() {
         IpAddress ipv6Localhost = IpAddress.of("::1");
-        assertEquals("::1", ipv6Localhost.asString());
+        assertEquals("::1", ipv6Localhost.value());
     }
 
     @Test

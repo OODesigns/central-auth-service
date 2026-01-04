@@ -29,7 +29,7 @@ public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports
             throw new IllegalArgumentException("User cannot be null");
         }
         usersById.put(user.userId(), user);
-        usersByUsername.put(user.username().asString(), user);
+        usersByUsername.put(user.username().value(), user);
     }
 
     /**
@@ -52,7 +52,7 @@ public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports
             throw new IllegalArgumentException("Username cannot be null");
         }
         // Find user by username to get userId, then look up credential
-        return Optional.ofNullable(usersByUsername.get(username.asString()))
+        return Optional.ofNullable(usersByUsername.get(username.value()))
             .flatMap(user -> Optional.ofNullable(credentialsByUsername.get(user.userId().toString())));
     }
 

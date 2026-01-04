@@ -1,6 +1,5 @@
 package com.oodesigns.cas.domain.value;
-
-import jakarta.annotation.Nonnull;
+import com.oodesigns.cas.util.validation.ValidatedValue;
 
 /**
  * Value object representing a fine-grained permission.
@@ -10,39 +9,30 @@ import jakarta.annotation.Nonnull;
  * The static factory methods are convenience shortcuts for common permissions,
  * but the primary pattern is to load permissions from the database via repositories.
  */
-public record Permission(String value) {
-    public Permission {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Permission cannot be null or blank");
-        }
-        // Validate format: lowercase alphanumeric with underscores
-        if (!value.matches("^[a-z0-9_]+$")) {
-            throw new IllegalArgumentException("Permission must be lowercase alphanumeric with underscores");
-        }
+public final class Permission extends ValidatedValue<String, String> {
+
+    public Permission(final String value) {
+        super(value);
     }
 
-    /**
-     * Factory method to create a Permission from a database value.
-     * The permission name should match a row in the permissions table.
-     * @param value the permission name from the database
-     * @return new Permission instance
-     */
     public static Permission of(final String value) {
         return new Permission(value);
     }
 
-    /**
-     * Convert Permission to its string value for serialization.
-     * @return the permission name (e.g., "create_user")
-     */
-    @Nonnull
-    public String asString() {
-        return value;
+    @Override
+    protected String parse(final String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("Permission cannot be null or blank");
+        }
+        return raw;
     }
 
-    @Nonnull
     @Override
-    public String toString() {
+    protected String validate(final String value) {
+        // Validate format: lowercase alphanumeric with underscores
+        if (!value.matches("^[a-z0-9_]+$")) {
+            throw new IllegalArgumentException("Permission must be lowercase alphanumeric with underscores");
+        }
         return value;
     }
 }

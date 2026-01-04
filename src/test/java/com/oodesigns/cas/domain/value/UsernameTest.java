@@ -13,37 +13,37 @@ class UsernameTest {
     @Test
     void testValidUsername() {
         Username username = new Username("john_doe");
-        assertEquals("john_doe", username.asString());
+        assertEquals("john_doe", username.value());
     }
 
     @Test
     void testNormalizesToLowercase() {
         Username username = new Username("JohnDoe");
-        assertEquals("johndoe", username.asString());
+        assertEquals("johndoe", username.value());
     }
 
     @Test
     void testValidWithNumbers() {
         Username username = new Username("user123");
-        assertEquals("user123", username.asString());
+        assertEquals("user123", username.value());
     }
 
     @Test
     void testValidWithHyphen() {
         Username username = new Username("user-name");
-        assertEquals("user-name", username.asString());
+        assertEquals("user-name", username.value());
     }
 
     @Test
     void testValidWithUnderscore() {
         Username username = new Username("user_name");
-        assertEquals("user_name", username.asString());
+        assertEquals("user_name", username.value());
     }
 
     @Test
     void testValidMinimumLength() {
         Username username = new Username("abc");
-        assertEquals("abc", username.asString());
+        assertEquals("abc", username.value());
     }
 
     @Test

@@ -13,7 +13,7 @@ class PermissionTest {
     @Test
     void testCreatePermission() {
         Permission perm = Permission.of("view_users");
-        assertEquals("view_users", perm.asString());
+        assertEquals("view_users", perm.value());
     }
 
     @Test
@@ -67,30 +67,30 @@ class PermissionTest {
         Permission delete = Permission.of("delete_accounts");
         Permission approve = Permission.of("approve_transfers");
 
-        assertEquals("view_users", view.asString());
-        assertEquals("edit_profile", edit.asString());
-        assertEquals("view_reports", reports.asString());
-        assertEquals("manage_users", manage.asString());
-        assertEquals("delete_accounts", delete.asString());
-        assertEquals("approve_transfers", approve.asString());
+        assertEquals("view_users", view.value());
+        assertEquals("edit_profile", edit.value());
+        assertEquals("view_reports", reports.value());
+        assertEquals("manage_users", manage.value());
+        assertEquals("delete_accounts", delete.value());
+        assertEquals("approve_transfers", approve.value());
     }
 
     @Test
     void testPermissionToString() {
         Permission perm = Permission.of("delete_accounts");
-        assertTrue(perm.toString().contains("delete_accounts"));
+        assertEquals("delete_accounts", perm.toString());
     }
 
     @Test
-    void testValidPermissionFormats() {
+    void testFactoryMethods() {
         Permission perm1 = Permission.of("view_users");
         Permission perm2 = Permission.of("admin_123");
         Permission perm3 = Permission.of("a");
         Permission perm4 = Permission.of("view_users_and_roles");
 
-        assertEquals("view_users", perm1.asString());
-        assertEquals("admin_123", perm2.asString());
-        assertEquals("a", perm3.asString());
-        assertEquals("view_users_and_roles", perm4.asString());
+        assertEquals("view_users", perm1.value());
+        assertEquals("admin_123", perm2.value());
+        assertEquals("a", perm3.value());
+        assertEquals("view_users_and_roles", perm4.value());
     }
 }

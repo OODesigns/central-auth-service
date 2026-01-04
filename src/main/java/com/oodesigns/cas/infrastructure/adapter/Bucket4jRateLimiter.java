@@ -10,8 +10,6 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Rate limiter implementation using Bucket4j.
  * Provides per-key rate limiting with configurable limits.
- * Uses in-memory bucket storage suitable for integration testing.
- * For production single-instance deployments, use this directly or extend with cache-based storage (Redis, etc).
  */
 public class Bucket4jRateLimiter implements Ports.RateLimiter {
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
@@ -47,7 +45,7 @@ public class Bucket4jRateLimiter implements Ports.RateLimiter {
             throw new IllegalArgumentException("Key cannot be null or empty");
         }
 
-        Bucket bucket = buckets.computeIfAbsent(key, k -> createBucket());
+        Bucket bucket = buckets.computeIfAbsent(key,  k-> createBucket());
 
         if (bucket.tryConsume(1)) {
             return Ports.RateLimitResult.allowed();

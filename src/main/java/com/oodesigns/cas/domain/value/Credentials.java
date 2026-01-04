@@ -1,24 +1,46 @@
 package com.oodesigns.cas.domain.value;
 
 import java.util.Objects;
+import com.oodesigns.cas.util.validation.ValidatedValue;
 
 /**
- * Credentials record bundling user credential and password for authentication.
+ * Credentials value object bundling user credential and password for authentication.
  * Immutable domain value object representing user authentication context.
  * Validates that both credential and password are non-null.
  * Implements AutoCloseable to automatically clear the password when closed.
- * 
- * @param credential The user credential (userId + passwordHash) for verification (non-null)
- * @param password The user's password for verification (non-null)
  */
-public record Credentials(UserCredential credential, Password password) implements AutoCloseable {
-    
+public final class Credentials extends ValidatedValue<Credentials.CredentialsData, Credentials.CredentialsData> implements AutoCloseable {
+
     /**
-     * Compact constructor that validates all required fields are non-null.
+     * Inner record to hold the credential data.
      */
-    public Credentials {
-        Objects.requireNonNull(credential, "User credential is required for authentication");
-        Objects.requireNonNull(password, "Password is required for authentication");
+    public record CredentialsData(UserCredential credential, Password password) {}
+
+    /**
+     * Create credentials from a credential and password.
+     */
+    public Credentials(final UserCredential credential, final Password password) {
+        super(new CredentialsData(credential, password));
+    }
+
+    @Override
+    protected CredentialsData parse(final CredentialsData raw) {
+        return raw;
+    }
+
+    @Override
+    protected CredentialsData validate(final CredentialsData data) {
+        Objects.requireNonNull(data.credential(), "User credential is required for authentication");
+        Objects.requireNonNull(data.password(), "Password is required for authentication");
+        return data;
+    }
+
+    public UserCredential credential() {
+        return value().credential();
+    }
+
+    public Password password() {
+        return value().password();
     }
 
     /**
@@ -27,6 +49,8 @@ public record Credentials(UserCredential credential, Password password) implemen
      */
     @Override
     public void close() {
-        password.clear();
+        password().clear();
     }
 }
+
+

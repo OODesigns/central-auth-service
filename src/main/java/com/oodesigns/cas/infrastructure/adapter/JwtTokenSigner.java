@@ -72,7 +72,7 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
         final byte[] secretKey = password.toUtf8Bytes();
         try {
             final String token = Jwts.builder()
-                    .claim("payload", payload.value())
+                    .claim("payload", payload.toString())
                     .expiration(Date.from(expiresAt))
                     .signWith(Keys.hmacShaKeyFor(secretKey), Jwts.SIG.HS256)
                     .compact();

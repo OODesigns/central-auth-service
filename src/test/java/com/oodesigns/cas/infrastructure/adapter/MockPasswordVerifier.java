@@ -51,7 +51,7 @@ public class MockPasswordVerifier implements Ports.PasswordVerifier {
             throw new IllegalArgumentException("Credentials cannot be null");
         }
         
-        String storedPassword = passwordMap.get(credentials.credential().passwordHash().asString());
+        String storedPassword = passwordMap.get(credentials.credential().passwordHash().value());
         if (storedPassword != null && storedPassword.equals(new String(credentials.password().chars()))) {
             return Optional.of(credentials.credential().userId());
         }

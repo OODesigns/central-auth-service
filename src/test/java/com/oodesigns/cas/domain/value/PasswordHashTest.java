@@ -18,19 +18,19 @@ class PasswordHashTest {
     @Test
     void testValidBcrypt2A() {
         PasswordHash hash = new PasswordHash(BCRYPT_2A);
-        assertEquals(BCRYPT_2A, hash.asString());
+        assertEquals(BCRYPT_2A, hash.value());
     }
 
     @Test
     void testValidBcrypt2B() {
         PasswordHash hash = new PasswordHash(BCRYPT_2B);
-        assertEquals(BCRYPT_2B, hash.asString());
+        assertEquals(BCRYPT_2B, hash.value());
     }
 
     @Test
     void testValidBcrypt2Y() {
         PasswordHash hash = new PasswordHash(BCRYPT_2Y);
-        assertEquals(BCRYPT_2Y, hash.asString());
+        assertEquals(BCRYPT_2Y, hash.value());
     }
 
     @Test

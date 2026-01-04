@@ -16,7 +16,7 @@ class UserIdTest {
         UserId id = UserId.generate();
         assertNotNull(id);
         assertNotNull(id.asUUID());
-        assertNotNull(id.asString());
+        assertNotNull(id.toString());
     }
 
     @Test
@@ -30,7 +30,7 @@ class UserIdTest {
     void testFromString() {
         String uuidStr = UUID.randomUUID().toString();
         UserId id = UserId.of(uuidStr);
-        assertEquals(uuidStr, id.asString());
+        assertEquals(uuidStr, id.toString());
     }
 
     @Test
@@ -64,7 +64,7 @@ class UserIdTest {
     @Test
     void testToStringReturnsUUID() {
         UserId id = UserId.generate();
-        String str = id.asString();
+        String str = id.toString();
         // Should be parseable back
         UserId id2 = UserId.of(str);
         assertEquals(id, id2);

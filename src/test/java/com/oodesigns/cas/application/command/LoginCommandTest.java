@@ -159,7 +159,7 @@ class LoginCommandTest {
     @Test
     void testValidIPv6Address() {
         IpAddress ipv6 = IpAddress.of("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
-        assertEquals("2001:0db8:85a3:0000:0000:8a2e:0370:7334", ipv6.asString());
+        assertEquals("2001:0db8:85a3:0000:0000:8a2e:0370:7334", ipv6.value());
     }
 
     @Test

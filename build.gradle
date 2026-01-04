@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
 }
 
 group = 'com.oodesigns'
@@ -17,23 +18,23 @@ repositories {
 
 dependencies {
     // Testing
-    testImplementation platform('org.junit:junit-bom:5.11.0')
+    testImplementation platform('org.junit:junit-bom:6.1.0-M1')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testImplementation 'org.mockito:mockito-core:5.14.1'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.14.1'
-    testImplementation 'org.testcontainers:testcontainers:2.0,3'
+    testImplementation 'org.mockito:mockito-core:5.21.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.21.0'
+    testImplementation 'org.testcontainers:testcontainers:2.0.3'
     testImplementation 'org.testcontainers:testcontainers-postgresql:2.0.3'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.3'
     
     // Logging - SLF4J with Logback implementation for tests
-    testImplementation 'ch.qos.logback:logback-classic:1.5.6'
+    testImplementation 'ch.qos.logback:logback-classic:1.5.23'
 
     // Database
-    implementation 'org.jooq:jooq:3.19.0'
-    implementation 'org.postgresql:postgresql:42.7.3'
+    implementation 'org.jooq:jooq:3.20.10'
+    implementation 'org.postgresql:postgresql:42.7.8'
     
     // Main dependencies
     implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
@@ -75,3 +76,34 @@ tasks.register('integrationTest', Test) {
     jvmArgs += "-javaagent:${configurations.mockitoAgent.singleFile}"
     shouldRunAfter test
 }
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            element = 'CLASS'
+            includes = ['com.oodesigns.*']
+            excludes = [
+                'com.oodesigns.cas.domain.service.Ports',
+                'com.oodesigns.cas.infrastructure.config.DatabaseContextFactory'
+            ]
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.80
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
+

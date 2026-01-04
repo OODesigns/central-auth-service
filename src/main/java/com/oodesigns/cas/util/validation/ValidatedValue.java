@@ -22,7 +22,16 @@ public abstract class ValidatedValue<R, V> {
 
     @Override
     public final String toString() {
-        return String.valueOf(value);
+        return String.valueOf(getDisplayValue());
+    }
+
+    /**
+     * Returns the value to be displayed in toString().
+     * Subclasses can override this to provide a masked or custom representation.
+     * By default, returns the actual value.
+     */
+    protected V getDisplayValue() {
+        return value;
     }
 
     @Override

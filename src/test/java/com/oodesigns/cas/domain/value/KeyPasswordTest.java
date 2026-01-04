@@ -17,7 +17,7 @@ class KeyPasswordTest {
 
     @Test
     void ofWithNullCharArrayThrowsNullPointerException() {
-        assertThrows(NullPointerException.class, () -> KeyPassword.of(null));
+        assertThrows(NullPointerException.class, () -> KeyPassword.of((char[]) null));
     }
 
     @Test

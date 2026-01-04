@@ -1,37 +1,35 @@
 package com.oodesigns.cas.domain.value;
-
-import jakarta.annotation.Nonnull;
 import java.util.regex.Pattern;
+import com.oodesigns.cas.util.validation.ValidatedValue;
 
 /**
  * Value object representing a username.
  * Validates format at construction.
  */
-public record Username(String value) {
+public final class Username extends ValidatedValue<String, String> {
     private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{3,50}$");
 
-    public Username {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Username cannot be null or blank");
-        }
-        if (!USERNAME_PATTERN.matcher(value).matches()) {
-            throw new IllegalArgumentException("Username must be 3-50 characters, alphanumeric with _/-");
-        }
-        value = value.toLowerCase();
+    public Username(final String value) {
+        super(value);
     }
 
     public static Username of(final String value) {
         return new Username(value);
     }
 
-    @Nonnull
-    public String asString() {
-        return value;
+    @Override
+    protected String parse(final String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("Username cannot be null or blank");
+        }
+        return raw.toLowerCase();
     }
 
-    @Nonnull
     @Override
-    public String toString() {
+    protected String validate(final String value) {
+        if (!USERNAME_PATTERN.matcher(value).matches()) {
+            throw new IllegalArgumentException("Username must be 3-50 characters, alphanumeric with _/-");
+        }
         return value;
     }
 }

@@ -1,16 +1,29 @@
 package com.oodesigns.cas.domain.value;
-
 import java.util.Objects;
+import com.oodesigns.cas.util.validation.ValidatedValue;
 
 /**
  * Represents a JSON payload to embed inside JWT tokens.
  * Ensures the payload is neither null nor blank before signing.
  */
-public final class Payload {
-    private final String value;
+public final class Payload extends ValidatedValue<String, String> {
 
-    private Payload(final String value) {
-        this.value = value;
+    public Payload(final String value) {
+        super(value);
+    }
+
+    @Override
+    protected String parse(final String raw) {
+        Objects.requireNonNull(raw, "Payload cannot be null");
+        return raw.trim();
+    }
+
+    @Override
+    protected String validate(final String value) {
+        if (value.isEmpty()) {
+            throw new IllegalArgumentException("Payload cannot be empty");
+        }
+        return value;
     }
 
     /**
@@ -22,19 +35,6 @@ public final class Payload {
      * @throws IllegalArgumentException if payload is blank
      */
     public static Payload of(final String payload) {
-        final String nonNull = Objects.requireNonNull(payload, "Payload cannot be null");
-        if (nonNull.isBlank()) {
-            throw new IllegalArgumentException("Payload cannot be empty");
-        }
-        return new Payload(nonNull);
-    }
-
-    /**
-     * Access the validated payload value.
-     *
-     * @return underlying payload string
-     */
-    public String value() {
-        return value;
+        return new Payload(payload);
     }
 }

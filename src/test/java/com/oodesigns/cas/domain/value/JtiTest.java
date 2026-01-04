@@ -16,7 +16,7 @@ class JtiTest {
         Jti jti = Jti.generate();
         assertNotNull(jti);
         assertNotNull(jti.asUUID());
-        assertNotNull(jti.asString());
+        assertNotNull(jti.toString());
     }
 
     @Test
@@ -30,7 +30,7 @@ class JtiTest {
     void testFromString() {
         String uuidStr = UUID.randomUUID().toString();
         Jti jti = Jti.of(uuidStr);
-        assertEquals(uuidStr, jti.asString());
+        assertEquals(uuidStr, jti.toString());
     }
 
     @Test

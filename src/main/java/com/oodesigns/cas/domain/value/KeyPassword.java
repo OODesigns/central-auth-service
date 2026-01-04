@@ -11,7 +11,7 @@ import java.util.Objects;
  * Ensures the underlying secret meets minimum length requirements and
  * provides secure conversion to UTF-8 byte arrays.
  */
-public final class KeyPassword extends Password {
+public class KeyPassword extends Password {
     private static final int MINIMUM_BYTES = 32;
 
     private KeyPassword(final char[] passwordChars) {
@@ -42,6 +42,17 @@ public final class KeyPassword extends Password {
      * @return KeyPassword instance
      */
     public static KeyPassword fromString(final String secret) {
+        return of(secret);
+    }
+
+    /**
+     * Convenience factory for creating a KeyPassword from a String.
+     * Intended for testing; avoid using in production code where Strings cannot be cleared.
+     *
+     * @param secret secret key as String
+     * @return KeyPassword instance
+     */
+    public static KeyPassword of(final String secret) {
         Objects.requireNonNull(secret, "Secret key cannot be null");
         final char[] chars = secret.toCharArray();
         try {

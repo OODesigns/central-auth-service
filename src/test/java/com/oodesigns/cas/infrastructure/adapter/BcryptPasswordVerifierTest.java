@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
@@ -22,13 +23,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class BcryptPasswordVerifierTest {
     private BcryptPasswordVerifier verifier;
     private UserCredential testCredential;
-    private MockPasswordHasher mockHasher;
 
     @BeforeEach
     void setUp() {
         verifier = new BcryptPasswordVerifier();
-        mockHasher = new MockPasswordHasher();
-        
+
         final UserId userId = UserId.generate();
         // Generate a real BCrypt hash for "correct_password" using Spring Security
         final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
@@ -40,37 +39,23 @@ class BcryptPasswordVerifierTest {
     @Test
     @DisplayName("Should verify correct password")
     void shouldVerifyCorrectPassword() {
-        // Register the password in mock for comparison
-        mockHasher.registerPasswordHash(
-            testCredential.passwordHash().asString(),
-            "correct_password"
-        );
-        
         final Password password = new Password("correct_password".toCharArray());
         try (final Credentials creds = new Credentials(testCredential, password)) {
             final Optional<UserId> result = verifier.verify(creds);
             
-            // Note: This will fail if BCrypt is not available, but that's expected
-            // for production implementation testing
-            assertNotNull(result, "Result should not be null");
+            assertTrue(result.isPresent(), "Result should be present for correct password");
+            assertEquals(testCredential.userId(), result.get());
         }
     }
 
     @Test
     @DisplayName("Should reject incorrect password")
     void shouldRejectIncorrectPassword() {
-        mockHasher.registerPasswordHash(
-            testCredential.passwordHash().asString(),
-            "correct_password"
-        );
-        
         final Password wrongPassword = new Password("wrong_password".toCharArray());
         try (final Credentials creds = new Credentials(testCredential, wrongPassword)) {
             final Optional<UserId> result = verifier.verify(creds);
             
-            assertNotNull(result, "Result should not be null");
-            // With dynamic loading, if BCrypt is available it should return empty
-            // If BCrypt is not available, it should throw IllegalStateException
+            assertTrue(result.isEmpty(), "Result should be empty for incorrect password");
         }
     }
 
@@ -153,7 +138,7 @@ class BcryptPasswordVerifierTest {
     @DisplayName("Should handle invalid hash format gracefully")
     void shouldHandleInvalidHashFormatGracefully() {
         // Mock the encoder to throw an exception
-        BCryptPasswordEncoder mockEncoder = org.mockito.Mockito.mock(BCryptPasswordEncoder.class);
+        PasswordEncoder mockEncoder = org.mockito.Mockito.mock(PasswordEncoder.class);
         org.mockito.Mockito.when(mockEncoder.matches(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
             .thenThrow(new IllegalArgumentException("Invalid salt"));
             

@@ -23,10 +23,8 @@ public final class AuthenticationService {
      * Password is automatically cleared via Credentials.close() in finally block.
      */
     public Optional<UserId> getAuthenticatedUser(final Credentials credentials) {
-        try {
+        try (credentials) {
             return passwordVerifier.verify(credentials);
-        } finally {
-            credentials.close();
         }
     }
 }

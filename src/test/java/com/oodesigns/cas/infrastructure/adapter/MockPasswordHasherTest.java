@@ -139,7 +139,7 @@ class MockPasswordHasherTest {
     @Test
     @DisplayName("Should implement PasswordVerifier interface")
     void shouldImplementPasswordVerifierInterface() {
-        assertTrue(mockHasher instanceof Ports.PasswordVerifier);
+        assertInstanceOf(Ports.PasswordVerifier.class, mockHasher);
     }
 }
 

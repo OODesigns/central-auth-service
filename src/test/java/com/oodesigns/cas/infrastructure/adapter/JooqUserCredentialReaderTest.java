@@ -64,7 +64,7 @@ class JooqUserCredentialReaderTest {
 
         assertTrue(result.isPresent());
         assertEquals(userId, result.get().userId().value());
-        assertEquals(hash, result.get().passwordHash().asString());
+        assertEquals(hash, result.get().passwordHash().value());
     }
     
     @Test

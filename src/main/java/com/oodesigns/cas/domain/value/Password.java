@@ -1,5 +1,7 @@
 package com.oodesigns.cas.domain.value;
 
+import jakarta.annotation.Nonnull;
+
 import java.util.Arrays;
 
 /**
@@ -53,6 +55,7 @@ public class Password {
         return new Password(passwordChars);
     }
 
+    @Nonnull
     @Override
     public String toString() {
         return "Password{***}";

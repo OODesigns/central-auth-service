@@ -4,8 +4,6 @@ import org.jooq.DSLContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
-import org.mockito.MockedStatic;
-
 import com.oodesigns.cas.util.file.FileLoaderProviderFactory;
 import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
 import com.oodesigns.cas.util.properties.PropertiesReader;
@@ -141,20 +139,11 @@ class DatabaseContextFactoryTest {
         when(mockDataSource.getConnection()).thenReturn(mockConnection);
         when(mockConnection.isValid(DatabaseContextFactory.VALIDATION_TIMEOUT_SECONDS)).thenReturn(true);
         
-        try (MockedStatic<DatabaseContextFactory> mockedFactory = mockStatic(DatabaseContextFactory.class)) {
-            mockedFactory.when(() -> DatabaseContextFactory.createDataSource(config))
-                .thenReturn(mockDataSource);
-            mockedFactory.when(() -> DatabaseContextFactory.create(config))
-                .thenCallRealMethod();
-            mockedFactory.when(() -> DatabaseContextFactory.create(eq(config), any()))
-                .thenCallRealMethod();
-            mockedFactory.when(() -> DatabaseContextFactory.validateConnection(mockDataSource))
-                .thenCallRealMethod();
-            
-            final DSLContext result = DatabaseContextFactory.create(config);
-            
-            assertNotNull(result);
-        }
+        // Use the package-private create method to inject the mock DataSource factory
+        // This avoids using mockStatic which requires the inline mock-maker agent
+        final DSLContext result = DatabaseContextFactory.create(config, c -> mockDataSource);
+
+        assertNotNull(result);
     }
 
     @Test

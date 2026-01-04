@@ -61,14 +61,14 @@ public final class TokenService {
                                                        final Instant issuedAt,
                                                        final Instant expiresAt){
         return Optional.of(Payload.of(String.format("{\"sub\":\"%s\",\"jti\":\"%s\",\"permissions\":%s,\"iat\":%d,\"exp\":%d}",
-                userId.asString(), jti.asString(), permissionsList, issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
+                userId.toString(), jti.toString(), permissionsList, issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
     }
 
 
     private Optional<String> getPermissionsList(Set<Permission> permissions) {
         String permissionsJson = String.format("[%s]",
                 permissions.stream()
-                    .map(p -> String.format("\"%s\"", p.asString()))
+                    .map(p -> String.format("\"%s\"", p.toString()))
                     .collect(Collectors.joining(",")));
         return Optional.of(permissionsJson);
     }
@@ -84,7 +84,7 @@ public final class TokenService {
                                                        final Instant issuedAt,
                                                        final Instant expiresAt){
         return Optional.of(Payload.of(String.format("{\"sub\":\"%s\",\"iat\":%d,\"exp\":%d}",
-                userId.asString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
+                userId.toString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
     }
 
 
