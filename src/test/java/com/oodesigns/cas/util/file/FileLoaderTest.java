@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -38,6 +40,24 @@ class FileLoaderTest {
         assertThrows(FileLoaderException.class, () -> new FileLoader("test.txt", mockLoader));
 
         verify(mockStream).close();
+    }
+
+    @Test
+    void closeThrowsIOExceptionIsHandled() throws IOException {
+        ClassLoader mockLoader = mock(ClassLoader.class);
+        InputStream mockStream = mock(InputStream.class);
+
+        when(mockLoader.getResourceAsStream("file.txt")).thenReturn(mockStream);
+        when(mockStream.readAllBytes()).thenReturn("ok".getBytes(StandardCharsets.UTF_8));
+        doThrow(new IOException("close failed")).when(mockStream).close();
+
+        FileLoaderException ex = assertThrows(
+                FileLoaderException.class,
+                () -> new FileLoader("file.txt", mockLoader)
+        );
+
+        assertNotNull(ex.getCause());
+        assertEquals("close failed", ex.getCause().getMessage());
     }
 
     @Test
@@ -79,4 +99,43 @@ class FileLoaderTest {
         
         assertEquals(content1, content2);
     }
+
+    @Test
+    void ioExceptionDuringConstructionIsWrapped() throws IOException {
+        ClassLoader mockLoader = mock(ClassLoader.class);
+        InputStream mockStream = mock(InputStream.class);
+        IOException originalException = new IOException("Stream read failed");
+
+        when(mockLoader.getResourceAsStream("file.txt")).thenReturn(mockStream);
+        when(mockStream.readAllBytes()).thenThrow(originalException);
+
+        FileLoaderException exception = assertThrows(
+            FileLoaderException.class,
+            () -> new FileLoader("file.txt", mockLoader)
+        );
+
+        // Verify the original IOException is wrapped as the cause
+        assertSame(originalException, exception.getCause());
+        assertInstanceOf(IOException.class, exception.getCause());
+    }
+
+    @Test
+    void fileLoaderHandlesIOExceptionWithMessage() throws IOException {
+        ClassLoader mockLoader = mock(ClassLoader.class);
+        InputStream mockStream = mock(InputStream.class);
+
+        when(mockLoader.getResourceAsStream("data.txt")).thenReturn(mockStream);
+        when(mockStream.readAllBytes()).thenThrow(new IOException("Permission denied"));
+
+        FileLoaderException exception = assertThrows(
+            FileLoaderException.class,
+            () -> new FileLoader("data.txt", mockLoader)
+        );
+
+        assertNotNull(exception);
+        assertNotNull(exception.getCause());
+        assertEquals("Permission denied", exception.getCause().getMessage());
+    }
+
+
 }
