@@ -1,5 +1,3 @@
-import java.awt.Desktop
-
 plugins {
     id 'java'
     id 'jacoco'
@@ -79,6 +77,28 @@ tasks.register('integrationTest', Test) {
     shouldRunAfter test
 }
 
+// Helper function to open report files
+void openReport(String reportPath) {
+    def reportFile = new File(reportPath)
+    if (reportFile.exists()) {
+        def isWindows = System.getProperty("os.name").toLowerCase().contains("windows")
+        def isLinux = System.getProperty("os.name").toLowerCase().contains("linux")
+        def isMac = System.getProperty("os.name").toLowerCase().contains("mac")
+        
+        try {
+            if (isWindows) {
+                Runtime.getRuntime().exec("cmd /c start ${reportFile.absolutePath}")
+            } else if (isMac) {
+                Runtime.getRuntime().exec("open ${reportFile.absolutePath}")
+            } else if (isLinux) {
+                Runtime.getRuntime().exec("xdg-open ${reportFile.absolutePath}")
+            }
+        } catch (Exception e) {
+            logger.warn("Could not automatically open report: ${e.message}")
+        }
+    }
+}
+
 jacocoTestReport {
     dependsOn test
     afterEvaluate {
@@ -93,6 +113,9 @@ jacocoTestReport {
         xml.required = true
         html.required = true
         csv.required = false
+    }
+    doLast {
+        openReport("${reports.html.outputLocation.get()}/index.html")
     }
 }
 
