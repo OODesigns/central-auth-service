@@ -3,9 +3,6 @@ package com.oodesigns.cas.util.properties;
 import java.io.IOException;
 import java.util.Properties;
 import java.util.function.UnaryOperator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import com.oodesigns.cas.util.file.FileLoaderException;
 import com.oodesigns.cas.util.file.FileLoaderProvider;
 
@@ -14,9 +11,6 @@ import com.oodesigns.cas.util.file.FileLoaderProvider;
  * Applies transformations to property values using an injected transformer.
  */
 public final class PropertiesReader {
-
-    private static final Logger LOGGER = Logger.getLogger(PropertiesReader.class.getName());
-    
     private final Properties properties;
     private final UnaryOperator<String> transformer;
 
@@ -35,7 +29,6 @@ public final class PropertiesReader {
         this.properties = new Properties();
         try {
             this.properties.load(fileLoaderProvider.loadFile(fileName));
-            logInfo(() -> String.format("Loaded %d properties from %s", this.properties.size(), fileName));
         } catch (final FileLoaderException e) {
             throw new PropertiesReaderException(String.format("Unable to find %s", fileName), e);
         } catch (final IOException e) {
@@ -52,11 +45,5 @@ public final class PropertiesReader {
     public String get(final String key) {
         final String value = properties.getProperty(key, "");
         return transformer.apply(value);
-    }
-
-    private void logInfo(final java.util.function.Supplier<String> message) {
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info(message.get());
-        }
     }
 }

@@ -7,6 +7,7 @@ import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +15,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.time.Instant;
 import java.util.*;
 import java.util.Optional;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -160,20 +163,30 @@ class LoginCommandHandlerTest {
 
     @Test
     void testLoginRuntimeExceptionHandled() {
-        when(rateLimiter.checkLimit(anyString()))
-            .thenReturn(Ports.RateLimitResult.allowed());
-        when(credentialReader.findCredentialsByUsername(any()))
-            .thenThrow(new RuntimeException("Database error"));
+        // Suppress logger output for this test since we're intentionally testing exception handling
+        Logger logger = Logger.getLogger(LoginCommandHandler.class.getName());
+        Level originalLevel = logger.getLevel();
+        logger.setLevel(Level.OFF);
 
-        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
-        LoginResult result = loginHandler.handle(cmd);
+        try {
+            when(rateLimiter.checkLimit(anyString()))
+                .thenReturn(Ports.RateLimitResult.allowed());
+            when(credentialReader.findCredentialsByUsername(any()))
+                .thenThrow(new RuntimeException("Database error"));
 
-        result.mapTo(ignored -> {
-            fail("Should fail");
-            return null;
-        }).orElse(failure -> {
-            assertEquals("INTERNAL_ERROR", failure.errorCode());
-            return null;
-        });
+            LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
+            LoginResult result = loginHandler.handle(cmd);
+
+            result.mapTo(ignored -> {
+                fail("Should fail");
+                return null;
+            }).orElse(failure -> {
+                assertEquals("INTERNAL_ERROR", failure.errorCode());
+                return null;
+            });
+        } finally {
+            // Restore original logger level
+            logger.setLevel(originalLevel);
+        }
     }
 }

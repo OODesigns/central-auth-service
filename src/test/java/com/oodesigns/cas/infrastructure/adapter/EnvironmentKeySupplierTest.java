@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -70,9 +71,18 @@ class EnvironmentKeySupplierTest {
         String shortKey = "too_short";
         mockEnv.put("SHORT_KEY", shortKey);
 
-        Optional<KeyPassword> result = keySupplier.getPassword("SHORT_KEY");
-        
-        assertTrue(result.isEmpty(), "Should return empty for key shorter than 32 chars");
+        // Suppress the expected warning log for invalid key length
+        Logger logger = Logger.getLogger(EnvironmentKeySupplier.class.getName());
+        java.util.logging.Level originalLevel = logger.getLevel();
+        try {
+            logger.setLevel(java.util.logging.Level.SEVERE);
+
+            Optional<KeyPassword> result = keySupplier.getPassword("SHORT_KEY");
+
+            assertTrue(result.isEmpty(), "Should return empty for key shorter than 32 chars");
+        } finally {
+            logger.setLevel(originalLevel);
+        }
     }
 
     @Test
