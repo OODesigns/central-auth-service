@@ -64,7 +64,7 @@ class IpAddressTest {
 
     @Test
     void testNullThrows() {
-        assertThrows(IllegalArgumentException.class, () -> IpAddress.of(null));
+        assertThrows(NullPointerException.class, () -> IpAddress.of(null));
     }
 
     @Test

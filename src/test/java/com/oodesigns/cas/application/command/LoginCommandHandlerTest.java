@@ -57,10 +57,10 @@ class LoginCommandHandlerTest {
         loginHandler = new LoginCommandHandler(authService, tokenService, credentialReader, userRepository, rateLimiter);
 
         // Setup test data
-        final UserId userId = UserId.generate();
-        final PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
-        testCredential = new UserCredential(userId, passwordHash);
-        testUser = new User(userId, new Username("john_doe"), Set.of(Permission.of("read")));
+        final UserId userId = UserId.of(UUID.randomUUID());
+        final PasswordHash passwordHash = PasswordHash.of("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
+        testCredential = UserCredential.of(userId, passwordHash);
+        testUser = new User(userId, Username.of("john_doe"), Set.of(Permission.of("read")));
     }
 
     private void mockSuccessfulFlow() {
@@ -165,9 +165,15 @@ class LoginCommandHandlerTest {
         // Suppress logger output for this test since we're intentionally testing exception handling
         final Logger logger = Logger.getLogger(LoginCommandHandler.class.getName());
         final Level originalLevel = logger.getLevel();
-        logger.setLevel(Level.OFF);
 
-        try {
+        try (var _ = new AutoCloseable() {
+            { logger.setLevel(Level.OFF); }
+
+            @Override
+            public void close() {
+                logger.setLevel(originalLevel);
+            }
+        }) {
             when(rateLimiter.checkLimit(anyString()))
                 .thenReturn(Ports.RateLimitResult.allowed());
             when(credentialReader.findCredentialsByUsername(any()))
@@ -176,16 +182,16 @@ class LoginCommandHandlerTest {
             final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
             final LoginResult result = loginHandler.handle(cmd);
 
-            result.mapTo(ignored -> {
+            result.mapTo(_ -> {
                 fail("Should fail");
                 return null;
             }).orElse(failure -> {
                 assertEquals("INTERNAL_ERROR", failure.errorCode());
                 return null;
             });
-        } finally {
-            // Restore original logger level
-            logger.setLevel(originalLevel);
+        } catch (final Exception e) {
+            // Should not happen with this AutoCloseable implementation
+            throw new AssertionError(e);
         }
     }
 }

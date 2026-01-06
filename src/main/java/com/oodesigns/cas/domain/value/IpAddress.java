@@ -2,37 +2,59 @@ package com.oodesigns.cas.domain.value;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Objects;
 
 import com.oodesigns.cas.util.validation.ValidatedValue;
 
 /**
  * Value object representing an IP address.
  * Validates both IPv4 and IPv6 formats using Java's built-in validation.
+ * 
+ * Validation happens in the static factory method before construction.
+ * 
+ * @throws NullPointerException if IP address is null (via factory method)
+ * @throws IllegalArgumentException if IP address is blank or invalid format
  */
-public final class IpAddress extends ValidatedValue<String, String> {
+public final class IpAddress extends ValidatedValue<String> {
 
-    public IpAddress(final String value) {
+    /**
+     * Create an IP address value object.
+     * Assumes the value has already been validated.
+     *
+     * @param value the validated IP address string
+     */
+    private IpAddress(final String value) {
         super(value);
     }
 
+    /**
+     * Factory method to create an IP address.
+     * Performs all validation before construction.
+     * 
+     * @param value the IP address string
+     * @return IpAddress instance
+     * @throws NullPointerException if value is null
+     * @throws IllegalArgumentException if value is blank or invalid format
+     */
     public static IpAddress of(final String value) {
+        Objects.requireNonNull(value, "IP address cannot be null");
+        validateIpAddress(value);  // Perform validation
         return new IpAddress(value);
     }
 
-    @Override
-    protected String parse(final String raw) {
-        if (raw == null || raw.isBlank()) {
-            throw new IllegalArgumentException("IP address cannot be null or blank");
+    /**
+     * Validate that the given string is a valid IPv4 or IPv6 address.
+     * 
+     * @param value the IP address to validate
+     * @throws IllegalArgumentException if invalid
+     */
+    private static void validateIpAddress(final String value) {
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("IP address cannot be blank");
         }
-        return raw;
-    }
-
-    @Override
-    protected String validate(final String value) {
         if (!isValidIpAddress(value)) {
             throw new IllegalArgumentException(String.format("Invalid IP address format: %s", value));
         }
-        return value;
     }
 
     /**

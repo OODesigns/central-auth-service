@@ -39,7 +39,7 @@ class PermissionTest {
 
     @Test
     void testNullPermissionThrows() {
-        assertThrows(IllegalArgumentException.class, () -> Permission.of(null));
+        assertThrows(NullPointerException.class, () -> Permission.of(null));
     }
 
     @Test

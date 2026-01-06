@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,7 +21,7 @@ class LoginResultTest {
     void testSuccessResult() {
         final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token_123", "refresh_token_456");
-        final UserId userId = UserId.generate();
+        final UserId userId = UserId.of(UUID.randomUUID());
         final Set<Permission> permissions = Set.of(Permission.of("read"), Permission.of("write"));
         final LoginResult result = LoginResult.success(tokenPair, userId, permissions);
 
@@ -75,7 +76,7 @@ class LoginResultTest {
     void testAccessingErrorOnSuccessThrows() {
         final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token", "refresh_token");
-        final UserId userId = UserId.generate();
+        final UserId userId = UserId.of(UUID.randomUUID());
         final Set<Permission> permissions = Collections.emptySet();
         final LoginResult result = LoginResult.success(tokenPair, userId, permissions);
 
@@ -93,7 +94,7 @@ class LoginResultTest {
 
     @Test
     void testSuccessWithNullTokensThrows() {
-        final UserId userId = UserId.generate();
+        final UserId userId = UserId.of(UUID.randomUUID());
         final Set<Permission> permissions = Set.of(Permission.of("read"));
         assertThrows(IllegalArgumentException.class,
             () -> LoginResult.success(null, userId, permissions));
@@ -112,7 +113,7 @@ class LoginResultTest {
     void testSuccessWithNullPermissionsThrows() {
         final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token", "refresh_token");
-        final UserId userId = UserId.generate();
+        final UserId userId = UserId.of(UUID.randomUUID());
         assertThrows(IllegalArgumentException.class,
             () -> LoginResult.success(tokenPair, userId, null));
     }
@@ -170,8 +171,8 @@ class LoginResultTest {
             "token1", "refresh1");
         final TokenService.TokenPair tokenPair2 = new TokenService.TokenPair(
             "token2", "refresh2");
-        final UserId userId1 = UserId.generate();
-        final UserId userId2 = UserId.generate();
+        final UserId userId1 = UserId.of(UUID.randomUUID());
+        final UserId userId2 = UserId.of(UUID.randomUUID());
         final Set<Permission> permissions = Set.of(Permission.of("read"));
         final LoginResult result1 = LoginResult.success(tokenPair1, userId1, permissions);
         final LoginResult result2 = LoginResult.success(tokenPair2, userId2, permissions);
@@ -220,7 +221,7 @@ class LoginResultTest {
     void testCannotSwitchStates() {
         final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "token", "refresh");
-        final UserId userId = UserId.generate();
+        final UserId userId = UserId.of(UUID.randomUUID());
         final Set<Permission> permissions = Set.of(Permission.of("admin"));
         final LoginResult success = LoginResult.success(tokenPair, userId, permissions);
         final LoginResult failure = LoginResult.failure("CODE", "message");

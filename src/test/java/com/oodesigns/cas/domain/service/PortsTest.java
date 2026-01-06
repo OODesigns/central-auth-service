@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,7 +21,7 @@ class PortsTest {
     static class TestPasswordVerifier implements Ports.PasswordVerifier {
         @Override
         public Optional<UserId> verify(final Credentials credentials) {
-            return Optional.of(UserId.generate());
+            return Optional.of(UserId.of(UUID.randomUUID()));
         }
     }
 

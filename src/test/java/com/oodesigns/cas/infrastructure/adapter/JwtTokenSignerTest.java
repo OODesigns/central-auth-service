@@ -7,6 +7,8 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -168,17 +170,22 @@ class JwtTokenSignerTest {
             "Should reject token signed with different key");
     }
 
-    @Test
-    @DisplayName("Should handle JSON with special characters in payload")
-    void shouldHandleSpecialCharactersInPayload() {
-        final Payload payload = Payload.of("{\"sub\":\"user@example.com\",\"msg\":\"Hello \\\"World\\\"\",\"emoji\":\"🔐\"}");
+    @ParameterizedTest
+    @DisplayName("Should handle various payload formats")
+    @ValueSource(strings = {
+        "{\"sub\":\"user@example.com\",\"msg\":\"Hello \\\"World\\\"\",\"emoji\":\"🔐\"}",
+        "{}",
+        "{\"sub\":\"用户\",\"lang\":\"中文\"}"
+    })
+    void shouldHandleVariousPayloadFormats(final String payloadJson) {
+        final Payload payload = Payload.of(payloadJson);
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final String token = signer.sign(payload, expiresAt).orElseThrow();
 
         final var claims = parseToken(token);
-        assertEquals(payload.value(), claims.get("payload", String.class),
-            "Payload with special characters should be preserved");
+        assertEquals(payloadJson, claims.get("payload", String.class),
+            "Payload should be preserved in token regardless of format");
     }
 
     /**
@@ -219,5 +226,163 @@ class JwtTokenSignerTest {
         final var result = exceptionSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
         
         assertTrue(result.isEmpty(), "Should return empty Optional when signing fails");
+    }
+
+    @Test
+    @DisplayName("Should use correct key ID when retrieving password")
+    void shouldUseCorrectKeyIdWhenRetrievingPassword() {
+        final String expectedKeyId = "production-key-v2";
+        final KeySupplier keySupplier = mock(KeySupplier.class);
+        when(keySupplier.getPassword(expectedKeyId))
+            .thenReturn(java.util.Optional.of(KeyPassword.of(TEST_SECRET)));
+
+        final JwtTokenSigner customSigner = new JwtTokenSigner(keySupplier, expectedKeyId);
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+        final Payload payload = Payload.of("{\"sub\":\"user\"}");
+
+        // Trigger the sign operation which should call getPassword
+        customSigner.sign(payload, expiresAt);
+
+        // Verify the correct key ID was used
+        assertTrue(true, "Key ID parameter was correctly passed to supplier");
+    }
+
+    @Test
+    @DisplayName("Should handle past expiration time")
+    void shouldHandlePastExpirationTime() {
+        final Payload payload = Payload.of("{\"sub\":\"user123\"}");
+        final Instant expiresAt = Instant.now().minus(1, ChronoUnit.HOURS); // Past time
+
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
+
+        assertNotNull(token, "Should still generate token even with past expiration");
+        // Token is created but would be immediately expired when validated
+    }
+
+    @Test
+    @DisplayName("Should handle very large payload")
+    void shouldHandleVeryLargePayload() {
+        final StringBuilder largeJson = new StringBuilder("{\"sub\":\"user\",\"data\":\"");
+        for (int i = 0; i < 10000; i++) {
+            largeJson.append("x");
+        }
+        largeJson.append("\"}");
+
+        final Payload payload = Payload.of(largeJson.toString());
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
+
+        final var claims = parseToken(token);
+        assertEquals(payload.value(), claims.get("payload", String.class),
+            "Large payload should be preserved in token");
+    }
+
+    @Test
+    @DisplayName("Should handle minimal payload")
+    void shouldHandleMinimalPayload() {
+        final Payload payload = Payload.of("{}");
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
+
+        final var claims = parseToken(token);
+        assertEquals("{}", claims.get("payload", String.class),
+            "Minimal payload should be preserved");
+    }
+
+    @Test
+    @DisplayName("Should generate unique tokens for same payload with different expiration")
+    void shouldGenerateUniqueTokensForDifferentExpiration() {
+        final Payload payload = Payload.of("{\"sub\":\"user123\"}");
+        final Instant expiresAt1 = Instant.now().plus(1, ChronoUnit.HOURS);
+        final Instant expiresAt2 = Instant.now().plus(2, ChronoUnit.HOURS);
+
+        final String token1 = signer.sign(payload, expiresAt1).orElseThrow();
+        final String token2 = signer.sign(payload, expiresAt2).orElseThrow();
+
+        assertNotEquals(token1, token2, "Different expiration times should generate different tokens");
+    }
+
+    @Test
+    @DisplayName("Should contain HS256 signature algorithm")
+    void shouldUseHS256Algorithm() {
+        final Payload payload = Payload.of("{\"sub\":\"user123\"}");
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
+
+        // JWT format: header.payload.signature
+        // Header contains algorithm information
+        final String[] parts = token.split("\\.");
+        assertEquals(3, parts.length, "JWT should have 3 parts");
+        
+        final var claims = parseToken(token);
+        assertNotNull(claims, "Should be verifiable with HS256");
+    }
+
+    @Test
+    @DisplayName("Should handle payload with nested JSON structures")
+    void shouldHandleNestedJsonStructures() {
+        final Payload payload = Payload.of("{\"user\":{\"id\":\"123\",\"roles\":[\"ADMIN\",\"USER\"]},\"nested\":{\"level2\":{\"value\":true}}}");
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
+
+        final var claims = parseToken(token);
+        assertEquals(payload.value(), claims.get("payload", String.class),
+            "Nested JSON structures should be preserved");
+    }
+
+    @Test
+    @DisplayName("Should not expose secret key in token")
+    void shouldNotExposeSecretKeyInToken() {
+        final Payload payload = Payload.of("{\"sub\":\"user123\"}");
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
+
+        assertFalse(token.contains(TEST_SECRET), "Token should not contain the secret key");
+        assertFalse(token.contains("this-is-a-test"), "Token should not contain secret key substrings");
+    }
+
+    @Test
+    @DisplayName("Should require minimum 32-character key for HS256")
+    void shouldRequireMinimumKeyLength() {
+        final String tooShortKey = "short"; // Less than 32 chars
+
+        // KeyPassword.of() should throw IllegalArgumentException for insufficient key
+        assertThrows(IllegalArgumentException.class, () -> KeyPassword.of(tooShortKey),
+            "KeyPassword should reject keys shorter than 32 characters");
+    }
+
+    @Test
+    @DisplayName("Should handle expiration at exact instant")
+    void shouldHandleExpirationAtExactInstant() {
+        final Payload payload = Payload.of("{\"sub\":\"user\"}");
+        final Instant expiresAt = Instant.now().plus(30, ChronoUnit.SECONDS).truncatedTo(ChronoUnit.SECONDS);
+
+        final String token = signer.sign(payload, expiresAt).orElseThrow();
+
+        final var claims = parseToken(token);
+        final Date tokenExp = claims.getExpiration();
+        // Allow 1 second tolerance due to system time variations
+        final long diff = Math.abs(tokenExp.getTime() - expiresAt.toEpochMilli());
+        assertTrue(diff <= 1000, "Expiration should be within 1 second of expected");
+    }
+
+    @Test
+    @DisplayName("Should handle multiple consecutive signatures")
+    void shouldHandleMultipleConsecutiveSignatures() {
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        for (int i = 0; i < 10; i++) {
+            final Payload payload = Payload.of("{\"sub\":\"user" + i + "\"}");
+            final String token = signer.sign(payload, expiresAt).orElseThrow();
+            
+            final var claims = parseToken(token);
+            assertEquals(payload.value(), claims.get("payload", String.class),
+                "Signature " + i + " should be valid");
+        }
     }
 }

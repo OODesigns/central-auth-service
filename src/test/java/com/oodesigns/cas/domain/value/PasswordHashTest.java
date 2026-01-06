@@ -25,26 +25,20 @@ class PasswordHashTest {
 
         @Test
         void testValidBcrypt2A() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
             assertEquals(BCRYPT_2A, hash.value());
         }
 
         @Test
         void testValidBcrypt2B() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2B);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2B);
             assertEquals(BCRYPT_2B, hash.value());
         }
 
         @Test
         void testValidBcrypt2Y() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2Y);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2Y);
             assertEquals(BCRYPT_2Y, hash.value());
-        }
-
-        @Test
-        void testOfFactoryMethod() {
-            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
-            assertEquals(BCRYPT_2A, hash.value());
         }
 
         @Test
@@ -52,8 +46,8 @@ class PasswordHashTest {
             final String bcrypt10 = "$2a$10$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW";
             final String bcrypt14 = "$2b$14$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW";
             
-            assertDoesNotThrow(() -> new PasswordHash(bcrypt10));
-            assertDoesNotThrow(() -> new PasswordHash(bcrypt14));
+            assertDoesNotThrow(() -> PasswordHash.of(bcrypt10));
+            assertDoesNotThrow(() -> PasswordHash.of(bcrypt14));
         }
     }
 
@@ -63,12 +57,12 @@ class PasswordHashTest {
 
         @Test
         void testInvalidPrefixThrows() {
-            assertThrows(IllegalArgumentException.class, () -> new PasswordHash("$2$12$invalid"));
+            assertThrows(IllegalArgumentException.class, () -> PasswordHash.of("$2$12$invalid"));
         }
 
         @Test
         void testPlaintextThrows() {
-            assertThrows(IllegalArgumentException.class, () -> new PasswordHash("plaintext_password"));
+            assertThrows(IllegalArgumentException.class, () -> PasswordHash.of("plaintext_password"));
         }
 
         @ParameterizedTest(name = "Null/empty/blank input: {0}")
@@ -76,18 +70,18 @@ class PasswordHashTest {
         void testNullEmptyBlankThrows(final String invalidInput) {
             final IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> new PasswordHash(invalidInput)
+                () -> PasswordHash.of(invalidInput)
             );
-            assertTrue(ex.getMessage().contains("cannot be null or blank"));
+            assertTrue(ex.getMessage().contains("cannot be blank"));
         }
 
         @Test
         void testNullThrows() {
-            final IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
-                () -> new PasswordHash(null)
+            final NullPointerException ex = assertThrows(
+                NullPointerException.class,
+                () -> PasswordHash.of(null)
             );
-            assertTrue(ex.getMessage().contains("cannot be null or blank"));
+            assertTrue(ex.getMessage().contains("cannot be null"));
         }
 
         @ParameterizedTest(name = "Invalid format: {0}")
@@ -105,7 +99,7 @@ class PasswordHashTest {
         void testVariousInvalidFormats(final String invalidHash) {
             assertThrows(
                 IllegalArgumentException.class,
-                () -> new PasswordHash(invalidHash),
+                () -> PasswordHash.of(invalidHash),
                 "Should reject invalid format: " + invalidHash
             );
         }
@@ -117,7 +111,7 @@ class PasswordHashTest {
 
         @Test
         void testToStringMasksPassword() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
             final String str = hash.toString();
             assertFalse(str.contains(BCRYPT_2A));
             assertTrue(str.contains("***"));
@@ -125,7 +119,7 @@ class PasswordHashTest {
 
         @Test
         void testDisplayValueMasksPassword() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
             final String display = hash.getDisplayValue();
             assertFalse(display.contains(BCRYPT_2A));
             assertTrue(display.contains("****"));
@@ -133,7 +127,7 @@ class PasswordHashTest {
 
         @Test
         void testValueAccessReturnsActualHash() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
             assertEquals(BCRYPT_2A, hash.value());
         }
     }
@@ -144,51 +138,51 @@ class PasswordHashTest {
 
         @Test
         void testEqualityBasedOnHash() {
-            final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-            final PasswordHash hash2 = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash1 = PasswordHash.of(BCRYPT_2A);
+            final PasswordHash hash2 = PasswordHash.of(BCRYPT_2A);
             assertEquals(hash1, hash2);
         }
 
         @Test
         void testInequalityDifferentHashes() {
-            final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-            final PasswordHash hash2 = new PasswordHash(BCRYPT_2B);
+            final PasswordHash hash1 = PasswordHash.of(BCRYPT_2A);
+            final PasswordHash hash2 = PasswordHash.of(BCRYPT_2B);
             assertNotEquals(hash1, hash2);
         }
 
         @Test
         void testHashCodeConsistency() {
-            final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-            final PasswordHash hash2 = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash1 = PasswordHash.of(BCRYPT_2A);
+            final PasswordHash hash2 = PasswordHash.of(BCRYPT_2A);
             assertEquals(hash1.hashCode(), hash2.hashCode());
         }
 
         @Test
         void testHashCodeDifferentForDifferentHashes() {
-            final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-            final PasswordHash hash2 = new PasswordHash(BCRYPT_2B);
+            final PasswordHash hash1 = PasswordHash.of(BCRYPT_2A);
+            final PasswordHash hash2 = PasswordHash.of(BCRYPT_2B);
             assertNotEquals(hash1.hashCode(), hash2.hashCode());
         }
 
         @Test
         void testEqualityIsReflexive() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
             assertEquals(hash, hash);
         }
 
         @Test
         void testEqualityIsSymmetric() {
-            final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-            final PasswordHash hash2 = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash1 = PasswordHash.of(BCRYPT_2A);
+            final PasswordHash hash2 = PasswordHash.of(BCRYPT_2A);
             assertEquals(hash1, hash2);
             assertEquals(hash2, hash1);
         }
 
         @Test
         void testEqualityIsTransitive() {
-            final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-            final PasswordHash hash2 = new PasswordHash(BCRYPT_2A);
-            final PasswordHash hash3 = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash1 = PasswordHash.of(BCRYPT_2A);
+            final PasswordHash hash2 = PasswordHash.of(BCRYPT_2A);
+            final PasswordHash hash3 = PasswordHash.of(BCRYPT_2A);
             assertEquals(hash1, hash2);
             assertEquals(hash2, hash3);
             assertEquals(hash1, hash3);
@@ -196,13 +190,13 @@ class PasswordHashTest {
 
         @Test
         void testNotEqualToNull() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
             assertNotEquals(null, hash);
         }
 
         @Test
         void testNotEqualToDifferentType() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
             assertNotEquals(BCRYPT_2A, hash);
             assertNotEquals(123, hash);
         }
@@ -214,7 +208,7 @@ class PasswordHashTest {
 
         @Test
         void testValueIsImmutable() {
-            final PasswordHash hash = new PasswordHash(BCRYPT_2A);
+            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
             final String value1 = hash.value();
             final String value2 = hash.value();
             assertEquals(value1, value2);
@@ -222,8 +216,8 @@ class PasswordHashTest {
 
         @Test
         void testInstancesAreIndependent() {
-            final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-            final PasswordHash hash2 = new PasswordHash(BCRYPT_2B);
+            final PasswordHash hash1 = PasswordHash.of(BCRYPT_2A);
+            final PasswordHash hash2 = PasswordHash.of(BCRYPT_2B);
             
             assertEquals(BCRYPT_2A, hash1.value());
             assertEquals(BCRYPT_2B, hash2.value());

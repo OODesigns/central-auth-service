@@ -9,8 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.time.Instant;
-
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -35,8 +35,8 @@ class TokenServiceTest {
     void setUp() {
         tokenService = new TokenService(clock, tokenSigner);
         
-        UserId userId = UserId.generate();
-        Username username = new Username("test_user");
+        UserId userId = UserId.of(UUID.randomUUID());
+        Username username = Username.of("test_user");
         testUser = new User(userId, username, Set.of());
     }
 

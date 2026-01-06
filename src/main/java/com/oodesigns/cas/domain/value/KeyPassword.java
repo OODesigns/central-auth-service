@@ -27,7 +27,8 @@ public class KeyPassword extends Password {
      *
      * @param passwordChars the secret key as char array
      * @return KeyPassword instance
-     * @throws IllegalArgumentException if key is null, empty, or insufficient length
+     * @throws NullPointerException if passwordChars is null
+     * @throws IllegalArgumentException if passwordChars is empty or insufficient length (< 32 characters)
      */
     public static KeyPassword of(final char[] passwordChars) {
         return new KeyPassword(passwordChars);
@@ -40,6 +41,7 @@ public class KeyPassword extends Password {
      * @param secret secret key as String
      * @return KeyPassword instance
      * @throws NullPointerException if secret is null
+     * @throws IllegalArgumentException if secret is empty or has insufficient length (< 32 characters)
      */
     public static KeyPassword of(final String secret) {
         Objects.requireNonNull(secret, "Secret key cannot be null");

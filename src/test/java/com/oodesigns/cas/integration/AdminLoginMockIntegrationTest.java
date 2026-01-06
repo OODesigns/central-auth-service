@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -68,8 +69,8 @@ class AdminLoginMockIntegrationTest {
      */
     private void setupAdminUser() {
         // Create admin user with admin permissions
-        final UserId adminId = UserId.generate();
-        final Username adminUsername = new Username(ADMIN_USERNAME);
+        final UserId adminId = UserId.of(UUID.randomUUID());
+        final Username adminUsername = Username.of(ADMIN_USERNAME);
         
         // Create user with no permissions (permissions granted at authorization level, not stored with user)
         final User adminUser = new User(adminId, adminUsername, java.util.Set.of());
@@ -79,7 +80,7 @@ class AdminLoginMockIntegrationTest {
         
         // Save user and credentials
         userRepository.save(adminUser);
-        userRepository.saveCredential(new UserCredential(adminId, passwordHash));
+        userRepository.saveCredential(UserCredential.of(adminId, passwordHash));
     }
 
     /**
@@ -168,7 +169,7 @@ class AdminLoginMockIntegrationTest {
     @Test
     void testAdminUserExistsInRepository() {
         // Act: Retrieve admin user from repository by username
-        final var adminCredential = userRepository.findCredentialsByUsername(new Username(ADMIN_USERNAME));
+        final var adminCredential = userRepository.findCredentialsByUsername(Username.of(ADMIN_USERNAME));
 
         // Assert: Admin user exists
         assertTrue(adminCredential.isPresent(), "Admin user should exist");

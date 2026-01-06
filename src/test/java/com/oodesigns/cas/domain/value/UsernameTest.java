@@ -12,86 +12,86 @@ class UsernameTest {
 
     @Test
     void testValidUsername() {
-        Username username = new Username("john_doe");
+        Username username = Username.of("john_doe");
         assertEquals("john_doe", username.value());
     }
 
     @Test
     void testNormalizesToLowercase() {
-        Username username = new Username("JohnDoe");
+        Username username = Username.of("JohnDoe");
         assertEquals("johndoe", username.value());
     }
 
     @Test
     void testValidWithNumbers() {
-        Username username = new Username("user123");
+        Username username = Username.of("user123");
         assertEquals("user123", username.value());
     }
 
     @Test
     void testValidWithHyphen() {
-        Username username = new Username("user-name");
+        Username username = Username.of("user-name");
         assertEquals("user-name", username.value());
     }
 
     @Test
     void testValidWithUnderscore() {
-        Username username = new Username("user_name");
+        Username username = Username.of("user_name");
         assertEquals("user_name", username.value());
     }
 
     @Test
     void testValidMinimumLength() {
-        Username username = new Username("abc");
+        Username username = Username.of("abc");
         assertEquals("abc", username.value());
     }
 
     @Test
     void testTooShortThrows() {
-        assertThrows(IllegalArgumentException.class, () -> new Username("ab"));
+        assertThrows(IllegalArgumentException.class, () -> Username.of("ab"));
     }
 
     @Test
     void testTooLongThrows() {
         String longName = "a".repeat(51);
-        assertThrows(IllegalArgumentException.class, () -> new Username(longName));
+        assertThrows(IllegalArgumentException.class, () -> Username.of(longName));
     }
 
     @Test
     void testInvalidCharactersThrows() {
-        assertThrows(IllegalArgumentException.class, () -> new Username("user@domain"));
-        assertThrows(IllegalArgumentException.class, () -> new Username("user name"));
-        assertThrows(IllegalArgumentException.class, () -> new Username("user.com"));
+        assertThrows(IllegalArgumentException.class, () -> Username.of("user@domain"));
+        assertThrows(IllegalArgumentException.class, () -> Username.of("user name"));
+        assertThrows(IllegalArgumentException.class, () -> Username.of("user.com"));
     }
 
     @Test
     void testEmptyThrows() {
-        assertThrows(IllegalArgumentException.class, () -> new Username(""));
+        assertThrows(IllegalArgumentException.class, () -> Username.of(""));
     }
 
     @Test
     void testNullThrows() {
-        assertThrows(IllegalArgumentException.class, () -> new Username(null));
+        assertThrows(NullPointerException.class, () -> Username.of(null));
     }
 
     @Test
     void testEqualityBasedOnValue() {
-        Username user1 = new Username("john_doe");
-        Username user2 = new Username("JOHN_DOE");
+        Username user1 = Username.of("john_doe");
+        Username user2 = Username.of("JOHN_DOE");
         assertEquals(user1, user2);
     }
 
     @Test
     void testInequalityDifferentValues() {
-        Username user1 = new Username("john");
-        Username user2 = new Username("jane");
+        Username user1 = Username.of("john");
+        Username user2 = Username.of("jane");
         assertNotEquals(user1, user2);
     }
 
     @Test
     void testHashCodeConsistency() {
-        Username user1 = new Username("john_doe");
-        Username user2 = new Username("JOHN_DOE");
+        Username user1 = Username.of("john_doe");
+        Username user2 = Username.of("JOHN_DOE");
         assertEquals(user1.hashCode(), user2.hashCode());
     }
 }

@@ -13,63 +13,66 @@ class ValidatedValueTest {
     /**
      * Test implementation of ValidatedValue for testing purposes.
      */
-    static class TestValidatedValue extends ValidatedValue<String, String> {
-        TestValidatedValue(final String raw) {
-            super(raw);
+    static class TestValidatedValue extends ValidatedValue<String> {
+        TestValidatedValue(final String validated) {
+            super(validated);
         }
 
-        @Override
-        protected String parse(final String raw) {
-            return raw.trim().toLowerCase();
-        }
-
-        @Override
-        protected String validate(final String value) {
-            if (value.isEmpty()) {
+        /**
+         * Factory method to create a test value.
+         * Performs parsing and validation before construction.
+         * 
+         * @param raw the raw input string
+         * @return TestValidatedValue instance
+         * @throws IllegalArgumentException if value becomes empty after processing
+         */
+        static TestValidatedValue of(final String raw) {
+            final String parsed = raw.trim().toLowerCase();
+            if (parsed.isEmpty()) {
                 throw new IllegalArgumentException("Value cannot be empty");
             }
-            return value;
+            return new TestValidatedValue(parsed);
         }
     }
 
     @Test
     void testValueReturnsValidatedValue() {
-        final var validated = new TestValidatedValue("  HELLO  ");
+        final var validated = TestValidatedValue.of("  HELLO  ");
         assertEquals("hello", validated.value());
     }
 
     @Test
     void testToStringReturnsStringValueOfValue() {
-        final var validated = new TestValidatedValue("World");
+        final var validated = TestValidatedValue.of("World");
         assertEquals("world", validated.toString());
     }
 
     @Test
     void testEqualsReturnsTrueForSameValue() {
-        final var v1 = new TestValidatedValue("test");
-        final var v2 = new TestValidatedValue("TEST");
+        final var v1 = TestValidatedValue.of("test");
+        final var v2 = TestValidatedValue.of("TEST");
         
         assertEquals(v1, v2);
     }
 
     @Test
     void testEqualsReturnsFalseForDifferentValues() {
-        final var v1 = new TestValidatedValue("one");
-        final var v2 = new TestValidatedValue("two");
+        final var v1 = TestValidatedValue.of("one");
+        final var v2 = TestValidatedValue.of("two");
         
         assertNotEquals(v1, v2);
     }
 
     @Test
     void testEqualsReturnsFalseForNull() {
-        final var v1 = new TestValidatedValue("test");
+        final var v1 = TestValidatedValue.of("test");
         
         assertNotEquals(null, v1);
     }
 
     @Test
     void testEqualsReturnsFalseForDifferentClass() {
-        final var v1 = new TestValidatedValue("test");
+        final var v1 = TestValidatedValue.of("test");
         final Object other = "test";
         
         assertNotEquals(other, v1);
@@ -77,18 +80,8 @@ class ValidatedValueTest {
 
     @Test
     void testEqualsReturnsFalseForDifferentSubclass() {
-        final var v1 = new TestValidatedValue("test");
-        final Object v2 = new ValidatedValue<String, String>("test") {
-            @Override
-            protected String parse(final String raw) {
-                return raw.toLowerCase();
-            }
-
-            @Override
-            protected String validate(final String value) {
-                return value;
-            }
-        };
+        final var v1 = TestValidatedValue.of("test");
+        final Object v2 = new ValidatedValue<String>("test") {};
         
         // Different classes should not be equal even with same value
         assertNotEquals(v2, v1);
@@ -96,8 +89,8 @@ class ValidatedValueTest {
 
     @Test
     void testHashCodeConsistentWithEquals() {
-        final var v1 = new TestValidatedValue("test");
-        final var v2 = new TestValidatedValue("TEST");
+        final var v1 = TestValidatedValue.of("test");
+        final var v2 = TestValidatedValue.of("TEST");
         
         assertEquals(v1, v2);
         assertEquals(v1.hashCode(), v2.hashCode());
@@ -105,8 +98,8 @@ class ValidatedValueTest {
 
     @Test
     void testHashCodeDifferentForDifferentValues() {
-        final var v1 = new TestValidatedValue("one");
-        final var v2 = new TestValidatedValue("two");
+        final var v1 = TestValidatedValue.of("one");
+        final var v2 = TestValidatedValue.of("two");
         
         // While not strictly required, different values should typically have different hash codes
         assertNotEquals(v1.hashCode(), v2.hashCode());
@@ -114,12 +107,12 @@ class ValidatedValueTest {
 
     @Test
     void testValidationThrowsForInvalidInput() {
-        assertThrows(IllegalArgumentException.class, () -> new TestValidatedValue("   "));
+        assertThrows(IllegalArgumentException.class, () -> TestValidatedValue.of("   "));
     }
 
     @Test
     void testEqualsWithSameInstance() {
-        final var v1 = new TestValidatedValue("test");
+        final var v1 = TestValidatedValue.of("test");
         
         // Same instance should be equal to itself
         assertEquals(v1, v1);
@@ -127,8 +120,8 @@ class ValidatedValueTest {
 
     @Test
     void testEqualsSymmetry() {
-        final var v1 = new TestValidatedValue("abc");
-        final var v2 = new TestValidatedValue("ABC");
+        final var v1 = TestValidatedValue.of("abc");
+        final var v2 = TestValidatedValue.of("ABC");
         
         // Symmetric: if v1.equals(v2) then v2.equals(v1)
         assertEquals(v1, v2);
@@ -137,7 +130,7 @@ class ValidatedValueTest {
 
     @Test
     void testEqualsWithObjectExplicitlyNull() {
-        final var v1 = new TestValidatedValue("test");
+        final var v1 = TestValidatedValue.of("test");
         final Object nullObj = null;
         
         assertNotEquals(v1, nullObj);
@@ -145,20 +138,10 @@ class ValidatedValueTest {
 
     @Test
     void testEqualsWithDifferentValidatedValueSubtype() {
-        final var v1 = new TestValidatedValue("hello");
+        final var v1 = TestValidatedValue.of("hello");
         
         // Create another ValidatedValue subclass with the same underlying value
-        final ValidatedValue<String, String> v2 = new ValidatedValue<>("hello") {
-            @Override
-            protected String parse(final String raw) {
-                return raw;
-            }
-
-            @Override
-            protected String validate(final String value) {
-                return value;
-            }
-        };
+        final ValidatedValue<String> v2 = new ValidatedValue<>("hello") {};
         
         // Different classes, so not equal even if values match
         assertNotEquals(v1, v2);

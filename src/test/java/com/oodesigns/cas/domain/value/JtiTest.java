@@ -22,7 +22,7 @@ class JtiTest {
     @Test
     void testFromUUID() {
         final UUID uuid = UUID.randomUUID();
-        final Jti jti = new Jti(uuid);
+        final Jti jti = Jti.of(uuid);
         assertEquals(uuid, jti.asUUID());
     }
 
@@ -41,8 +41,8 @@ class JtiTest {
     @Test
     void testEqualityBasedOnUUID() {
         final UUID uuid = UUID.randomUUID();
-        final Jti jti1 = new Jti(uuid);
-        final Jti jti2 = new Jti(uuid);
+        final Jti jti1 = Jti.of(uuid);
+        final Jti jti2 = Jti.of(uuid);
         assertEquals(jti1, jti2);
     }
 
@@ -56,25 +56,25 @@ class JtiTest {
     @Test
     void testHashCodeConsistency() {
         final UUID uuid = UUID.randomUUID();
-        final Jti jti1 = new Jti(uuid);
-        final Jti jti2 = new Jti(uuid);
+        final Jti jti1 = Jti.of(uuid);
+        final Jti jti2 = Jti.of(uuid);
         assertEquals(jti1.hashCode(), jti2.hashCode());
     }
 
     @Test
     void testNullFromUUIDThrows() {
-        assertThrows(NullPointerException.class, () -> new Jti(null));
+        assertThrows(NullPointerException.class, () -> Jti.of((UUID) null));
     }
 
     @Test
     void testNullFromStringThrows() {
-        assertThrows(NullPointerException.class, () -> Jti.of(null));
+        assertThrows(NullPointerException.class, () -> Jti.of((String) null));
     }
 
     @Test
     void testToStringReturnsUUIDString() {
         final UUID uuid = UUID.randomUUID();
-        final Jti jti = new Jti(uuid);
+        final Jti jti = Jti.of(uuid);
         assertEquals(uuid.toString(), jti.toString());
     }
 }

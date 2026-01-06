@@ -55,7 +55,7 @@ class PasswordTest {
 
     @Test
     void testNullThrows() {
-        assertThrows(IllegalArgumentException.class, () -> new Password(null));
+        assertThrows(NullPointerException.class, () -> new Password(null));
     }
 
     @Test
@@ -272,11 +272,11 @@ class PasswordTest {
 
         @Test
         void testConstructorThrowsForNull() {
-            final IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
+            final NullPointerException exception = assertThrows(
+                NullPointerException.class,
                 () -> new Password(null)
             );
-            assertTrue(exception.getMessage().contains("cannot be null or empty"));
+            assertTrue(exception.getMessage().contains("cannot be null"));
         }
 
         @Test
@@ -285,7 +285,7 @@ class PasswordTest {
                 IllegalArgumentException.class,
                 () -> new Password(new char[0])
             );
-            assertTrue(exception.getMessage().contains("cannot be null or empty"));
+            assertTrue(exception.getMessage().contains("cannot be empty"));
         }
 
         @Test
@@ -303,7 +303,7 @@ class PasswordTest {
                 IllegalArgumentException.class,
                 () -> Password.of("")
             );
-            assertTrue(exception.getMessage().contains("cannot be null or empty"));
+            assertTrue(exception.getMessage().contains("cannot be empty"));
         }
     }
 

@@ -12,8 +12,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class UserIdTest {
 
     @Test
-    void testGenerateCreatesValidUUID() {
-        final UserId id = UserId.generate();
+    void testOfUUIDCreatesValidId() {
+        final UserId id = UserId.of(UUID.randomUUID());
         assertNotNull(id);
         assertNotNull(id.asUUID());
         assertNotNull(id.toString());
@@ -22,48 +22,48 @@ class UserIdTest {
     @Test
     void testFromUUID() {
         final UUID uuid = UUID.randomUUID();
-        final UserId id = new UserId(uuid);
+        final UserId id = UserId.of(uuid);
         assertEquals(uuid, id.asUUID());
     }
 
     @Test
-    void testFromString() {
+    void testOfString() {
         final String uuidStr = UUID.randomUUID().toString();
         final UserId id = UserId.of(uuidStr);
         assertEquals(uuidStr, id.toString());
     }
 
     @Test
-    void testFromInvalidStringThrows() {
+    void testOfInvalidStringThrows() {
         assertThrows(IllegalArgumentException.class, () -> UserId.of("not-a-uuid"));
     }
 
     @Test
     void testEqualityBasedOnUUID() {
         final UUID uuid = UUID.randomUUID();
-        final UserId id1 = new UserId(uuid);
-        final UserId id2 = new UserId(uuid);
+        final UserId id1 = UserId.of(uuid);
+        final UserId id2 = UserId.of(uuid);
         assertEquals(id1, id2);
     }
 
     @Test
     void testInequalityDifferentUUIDs() {
-        final UserId id1 = UserId.generate();
-        final UserId id2 = UserId.generate();
+        final UserId id1 = UserId.of(UUID.randomUUID());
+        final UserId id2 = UserId.of(UUID.randomUUID());
         assertNotEquals(id1, id2);
     }
 
     @Test
     void testHashCodeConsistency() {
         final UUID uuid = UUID.randomUUID();
-        final UserId id1 = new UserId(uuid);
-        final UserId id2 = new UserId(uuid);
+        final UserId id1 = UserId.of(uuid);
+        final UserId id2 = UserId.of(uuid);
         assertEquals(id1.hashCode(), id2.hashCode());
     }
 
     @Test
     void testToStringReturnsUUID() {
-        final UserId id = UserId.generate();
+        final UserId id = UserId.of(UUID.randomUUID());
         final String str = id.toString();
         // Should be parseable back
         final UserId id2 = UserId.of(str);
@@ -72,11 +72,11 @@ class UserIdTest {
 
     @Test
     void testNullFromUUIDThrows() {
-        assertThrows(NullPointerException.class, () -> new UserId(null));
+        assertThrows(NullPointerException.class, () -> UserId.of((UUID) null));
     }
 
     @Test
     void testNullFromStringThrows() {
-        assertThrows(NullPointerException.class, () -> UserId.of(null));
+        assertThrows(NullPointerException.class, () -> UserId.of((String) null));
     }
 }

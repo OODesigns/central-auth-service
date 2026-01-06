@@ -3,16 +3,15 @@ package com.oodesigns.cas.infrastructure.config;
 import com.oodesigns.cas.util.validation.ValidatedValue;
 
 /** Typed, validated database password value. */
-final class DatabasePassword extends ValidatedValue<String, String> {
+final class DatabasePassword extends ValidatedValue<String> {
 
     private static final int MIN_LENGTH = 8;
 
-    DatabasePassword(final String raw) {
-        super(raw);
+    private DatabasePassword(final String value) {
+        super(value);
     }
 
-    @Override
-    protected String parse(final String raw) {
+    private static String parseAndValidate(final String raw) {
         if (raw == null) {
             throw new IllegalArgumentException("db.password is missing");
         }
@@ -20,11 +19,6 @@ final class DatabasePassword extends ValidatedValue<String, String> {
         if (value.isEmpty()) {
             throw new IllegalArgumentException("db.password is blank");
         }
-        return value;
-    }
-
-    @Override
-    protected String validate(final String value) {
         if (value.length() < MIN_LENGTH) {
             throw new IllegalArgumentException(String.format("db.password must be at least %d characters", MIN_LENGTH));
         }
@@ -38,6 +32,10 @@ final class DatabasePassword extends ValidatedValue<String, String> {
             throw new IllegalArgumentException("db.password must contain at least one special character");
         }
         return value;
+    }
+
+    static DatabasePassword of(final String raw) {
+        return new DatabasePassword(parseAndValidate(raw));
     }
 
     private static boolean hasUppercase(final String value) {

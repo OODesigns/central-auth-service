@@ -17,11 +17,11 @@ public final class DatabaseConfig {
      * Fails fast if required properties are invalid.
      */
     public DatabaseConfig(final PropertiesReader propertiesReader) {
-        this.host = new DatabaseHost(propertiesReader.get("db.host"));
-        this.databaseName = new DatabaseName(propertiesReader.get("db.name"));
-        this.username = new DatabaseUser(propertiesReader.get("db.username"));
-        this.password = new DatabasePassword(propertiesReader.get("db.password"));
-        this.port = new DatabasePort(propertiesReader.get("db.port"));
+        this.host = DatabaseHost.of(propertiesReader.get("db.host"));
+        this.databaseName = DatabaseName.of(propertiesReader.get("db.name"));
+        this.username = DatabaseUser.of(propertiesReader.get("db.username"));
+        this.password = DatabasePassword.of(propertiesReader.get("db.password"));
+        this.port = DatabasePort.of(propertiesReader.get("db.port"));
 }
     /**
      * Get database host.

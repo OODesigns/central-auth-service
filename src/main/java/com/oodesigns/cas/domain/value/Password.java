@@ -22,11 +22,13 @@ public class Password implements AutoCloseable {
      * Only performs null/empty validation; subclasses must validate via factory methods.
      *
      * @param passwordChars the plaintext password as char array
-     * @throws IllegalArgumentException if password is null or empty
+     * @throws NullPointerException if password is null
+     * @throws IllegalArgumentException if password is empty
      */
     public Password(final char[] passwordChars) {
-        if (passwordChars == null || passwordChars.length == 0) {
-            throw new IllegalArgumentException("Password cannot be null or empty");
+        Objects.requireNonNull(passwordChars, "Password cannot be null");
+        if (passwordChars.length == 0) {
+            throw new IllegalArgumentException("Password cannot be empty");
         }
         // Clone to prevent external modification
         this.passwordChars = passwordChars.clone();
@@ -64,7 +66,8 @@ public class Password implements AutoCloseable {
      * 
      * @param passwordChars the plaintext password as char array
      * @return a new Password instance
-     * @throws IllegalArgumentException if passwordChars is null or empty
+     * @throws NullPointerException if passwordChars is null
+     * @throws IllegalArgumentException if passwordChars is empty
      */
     public static Password of(final char[] passwordChars) {
         return new Password(passwordChars);
@@ -86,7 +89,8 @@ public class Password implements AutoCloseable {
      *
      * @param password the plaintext password as String
      * @return a new Password instance
-     * @throws NullPointerException if password is null     
+     * @throws NullPointerException if password is null
+     * @throws IllegalArgumentException if password is empty
      */
     public static Password of(final String password) {
         Objects.requireNonNull(password, "Password cannot be null");

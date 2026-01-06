@@ -73,7 +73,7 @@ class LoginCommandTest {
 
     @Test
     void testNullPasswordCharArrayThrows() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(NullPointerException.class,
             () -> new Password(null));
     }
 

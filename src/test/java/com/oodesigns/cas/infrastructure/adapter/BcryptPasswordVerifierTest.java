@@ -12,6 +12,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,19 +29,19 @@ class BcryptPasswordVerifierTest {
     void setUp() {
         verifier = new BcryptPasswordVerifier();
 
-        final UserId userId = UserId.generate();
+        final UserId userId = UserId.of(UUID.randomUUID());
         // Generate a real BCrypt hash for "correct_password" using Spring Security
         final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         final String bcryptHash = encoder.encode("correct_password");
-        final PasswordHash passwordHash = new PasswordHash(bcryptHash);
-        testCredential = new UserCredential(userId, passwordHash);
+        final PasswordHash passwordHash = PasswordHash.of(bcryptHash);
+        testCredential = UserCredential.of(userId, passwordHash);
     }
 
     @Test
     @DisplayName("Should verify correct password")
     void shouldVerifyCorrectPassword() {
         final Password password = new Password("correct_password".toCharArray());
-        try (final Credentials creds = new Credentials(testCredential, password)) {
+        try (final Credentials creds = Credentials.of(testCredential, password)) {
             final Optional<UserId> result = verifier.verify(creds);
             
             assertTrue(result.isPresent(), "Result should be present for correct password");
@@ -52,7 +53,7 @@ class BcryptPasswordVerifierTest {
     @DisplayName("Should reject incorrect password")
     void shouldRejectIncorrectPassword() {
         final Password wrongPassword = new Password("wrong_password".toCharArray());
-        try (final Credentials creds = new Credentials(testCredential, wrongPassword)) {
+        try (final Credentials creds = Credentials.of(testCredential, wrongPassword)) {
             final Optional<UserId> result = verifier.verify(creds);
             
             assertTrue(result.isEmpty(), "Result should be empty for incorrect password");
@@ -72,7 +73,7 @@ class BcryptPasswordVerifierTest {
     @DisplayName("Should return Optional (never null)")
     void shouldReturnOptionalNeverNull() {
         final Password password = new Password("any_password".toCharArray());
-        try (final Credentials creds = new Credentials(testCredential, password)) {
+        try (final Credentials creds = Credentials.of(testCredential, password)) {
             final Optional<UserId> result = verifier.verify(creds);
             
             assertNotNull(result, "Result Optional should never be null");
@@ -87,7 +88,7 @@ class BcryptPasswordVerifierTest {
         final int originalLength = password.chars().length;
         
         // Test that credentials can be used with try-with-resources
-        try (final Credentials creds = new Credentials(testCredential, password)) {
+        try (final Credentials creds = Credentials.of(testCredential, password)) {
             final Optional<UserId> result = verifier.verify(creds);
             assertNotNull(result);
         }
@@ -100,7 +101,7 @@ class BcryptPasswordVerifierTest {
     @DisplayName("Should handle short password gracefully")
     void shouldHandleShortPasswordGracefully() {
         final Password shortPassword = new Password("a".toCharArray());
-        try (final Credentials creds = new Credentials(testCredential, shortPassword)) {
+        try (final Credentials creds = Credentials.of(testCredential, shortPassword)) {
             final Optional<UserId> result = verifier.verify(creds);
             
             assertNotNull(result, "Should handle short password gracefully");
@@ -113,19 +114,19 @@ class BcryptPasswordVerifierTest {
         final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         final String bcryptHash1 = encoder.encode("password1");
         final String bcryptHash2 = encoder.encode("password2");
-        final PasswordHash hash1 = new PasswordHash(bcryptHash1);
-        final PasswordHash hash2 = new PasswordHash(bcryptHash2);
+        final PasswordHash hash1 = PasswordHash.of(bcryptHash1);
+        final PasswordHash hash2 = PasswordHash.of(bcryptHash2);
         
-        final UserId userId1 = UserId.generate();
-        final UserId userId2 = UserId.generate();
-        final UserCredential cred1 = new UserCredential(userId1, hash1);
-        final UserCredential cred2 = new UserCredential(userId2, hash2);
+        final UserId userId1 = UserId.of(UUID.randomUUID());
+        final UserId userId2 = UserId.of(UUID.randomUUID());
+        final UserCredential cred1 = UserCredential.of(userId1, hash1);
+        final UserCredential cred2 = UserCredential.of(userId2, hash2);
         
         final Password pwd1 = new Password("password1".toCharArray());
         final Password pwd2 = new Password("password2".toCharArray());
         
-           try (final Credentials c1 = new Credentials(cred1, pwd1);
-               final Credentials c2 = new Credentials(cred2, pwd2)) {
+           try (final Credentials c1 = Credentials.of(cred1, pwd1);
+               final Credentials c2 = Credentials.of(cred2, pwd2)) {
             final Optional<UserId> result1 = verifier.verify(c1);
             final Optional<UserId> result2 = verifier.verify(c2);
             
@@ -147,11 +148,11 @@ class BcryptPasswordVerifierTest {
         
         // Valid format to pass PasswordHash check (60 chars total)
         final String validFormatHash = "$2a$10$12345678901234567890123456789012345678901234567890123";
-        final PasswordHash hash = new PasswordHash(validFormatHash);
-        final UserCredential credential = new UserCredential(UserId.generate(), hash);
+        final PasswordHash hash = PasswordHash.of(validFormatHash);
+        final UserCredential credential = UserCredential.of(UserId.of(UUID.randomUUID()), hash);
         
         final Password password = new Password("password".toCharArray());
-        try (final Credentials creds = new Credentials(credential, password)) {
+        try (final Credentials creds = Credentials.of(credential, password)) {
             final Optional<UserId> result = verifierWithMock.verify(creds);
             
             // Should return empty Optional instead of propagating the exception

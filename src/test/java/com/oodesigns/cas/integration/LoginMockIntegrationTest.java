@@ -65,14 +65,14 @@ class LoginMockIntegrationTest {
         final User user = new User(userId, username, Set.of());
         final PasswordHash passwordHash = passwordHasher.hash(password.toCharArray());
         userRepository.save(user);
-        userRepository.saveCredential(new UserCredential(userId, passwordHash));
+        userRepository.saveCredential(UserCredential.of(userId, passwordHash));
     }
 
     @Test
     void testCompleteLoginFlow() {
         // 1. Setup: Create and persist a user
-        final UserId userId = UserId.generate();
-        final Username username = new Username("alice_smith");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        final Username username = Username.of("alice_smith");
         setupUserWithCredentials(userId, username, "correct_password");
 
         // 2. Execute: Login command
@@ -97,8 +97,8 @@ class LoginMockIntegrationTest {
     @Test
     void testLoginWithInvalidPassword() {
         // 1. Setup: Create user with specific password
-        final UserId userId = UserId.generate();
-        final Username username = new Username("bob_jones");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        final Username username = Username.of("bob_jones");
         setupUserWithCredentials(userId, username, "correct_password");
 
         // 2. Execute: Wrong password
@@ -143,13 +143,13 @@ class LoginMockIntegrationTest {
     @Test
     void testMultipleUsersInSystem() {
         // 1. Setup: Create multiple users with credentials
-        final UserId aliceId = UserId.generate();
-        final UserId bobId = UserId.generate();
-        final UserId charlieId = UserId.generate();
+        final UserId aliceId = UserId.of(UUID.randomUUID());
+        final UserId bobId = UserId.of(UUID.randomUUID());
+        final UserId charlieId = UserId.of(UUID.randomUUID());
         
-        setupUserWithCredentials(aliceId, new Username("alice"), "correct_password");
-        setupUserWithCredentials(bobId, new Username("bob"), "correct_password");
-        setupUserWithCredentials(charlieId, new Username("charlie"), "correct_password");
+        setupUserWithCredentials(aliceId, Username.of("alice"), "correct_password");
+        setupUserWithCredentials(bobId, Username.of("bob"), "correct_password");
+        setupUserWithCredentials(charlieId, Username.of("charlie"), "correct_password");
 
         // 2. Execute: Login as each user
         final LoginCommand aliceCmd = new LoginCommand(Username.of("alice"), new Password("correct_password".toCharArray()),
@@ -195,8 +195,8 @@ class LoginMockIntegrationTest {
     @Test
     void testRateLimitingPerIPAddress() {
         // 1. Setup: User
-        final UserId userId = UserId.generate();
-        setupUserWithCredentials(userId, new Username("rate_test"), "correct_password");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        setupUserWithCredentials(userId, Username.of("rate_test"), "correct_password");
 
         // 2. Execute: Multiple login attempts from same IP
         final String testIP = "10.0.0.5";
@@ -233,8 +233,8 @@ class LoginMockIntegrationTest {
     @Test
     void testDifferentIPsNotRateLimited() {
         // 1. Setup: User
-        final UserId userId = UserId.generate();
-        setupUserWithCredentials(userId, new Username("multi_ip_test"), "correct_password");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        setupUserWithCredentials(userId, Username.of("multi_ip_test"), "correct_password");
 
         // 2. Execute: Attempts from different IPs should succeed independently
         final String[] ips = {"10.0.0.1", "10.0.0.2", "10.0.0.3"};
@@ -256,9 +256,9 @@ class LoginMockIntegrationTest {
     @Test
     void testUserWithMultiplePermissions() {
         // 1. Setup: User with multiple permissions
-        final UserId userId = UserId.generate();
-        setupUserWithCredentials(userId, new Username("super_admin"), "correct_password");
-        final User user = new User(userId, new Username("super_admin"), Set.of(
+        final UserId userId = UserId.of(UUID.randomUUID());
+        setupUserWithCredentials(userId, Username.of("super_admin"), "correct_password");
+        final User user = new User(userId, Username.of("super_admin"), Set.of(
             Permission.of("manage_users"),
             Permission.of("delete_accounts")
         ));
@@ -286,9 +286,9 @@ class LoginMockIntegrationTest {
     @Test
     void testImmutabilityOfUserAfterLogin() {
         // 1. Setup: Create and persist user
-        final UserId userId = UserId.generate();
-        setupUserWithCredentials(userId, new Username("immutable_test"), "correct_password");
-        final User originalUser = new User(userId, new Username("immutable_test"), Set.of());
+        final UserId userId = UserId.of(UUID.randomUUID());
+        setupUserWithCredentials(userId, Username.of("immutable_test"), "correct_password");
+        final User originalUser = new User(userId, Username.of("immutable_test"), Set.of());
         userRepository.save(originalUser);
 
         // 2. Execute: Login (which uses the user from repository)
@@ -310,8 +310,8 @@ class LoginMockIntegrationTest {
     @Test
     void testPasswordSecurityWithCharArrays() {
         // 1. Setup: User
-        final UserId userId = UserId.generate();
-        setupUserWithCredentials(userId, new Username("security_test"), "correct_password");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        setupUserWithCredentials(userId, Username.of("security_test"), "correct_password");
 
         // 2. Execute: Login with char array password
         final char[] password = "correct_password".toCharArray();
@@ -336,8 +336,8 @@ class LoginMockIntegrationTest {
     @Test
     void testValueObjectConsistency() {
         // 1. Setup: Create users with specific value objects
-        final Username username = new Username("VALUE_OBJECT_TEST");
-        final UserId userId = UserId.generate();
+        final Username username = Username.of("VALUE_OBJECT_TEST");
+        final UserId userId = UserId.of(UUID.randomUUID());
         
         setupUserWithCredentials(userId, username, "correct_password");
         final User user = new User(userId, username, Set.of());
@@ -362,8 +362,8 @@ class LoginMockIntegrationTest {
     @Test
     void testClockAdvancement() {
         // 1. Setup: User with mock clock
-        final UserId userId = UserId.generate();
-        setupUserWithCredentials(userId, new Username("clock_test"), "correct_password");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        setupUserWithCredentials(userId, Username.of("clock_test"), "correct_password");
 
         final Instant t1 = clock.now();
 
@@ -406,23 +406,23 @@ class LoginMockIntegrationTest {
     @Test
     void testRepositoryPersistence() {
         // 1. Setup: Save multiple users with credentials
-        final UserId user1Id = UserId.generate();
-        final UserId user2Id = UserId.generate();
-        setupUserWithCredentials(user1Id, new Username("persist1"), "password1");
-        setupUserWithCredentials(user2Id, new Username("persist2"), "password2");
+        final UserId user1Id = UserId.of(UUID.randomUUID());
+        final UserId user2Id = UserId.of(UUID.randomUUID());
+        setupUserWithCredentials(user1Id, Username.of("persist1"), "password1");
+        setupUserWithCredentials(user2Id, Username.of("persist2"), "password2");
 
         // 2. Verify: Repository persists users
         assertEquals(2, userRepository.size());
-        assertTrue(userRepository.findCredentialsByUsername(new Username("persist1")).isPresent());
-        assertTrue(userRepository.findCredentialsByUsername(new Username("persist2")).isPresent());
+        assertTrue(userRepository.findCredentialsByUsername(Username.of("persist1")).isPresent());
+        assertTrue(userRepository.findCredentialsByUsername(Username.of("persist2")).isPresent());
     }
 
     @Test
     void testEndToEndSecurityFlow() {
         // Complete realistic scenario:
         // 1. User registration
-        final UserId userId = UserId.generate();
-        final Username username = new Username("secure_user");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        final Username username = Username.of("secure_user");
         setupUserWithCredentials(userId, username, "MySecurePassword123");
 
         // 2. Successful login
@@ -468,8 +468,8 @@ class LoginMockIntegrationTest {
     @Test
     void testLoginResponseReturnsTokens() {
         // 1. Setup: Create user with permissions
-        final UserId userId = UserId.generate();
-        final Username username = new Username("powerful_user");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        final Username username = Username.of("powerful_user");
         setupUserWithCredentials(userId, username, "super_secret");
         
         final User user = new User(userId, username, Set.of(
@@ -502,8 +502,8 @@ class LoginMockIntegrationTest {
     @Test
     void testLoginWithNoPermissionsStillReturnsTokens() {
         // 1. Setup: Create user with no permissions
-        final UserId userId = UserId.generate();
-        final Username username = new Username("basic_user");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        final Username username = Username.of("basic_user");
         setupUserWithCredentials(userId, username, "basic_pass");
 
         // 2. Execute: Login

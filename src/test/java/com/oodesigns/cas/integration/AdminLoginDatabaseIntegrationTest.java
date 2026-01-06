@@ -224,7 +224,7 @@ class AdminLoginDatabaseIntegrationTest {
         final var userCredentialReader = new JooqUserCredentialReader(dslContext);
         
         // Act: Query admin credentials using JOOQ
-        final var credentials = userCredentialReader.findCredentialsByUsername(new Username(ADMIN_USERNAME));
+        final var credentials = userCredentialReader.findCredentialsByUsername(Username.of(ADMIN_USERNAME));
 
         // Assert: Credentials found and have correct data
         assertTrue(credentials.isPresent(), 
@@ -243,7 +243,7 @@ class AdminLoginDatabaseIntegrationTest {
     void testJooqUserRepositoryQueries() {
         // First, get admin ID from credentials
         final var userCredentialReader = new JooqUserCredentialReader(dslContext);
-        final var credentials = userCredentialReader.findCredentialsByUsername(new Username(ADMIN_USERNAME));
+        final var credentials = userCredentialReader.findCredentialsByUsername(Username.of(ADMIN_USERNAME));
         
         assertTrue(credentials.isPresent(), "Admin credentials should exist");
         

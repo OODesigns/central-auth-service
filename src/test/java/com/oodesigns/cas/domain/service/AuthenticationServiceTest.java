@@ -1,6 +1,7 @@
 package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.value.*;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mock;
@@ -27,9 +28,9 @@ class AuthenticationServiceTest {
     void setUp() {
         authService = new AuthenticationService(passwordHasher);
         
-        final UserId userId = UserId.generate();
-        final PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
-        testCredential = new UserCredential(userId, passwordHash);
+        final UserId userId = UserId.of(UUID.randomUUID());
+        final PasswordHash passwordHash = PasswordHash.of("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
+        testCredential = UserCredential.of(userId, passwordHash);
     }
 
     @Test
@@ -40,7 +41,7 @@ class AuthenticationServiceTest {
     @Test
     void testAuthenticateValidPassword() {
         final Password password = new Password("password123".toCharArray());
-        try (final var credentials = new Credentials(testCredential, password)) {
+        try (final var credentials = Credentials.of(testCredential, password)) {
             when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential.userId()));
 
             final var result = authService.getAuthenticatedUser(credentials);
@@ -54,7 +55,7 @@ class AuthenticationServiceTest {
     @Test
     void testAuthenticateInvalidPassword() {
         final Password password = new Password("wrong_password".toCharArray());
-        try (final var credentials = new Credentials(testCredential, password)) {
+        try (final var credentials = Credentials.of(testCredential, password)) {
             when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.empty());
 
             final var result = authService.getAuthenticatedUser(credentials);
@@ -79,7 +80,7 @@ class AuthenticationServiceTest {
      * Helper that constructs and immediately closes Credentials, allowing constructor validation to throw.
      */
     private void createCredentialsAndClose(final UserCredential credential, final Password password) {
-        try (final Credentials credentials = new Credentials(credential, password)) {
+        try (final Credentials credentials = Credentials.of(credential, password)) {
             java.util.Objects.requireNonNull(credentials); // touch to satisfy analysis; construction is what we validate
         }
     }
@@ -88,7 +89,7 @@ class AuthenticationServiceTest {
     void testAuthenticateClosesCredentialsAfterVerification() {
         final char[] passwordChars = "password123".toCharArray();
         final Password password = new Password(passwordChars);
-        final Credentials credentials = new Credentials(testCredential, password);
+        final Credentials credentials = Credentials.of(testCredential, password);
         when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential.userId()));
 
         authService.getAuthenticatedUser(credentials);
@@ -105,7 +106,7 @@ class AuthenticationServiceTest {
     void testAuthenticateClosesCredentialsEvenWhenVerificationFails() {
         final char[] passwordChars = "wrong_password".toCharArray();
         final Password password = new Password(passwordChars);
-        final Credentials credentials = new Credentials(testCredential, password);
+        final Credentials credentials = Credentials.of(testCredential, password);
         when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.empty());
 
         authService.getAuthenticatedUser(credentials);
@@ -121,7 +122,7 @@ class AuthenticationServiceTest {
     void testAuthenticateClosesCredentialsWhenVerifierThrows() {
         final char[] passwordChars = "password123".toCharArray();
         final Password password = new Password(passwordChars);
-        final Credentials credentials = new Credentials(testCredential, password);
+        final Credentials credentials = Credentials.of(testCredential, password);
         when(passwordHasher.verify(credentials)).thenThrow(new RuntimeException("Verifier error"));
 
         assertThrows(RuntimeException.class, () -> authService.getAuthenticatedUser(credentials));

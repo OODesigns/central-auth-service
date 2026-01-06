@@ -64,7 +64,7 @@ public final class LoginCommandHandler {
      */
     private LoginResult authenticateUser(final LoginCommand command) {
         return credentialReader.findCredentialsByUsername(command.username())
-            .map(cred -> new Credentials(cred, command.password()))
+            .map(cred -> Credentials.of(cred, command.password()))
             .flatMap(authService::getAuthenticatedUser)
             .flatMap(this::fetchFullUserAndGenerateTokens)
             .<LoginResult>map(pair -> LoginResult.success(pair.tokenPair(), pair.user().userId(), pair.user().permissions()))

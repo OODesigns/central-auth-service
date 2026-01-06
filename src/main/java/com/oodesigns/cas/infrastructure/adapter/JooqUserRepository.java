@@ -63,6 +63,6 @@ public final class JooqUserRepository implements Ports.UserRepository {
                         .collect(Collectors.toUnmodifiableSet())
                 : Set.of();
 
-        return new User(new UserId(userId), new Username(username), permissions);
+        return new User(UserId.of(userId), Username.of(username), permissions);
     }
 }

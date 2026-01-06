@@ -46,7 +46,7 @@ class JooqUserRepositoryTest {
                 "SELECT * FROM auth.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
-        final Optional<User> result = userRepository.findById(new UserId(userId));
+        final Optional<User> result = userRepository.findById(UserId.of(userId));
 
         assertTrue(result.isPresent());
         final User user = result.get();
@@ -72,7 +72,7 @@ class JooqUserRepositoryTest {
                 "SELECT * FROM auth.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
-        final Optional<User> result = userRepository.findById(new UserId(userId));
+        final Optional<User> result = userRepository.findById(UserId.of(userId));
 
         assertTrue(result.isPresent());
         final User user = result.get();
@@ -99,7 +99,7 @@ class JooqUserRepositoryTest {
                 "SELECT * FROM auth.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
-        final Optional<User> result = userRepository.findById(new UserId(userId));
+        final Optional<User> result = userRepository.findById(UserId.of(userId));
 
         assertTrue(result.isPresent());
         final User user = result.get();
@@ -124,7 +124,7 @@ class JooqUserRepositoryTest {
                 "SELECT * FROM auth.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
-        final Optional<User> result = userRepository.findById(new UserId(userId));
+        final Optional<User> result = userRepository.findById(UserId.of(userId));
 
         assertTrue(result.isPresent());
         final User user = result.get();
@@ -142,7 +142,7 @@ class JooqUserRepositoryTest {
                 "SELECT * FROM auth.get_user(?)", userId
         )).thenReturn(Optional.empty());
 
-        final Optional<User> result = userRepository.findById(new UserId(userId));
+        final Optional<User> result = userRepository.findById(UserId.of(userId));
 
         assertTrue(result.isEmpty());
     }
@@ -182,7 +182,7 @@ class JooqUserRepositoryTest {
                 "SELECT * FROM auth.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
-        final Optional<User> result = userRepository.findById(new UserId(userId));
+        final Optional<User> result = userRepository.findById(UserId.of(userId));
 
         assertTrue(result.isPresent());
         final User user = result.get();

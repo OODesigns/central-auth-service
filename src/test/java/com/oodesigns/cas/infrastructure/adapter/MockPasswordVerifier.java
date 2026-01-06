@@ -42,7 +42,7 @@ public class MockPasswordVerifier implements Ports.PasswordVerifier {
         final String hashPart = (uuid + uuid).substring(0, 31);  // 31 chars for hash
         final String mockBcryptHash = "$2a$10$%s%s".formatted(salt, hashPart);
         registerPasswordHash(mockBcryptHash, new String(rawPassword));
-        return new PasswordHash(mockBcryptHash);
+        return PasswordHash.of(mockBcryptHash);
     }
 
     @Override

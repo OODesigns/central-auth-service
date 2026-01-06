@@ -29,9 +29,9 @@ public final class JooqUserCredentialReader implements Ports.UserCredentialReade
     public Optional<UserCredential> findCredentialsByUsername(final Username username) {
         return Optional.ofNullable(username)
                 .flatMap(u -> Routines.findUserCredentials(dsl, u.value())
-                        .map(r -> new UserCredential(
-                                new UserId(r.userId()),
-                                new PasswordHash(r.passwordHash())
+                        .map(r -> UserCredential.of(
+                                UserId.of(r.userId()),
+                                PasswordHash.of(r.passwordHash())
                         )));
     }
 

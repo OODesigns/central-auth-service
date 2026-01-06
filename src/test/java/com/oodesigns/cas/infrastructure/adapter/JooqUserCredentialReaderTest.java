@@ -39,7 +39,7 @@ class JooqUserCredentialReaderTest {
 
     @Test
     void findCredentialsByUsername_ReturnsEmpty_WhenNoRecordFound() {
-        final Username username = new Username("user");
+        final Username username = Username.of("user");
         when(dsl.fetchOptional(any(String.class), any(Object.class))).thenReturn(Optional.empty());
 
         final Optional<UserCredential> result = reader.findCredentialsByUsername(username);
@@ -48,7 +48,7 @@ class JooqUserCredentialReaderTest {
 
     @Test
     void findCredentialsByUsername_ReturnsCredential_WhenRecordFound() {
-        final Username username = new Username("user");
+        final Username username = Username.of("user");
         final UUID userId = UUID.randomUUID();
         // Valid bcrypt hash format: $2a$ + cost + 22 char salt + 31 char hash = 60 chars
         final String hash = "$2a$10$12345678901234567890123456789012345678901234567890123";

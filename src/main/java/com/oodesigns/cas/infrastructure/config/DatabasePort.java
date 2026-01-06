@@ -3,17 +3,16 @@ package com.oodesigns.cas.infrastructure.config;
 import com.oodesigns.cas.util.validation.ValidatedValue;
 
 /** Typed, validated database port value. */
-final class DatabasePort extends ValidatedValue<String, Integer> {
+final class DatabasePort extends ValidatedValue<Integer> {
 
     private static final int MIN_PORT = 1;
     private static final int MAX_PORT = 65_535;
 
-    DatabasePort(final String raw) {
-        super(raw);
+    private DatabasePort(final Integer value) {
+        super(value);
     }
 
-    @Override
-    protected Integer parse(final String raw) {
+    private static Integer parseAndValidate(final String raw) {
         if (raw == null) {
             throw new IllegalArgumentException("db.port is missing");
         }
@@ -22,17 +21,17 @@ final class DatabasePort extends ValidatedValue<String, Integer> {
             throw new IllegalArgumentException("db.port is blank");
         }
         try {
-            return Integer.parseInt(value);
+            final Integer port = Integer.parseInt(value);
+            if (port < MIN_PORT || port > MAX_PORT) {
+                throw new IllegalArgumentException(String.format("db.port must be between %d and %d: %s", MIN_PORT, MAX_PORT, port));
+            }
+            return port;
         } catch (final NumberFormatException e) {
             throw new IllegalArgumentException(String.format("db.port must be a number: %s", value), e);
         }
     }
 
-    @Override
-    protected Integer validate(final Integer value) {
-        if (value < MIN_PORT || value > MAX_PORT) {
-            throw new IllegalArgumentException(String.format("db.port must be between %d and %d: %s", MIN_PORT, MAX_PORT, value));
-        }
-        return value;
+    static DatabasePort of(final String raw) {
+        return new DatabasePort(parseAndValidate(raw));
     }
 }

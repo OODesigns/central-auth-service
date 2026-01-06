@@ -1,6 +1,7 @@
 package com.oodesigns.cas.domain.entity;
 
 import com.oodesigns.cas.domain.value.*;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -20,8 +21,8 @@ class UserTest {
 
     @BeforeEach
     void setUp() {
-        userId = UserId.generate();
-        username = new Username("john_doe");
+        userId = UserId.of(UUID.randomUUID());
+        username = Username.of("john_doe");
     }
 
     @Test
@@ -68,7 +69,7 @@ class UserTest {
     @Test
     void testInequalityDifferentUserIds() {
         final User user1 = new User(userId, username, Set.of());
-        final User user2 = new User(UserId.generate(), username, Set.of());
+        final User user2 = new User(UserId.of(UUID.randomUUID()), username, Set.of());
         
         assertNotEquals(user1, user2);
     }
@@ -76,7 +77,7 @@ class UserTest {
     @Test
     void testInequalityDifferentUsernames() {
         final User user1 = new User(userId, username, Set.of());
-        final User user2 = new User(userId, new Username("different"), Set.of());
+        final User user2 = new User(userId, Username.of("different"), Set.of());
         
         assertNotEquals(user1, user2);
     }
@@ -106,7 +107,7 @@ class UserTest {
     @Test
     void testCanBeUsedInHashBasedCollections() {
         final User user1 = new User(userId, username, Set.of());
-        final User user2 = new User(UserId.generate(), username, Set.of());
+        final User user2 = new User(UserId.of(UUID.randomUUID()), username, Set.of());
 
         final Set<User> users = new HashSet<>();
         users.add(user1);
