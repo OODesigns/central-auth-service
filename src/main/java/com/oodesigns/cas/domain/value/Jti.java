@@ -34,7 +34,7 @@ public final class Jti extends ValidatedValue<UUID, UUID> {
         Objects.requireNonNull(value, "JTI string cannot be null");
         try {
             return new Jti(UUID.fromString(value));
-        } catch (IllegalArgumentException e) {
+        } catch (final IllegalArgumentException e) {
             throw new IllegalArgumentException(String.format("Invalid JTI format: %s", value), e);
         }
     }

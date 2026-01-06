@@ -15,12 +15,12 @@ public class MockRateLimiter implements Ports.RateLimiter {
     private final int maxAttempts;
     private final Set<String> blockedKeys = ConcurrentHashMap.newKeySet();
 
-    public MockRateLimiter(int maxAttempts) {
+    public MockRateLimiter(final int maxAttempts) {
         this.maxAttempts = maxAttempts;
     }
 
     @Override
-    public Ports.RateLimitResult checkLimit(String key) {
+    public Ports.RateLimitResult checkLimit(final String key) {
         if (key == null || key.isEmpty()) {
             throw new IllegalArgumentException("Key cannot be null or empty");
         }
@@ -29,7 +29,7 @@ public class MockRateLimiter implements Ports.RateLimiter {
             return Ports.RateLimitResult.blocked("Rate limit exceeded for: %s".formatted(key));
         }
 
-        int currentCount = callCounts.computeIfAbsent(key, ignored -> new AtomicInteger(0)).incrementAndGet();
+        final int currentCount = callCounts.computeIfAbsent(key, ignored -> new AtomicInteger(0)).incrementAndGet();
 
         if (currentCount > maxAttempts) {
             blockedKeys.add(key);
@@ -39,12 +39,12 @@ public class MockRateLimiter implements Ports.RateLimiter {
         return Ports.RateLimitResult.allowed();
     }
 
-    public int getCallCount(String key) {
-        AtomicInteger count = callCounts.get(key);
+    public int getCallCount(final String key) {
+        final AtomicInteger count = callCounts.get(key);
         return count == null ? 0 : count.get();
     }
 
-    public void reset(String key) {
+    public void reset(final String key) {
         callCounts.remove(key);
         blockedKeys.remove(key);
     }
@@ -54,7 +54,7 @@ public class MockRateLimiter implements Ports.RateLimiter {
         blockedKeys.clear();
     }
 
-    public boolean isBlocked(String key) {
+    public boolean isBlocked(final String key) {
         return blockedKeys.contains(key);
     }
 }

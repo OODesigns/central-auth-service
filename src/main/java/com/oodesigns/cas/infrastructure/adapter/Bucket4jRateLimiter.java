@@ -45,7 +45,7 @@ public class Bucket4jRateLimiter implements Ports.RateLimiter {
             throw new IllegalArgumentException("Key cannot be null or empty");
         }
 
-        Bucket bucket = buckets.computeIfAbsent(key,  k-> createBucket());
+        final Bucket bucket = buckets.computeIfAbsent(key, k-> createBucket());
 
         if (bucket.tryConsume(1)) {
             return Ports.RateLimitResult.allowed();

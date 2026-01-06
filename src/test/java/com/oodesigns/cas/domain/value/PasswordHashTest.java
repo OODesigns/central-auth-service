@@ -17,19 +17,19 @@ class PasswordHashTest {
 
     @Test
     void testValidBcrypt2A() {
-        PasswordHash hash = new PasswordHash(BCRYPT_2A);
+        final PasswordHash hash = new PasswordHash(BCRYPT_2A);
         assertEquals(BCRYPT_2A, hash.value());
     }
 
     @Test
     void testValidBcrypt2B() {
-        PasswordHash hash = new PasswordHash(BCRYPT_2B);
+        final PasswordHash hash = new PasswordHash(BCRYPT_2B);
         assertEquals(BCRYPT_2B, hash.value());
     }
 
     @Test
     void testValidBcrypt2Y() {
-        PasswordHash hash = new PasswordHash(BCRYPT_2Y);
+        final PasswordHash hash = new PasswordHash(BCRYPT_2Y);
         assertEquals(BCRYPT_2Y, hash.value());
     }
 
@@ -55,30 +55,30 @@ class PasswordHashTest {
 
     @Test
     void testToStringMasksPassword() {
-        PasswordHash hash = new PasswordHash(BCRYPT_2A);
-        String str = hash.toString();
+        final PasswordHash hash = new PasswordHash(BCRYPT_2A);
+        final String str = hash.toString();
         assertFalse(str.contains(BCRYPT_2A));
         assertTrue(str.contains("***"));
     }
 
     @Test
     void testEqualityBasedOnHash() {
-        PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-        PasswordHash hash2 = new PasswordHash(BCRYPT_2A);
+        final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
+        final PasswordHash hash2 = new PasswordHash(BCRYPT_2A);
         assertEquals(hash1, hash2);
     }
 
     @Test
     void testInequalityDifferentHashes() {
-        PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-        PasswordHash hash2 = new PasswordHash(BCRYPT_2B);
+        final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
+        final PasswordHash hash2 = new PasswordHash(BCRYPT_2B);
         assertNotEquals(hash1, hash2);
     }
 
     @Test
     void testHashCodeConsistency() {
-        PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
-        PasswordHash hash2 = new PasswordHash(BCRYPT_2A);
+        final PasswordHash hash1 = new PasswordHash(BCRYPT_2A);
+        final PasswordHash hash2 = new PasswordHash(BCRYPT_2A);
         assertEquals(hash1.hashCode(), hash2.hashCode());
     }
 }

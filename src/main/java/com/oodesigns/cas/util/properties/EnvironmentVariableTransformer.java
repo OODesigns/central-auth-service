@@ -25,11 +25,11 @@ public final class EnvironmentVariableTransformer implements UnaryOperator<Strin
      */
     public static final VariableProvider SYSTEM_PROVIDER = new VariableProvider() {
         @Override
-        public String getenv(String name) {
+        public String getenv(final String name) {
             return System.getenv(name);
         }
         @Override
-        public String getProperty(String name) {
+        public String getProperty(final String name) {
             return System.getProperty(name);
         }
     };
@@ -60,7 +60,7 @@ public final class EnvironmentVariableTransformer implements UnaryOperator<Strin
     /**
      * Constructs with a custom variable provider (for testing).
      */
-    public EnvironmentVariableTransformer(VariableProvider provider) {
+    public EnvironmentVariableTransformer(final VariableProvider provider) {
         this.provider = provider;
     }
 

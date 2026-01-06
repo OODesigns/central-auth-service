@@ -79,7 +79,7 @@ public final class DatabaseContextFactory {
      * Fails fast on connection errors.
      */
     static void validateConnection(final DataSource dataSource) {
-        try (Connection conn = dataSource.getConnection()) {
+        try (final Connection conn = dataSource.getConnection()) {
             if (!conn.isValid(VALIDATION_TIMEOUT_SECONDS)) {
                 throw new DatabaseConnectionException("Database connection validation failed");
             }

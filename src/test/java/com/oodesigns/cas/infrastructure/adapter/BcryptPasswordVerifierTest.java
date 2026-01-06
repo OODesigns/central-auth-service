@@ -138,21 +138,21 @@ class BcryptPasswordVerifierTest {
     @DisplayName("Should handle invalid hash format gracefully")
     void shouldHandleInvalidHashFormatGracefully() {
         // Mock the encoder to throw an exception
-        PasswordEncoder mockEncoder = org.mockito.Mockito.mock(PasswordEncoder.class);
+        final PasswordEncoder mockEncoder = org.mockito.Mockito.mock(PasswordEncoder.class);
         org.mockito.Mockito.when(mockEncoder.matches(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
             .thenThrow(new IllegalArgumentException("Invalid salt"));
             
         // Inject the mock encoder
-        BcryptPasswordVerifier verifierWithMock = new BcryptPasswordVerifier(mockEncoder);
+        final BcryptPasswordVerifier verifierWithMock = new BcryptPasswordVerifier(mockEncoder);
         
         // Valid format to pass PasswordHash check (60 chars total)
-        String validFormatHash = "$2a$10$12345678901234567890123456789012345678901234567890123";
-        PasswordHash hash = new PasswordHash(validFormatHash); 
-        UserCredential credential = new UserCredential(UserId.generate(), hash);
+        final String validFormatHash = "$2a$10$12345678901234567890123456789012345678901234567890123";
+        final PasswordHash hash = new PasswordHash(validFormatHash);
+        final UserCredential credential = new UserCredential(UserId.generate(), hash);
         
-        Password password = new Password("password".toCharArray());
-        try (Credentials creds = new Credentials(credential, password)) {
-            Optional<UserId> result = verifierWithMock.verify(creds);
+        final Password password = new Password("password".toCharArray());
+        try (final Credentials creds = new Credentials(credential, password)) {
+            final Optional<UserId> result = verifierWithMock.verify(creds);
             
             // Should return empty Optional instead of propagating the exception
             assertTrue(result.isEmpty(), "Should return empty Optional when encoder throws exception");

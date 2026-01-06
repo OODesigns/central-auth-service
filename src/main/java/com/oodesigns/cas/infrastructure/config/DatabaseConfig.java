@@ -16,7 +16,7 @@ public final class DatabaseConfig {
      * Uses the default PropertiesReaderFactory to create the reader.
      * Fails fast if required properties are invalid.
      */
-    public DatabaseConfig(PropertiesReader propertiesReader) {
+    public DatabaseConfig(final PropertiesReader propertiesReader) {
         this.host = new DatabaseHost(propertiesReader.get("db.host"));
         this.databaseName = new DatabaseName(propertiesReader.get("db.name"));
         this.username = new DatabaseUser(propertiesReader.get("db.username"));

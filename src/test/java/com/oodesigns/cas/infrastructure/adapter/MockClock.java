@@ -10,7 +10,7 @@ import java.time.Instant;
 public class MockClock implements Ports.Clock {
     private Instant currentTime;
 
-    public MockClock(Instant initialTime) {
+    public MockClock(final Instant initialTime) {
         this.currentTime = initialTime;
     }
 
@@ -19,11 +19,11 @@ public class MockClock implements Ports.Clock {
         return currentTime;
     }
 
-    public void setCurrentTime(Instant instant) {
+    public void setCurrentTime(final Instant instant) {
         this.currentTime = instant;
     }
 
-    public void advanceSeconds(long seconds) {
+    public void advanceSeconds(final long seconds) {
         this.currentTime = currentTime.plusSeconds(seconds);
     }
 }

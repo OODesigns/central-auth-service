@@ -40,7 +40,7 @@ public final class JooqUserCredentialReader implements Ports.UserCredentialReade
      * This mimics the structure of jOOQ's generated code.
      */
     private static final class Routines {
-        static Optional<UserCredentialsRecord> findUserCredentials(DSLContext ctx, String username) {
+        static Optional<UserCredentialsRecord> findUserCredentials(final DSLContext ctx, final String username) {
             return ctx.fetchOptional("SELECT * FROM auth.find_user_credentials(?)", username)
                     .map(r -> new UserCredentialsRecord(
                             r.get("user_id", UUID.class),

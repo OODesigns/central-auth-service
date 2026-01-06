@@ -24,7 +24,7 @@ public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports
      * Test fixture helper to save a user (for authorization/profile data).
      * Not part of the port contracts.
      */
-    public void save(User user) {
+    public void save(final User user) {
         if (user == null) {
             throw new IllegalArgumentException("User cannot be null");
         }
@@ -38,7 +38,7 @@ public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports
      * 
      * @param credential the user credential with userId and password hash
      */
-    public void saveCredential(UserCredential credential) {
+    public void saveCredential(final UserCredential credential) {
         if (credential == null) {
             throw new IllegalArgumentException("UserCredential cannot be null");
         }
@@ -47,7 +47,7 @@ public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports
     }
 
     @Override
-    public Optional<UserCredential> findCredentialsByUsername(Username username) {
+    public Optional<UserCredential> findCredentialsByUsername(final Username username) {
         if (username == null) {
             throw new IllegalArgumentException("Username cannot be null");
         }
@@ -57,7 +57,7 @@ public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports
     }
 
     @Override
-    public Optional<User> findById(UserId userId) {
+    public Optional<User> findById(final UserId userId) {
         if (userId == null) {
             throw new IllegalArgumentException("User ID cannot be null");
         }

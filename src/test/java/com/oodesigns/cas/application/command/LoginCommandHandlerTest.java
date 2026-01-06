@@ -52,13 +52,13 @@ class LoginCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        AuthenticationService authService = new AuthenticationService(passwordHasher);
-        TokenService tokenService = new TokenService(clock, tokenSigner);
+        final AuthenticationService authService = new AuthenticationService(passwordHasher);
+        final TokenService tokenService = new TokenService(clock, tokenSigner);
         loginHandler = new LoginCommandHandler(authService, tokenService, credentialReader, userRepository, rateLimiter);
 
         // Setup test data
-        UserId userId = UserId.generate();
-        PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
+        final UserId userId = UserId.generate();
+        final PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
         testCredential = new UserCredential(userId, passwordHash);
         testUser = new User(userId, new Username("john_doe"), Set.of(Permission.of("read")));
     }
@@ -78,8 +78,8 @@ class LoginCommandHandlerTest {
         when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
         when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
 
-        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password123".toCharArray()), IpAddress.of("192.168.1.1"));
-        LoginResult result = loginHandler.handle(cmd);
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password123".toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(success -> {
             assertNotNull(success.tokenPair());
@@ -100,8 +100,8 @@ class LoginCommandHandlerTest {
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
         when(passwordHasher.verify(any())).thenReturn(Optional.empty());
 
-        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("wrong_pass".toCharArray()), IpAddress.of("192.168.1.1"));
-        LoginResult result = loginHandler.handle(cmd);
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("wrong_pass".toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(ignored -> {
             fail("Login should fail");
@@ -118,8 +118,8 @@ class LoginCommandHandlerTest {
             .thenReturn(Ports.RateLimitResult.allowed());
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.empty());
 
-        LoginCommand cmd = new LoginCommand(Username.of("unknown"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
-        LoginResult result = loginHandler.handle(cmd);
+        final LoginCommand cmd = new LoginCommand(Username.of("unknown"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(ignored -> {
             fail("Login should fail");
@@ -135,8 +135,8 @@ class LoginCommandHandlerTest {
         when(rateLimiter.checkLimit(anyString()))
             .thenReturn(Ports.RateLimitResult.blocked("Too many attempts"));
 
-        LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
-        LoginResult result = loginHandler.handle(cmd);
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(ignored -> {
             fail("Should be rate limited");
@@ -149,7 +149,7 @@ class LoginCommandHandlerTest {
 
     @Test
     void testLoginNullCommand() {
-        LoginResult result = loginHandler.handle(null);
+        final LoginResult result = loginHandler.handle(null);
 
         result.mapTo(ignored -> {
             fail("Should fail");
@@ -163,8 +163,8 @@ class LoginCommandHandlerTest {
     @Test
     void testLoginRuntimeExceptionHandled() {
         // Suppress logger output for this test since we're intentionally testing exception handling
-        Logger logger = Logger.getLogger(LoginCommandHandler.class.getName());
-        Level originalLevel = logger.getLevel();
+        final Logger logger = Logger.getLogger(LoginCommandHandler.class.getName());
+        final Level originalLevel = logger.getLevel();
         logger.setLevel(Level.OFF);
 
         try {
@@ -173,8 +173,8 @@ class LoginCommandHandlerTest {
             when(credentialReader.findCredentialsByUsername(any()))
                 .thenThrow(new RuntimeException("Database error"));
 
-            LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
-            LoginResult result = loginHandler.handle(cmd);
+            final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
+            final LoginResult result = loginHandler.handle(cmd);
 
             result.mapTo(ignored -> {
                 fail("Should fail");

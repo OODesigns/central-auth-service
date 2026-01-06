@@ -12,9 +12,9 @@ class RateLimitResultTest {
 
     @Test
     void testAllowedState() {
-        Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
 
-        String mapped = result
+        final String mapped = result
             .mapTo(ignored -> "success")
             .orElse(blocked -> "blocked: %s".formatted(blocked.message()));
 
@@ -23,9 +23,9 @@ class RateLimitResultTest {
 
     @Test
     void testBlockedState() {
-        Ports.RateLimitResult result = Ports.RateLimitResult.blocked("Rate limit exceeded");
+        final Ports.RateLimitResult result = Ports.RateLimitResult.blocked("Rate limit exceeded");
 
-        String mapped = result
+        final String mapped = result
             .mapTo(ignored -> "success")
             .orElse(blocked -> "blocked: %s".formatted(blocked.message()));
 
@@ -34,9 +34,9 @@ class RateLimitResultTest {
 
     @Test
     void testAllowedMapToAppliesFunction() {
-        Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
 
-        Integer value = result
+        final Integer value = result
             .mapTo(ignored -> 42)
             .orElse(ignored -> -1);
 
@@ -45,9 +45,9 @@ class RateLimitResultTest {
 
     @Test
     void testBlockedMapToIgnoresSuccessFunction() {
-        Ports.RateLimitResult result = Ports.RateLimitResult.blocked("Too many requests");
+        final Ports.RateLimitResult result = Ports.RateLimitResult.blocked("Too many requests");
 
-        Integer value = result
+        final Integer value = result
             .mapTo(ignored -> {
                 fail("Success function should not be called for blocked state");
                 return 42;
@@ -59,9 +59,9 @@ class RateLimitResultTest {
 
     @Test
     void testBlockedOrElseAppliesFunction() {
-        Ports.RateLimitResult result = Ports.RateLimitResult.blocked("Limit reached");
+        final Ports.RateLimitResult result = Ports.RateLimitResult.blocked("Limit reached");
 
-        String message = result
+        final String message = result
             .mapTo(ignored -> "allowed")
             .orElse(blocked -> blocked.message().toUpperCase());
 
@@ -70,9 +70,9 @@ class RateLimitResultTest {
 
     @Test
     void testAllowedOrElseIgnoresFailureFunction() {
-        Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
 
-        String value = result
+        final String value = result
             .mapTo(ignored -> "success")
             .orElse(ignored -> {
                 fail("Failure function should not be called for allowed state");
@@ -102,10 +102,10 @@ class RateLimitResultTest {
 
     @Test
     void testBlockedMessagePreserved() {
-        String expectedMessage = "Rate limit exceeded for key:login:192.168.1.1";
-        Ports.RateLimitResult result = Ports.RateLimitResult.blocked(expectedMessage);
+        final String expectedMessage = "Rate limit exceeded for key:login:192.168.1.1";
+        final Ports.RateLimitResult result = Ports.RateLimitResult.blocked(expectedMessage);
 
-        String actualMessage = result
+        final String actualMessage = result
             .mapTo(ignored -> "")
             .orElse(Ports.RateLimitResult.Blocked::message);
 
@@ -114,11 +114,11 @@ class RateLimitResultTest {
 
     @Test
     void testMultipleAllowedResults() {
-        Ports.RateLimitResult result1 = Ports.RateLimitResult.allowed();
-        Ports.RateLimitResult result2 = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult result1 = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult result2 = Ports.RateLimitResult.allowed();
 
-        String value1 = result1.mapTo(ignored -> "first").orElse(ignored -> "blocked");
-        String value2 = result2.mapTo(ignored -> "second").orElse(ignored -> "blocked");
+        final String value1 = result1.mapTo(ignored -> "first").orElse(ignored -> "blocked");
+        final String value2 = result2.mapTo(ignored -> "second").orElse(ignored -> "blocked");
 
         assertEquals("first", value1);
         assertEquals("second", value2);
@@ -126,11 +126,11 @@ class RateLimitResultTest {
 
     @Test
     void testMultipleBlockedResults() {
-        Ports.RateLimitResult result1 = Ports.RateLimitResult.blocked("Error 1");
-        Ports.RateLimitResult result2 = Ports.RateLimitResult.blocked("Error 2");
+        final Ports.RateLimitResult result1 = Ports.RateLimitResult.blocked("Error 1");
+        final Ports.RateLimitResult result2 = Ports.RateLimitResult.blocked("Error 2");
 
-        String msg1 = result1.mapTo(ignored -> "ok").orElse(Ports.RateLimitResult.Blocked::message);
-        String msg2 = result2.mapTo(ignored -> "ok").orElse(Ports.RateLimitResult.Blocked::message);
+        final String msg1 = result1.mapTo(ignored -> "ok").orElse(Ports.RateLimitResult.Blocked::message);
+        final String msg2 = result2.mapTo(ignored -> "ok").orElse(Ports.RateLimitResult.Blocked::message);
 
         assertEquals("Error 1", msg1);
         assertEquals("Error 2", msg2);
@@ -139,14 +139,14 @@ class RateLimitResultTest {
 
     @Test
     void testFluentChaining() {
-        Ports.RateLimitResult allowed = Ports.RateLimitResult.allowed();
-        Ports.RateLimitResult blocked = Ports.RateLimitResult.blocked("Too many attempts");
+        final Ports.RateLimitResult allowed = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult blocked = Ports.RateLimitResult.blocked("Too many attempts");
 
-        boolean allowedResult = allowed
+        final boolean allowedResult = allowed
             .mapTo(ignored -> true)
             .orElse(ignored -> false);
 
-        boolean blockedResult = blocked
+        final boolean blockedResult = blocked
             .mapTo(ignored -> true)
             .orElse(ignored -> false);
 
@@ -158,14 +158,14 @@ class RateLimitResultTest {
     void testComplexTypeMapping() {
         record Response(boolean success, String message) {}
 
-        Ports.RateLimitResult allowed = Ports.RateLimitResult.allowed();
-        Ports.RateLimitResult blocked = Ports.RateLimitResult.blocked("Rate exceeded");
+        final Ports.RateLimitResult allowed = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult blocked = Ports.RateLimitResult.blocked("Rate exceeded");
 
-        Response allowedResponse = allowed
+        final Response allowedResponse = allowed
             .mapTo(ignored -> new Response(true, "Allowed"))
             .orElse(b -> new Response(false, b.message()));
 
-        Response blockedResponse = blocked
+        final Response blockedResponse = blocked
             .mapTo(ignored -> new Response(true, "Allowed"))
             .orElse(b -> new Response(false, b.message()));
 
@@ -178,10 +178,10 @@ class RateLimitResultTest {
 
     @Test
     void testNestedResults() {
-        Ports.RateLimitResult outerAllowed = Ports.RateLimitResult.allowed();
-        Ports.RateLimitResult innerAllowed = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult outerAllowed = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult innerAllowed = Ports.RateLimitResult.allowed();
 
-        String result = outerAllowed
+        final String result = outerAllowed
             .mapTo(ignoredOuter -> innerAllowed
                 .mapTo(ignoredInner -> "both allowed")
                 .orElse(ignoredInnerBlocked -> "inner blocked"))
@@ -192,13 +192,13 @@ class RateLimitResultTest {
 
     @Test
     void testAllowedIsSealed() {
-        Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
+        final Ports.RateLimitResult result = Ports.RateLimitResult.allowed();
         assertInstanceOf(Ports.RateLimitResult.Allowed.class, result);
     }
 
     @Test
     void testBlockedIsSealed() {
-        Ports.RateLimitResult result = Ports.RateLimitResult.blocked("error");
+        final Ports.RateLimitResult result = Ports.RateLimitResult.blocked("error");
         assertInstanceOf(Ports.RateLimitResult.Blocked.class, result);
     }
 }

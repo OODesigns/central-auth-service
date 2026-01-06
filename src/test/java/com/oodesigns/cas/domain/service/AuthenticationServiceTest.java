@@ -27,8 +27,8 @@ class AuthenticationServiceTest {
     void setUp() {
         authService = new AuthenticationService(passwordHasher);
         
-        UserId userId = UserId.generate();
-        PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
+        final UserId userId = UserId.generate();
+        final PasswordHash passwordHash = new PasswordHash("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
         testCredential = new UserCredential(userId, passwordHash);
     }
 
@@ -39,11 +39,11 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateValidPassword() {
-        Password password = new Password("password123".toCharArray());
-        try (var credentials = new Credentials(testCredential, password)) {
+        final Password password = new Password("password123".toCharArray());
+        try (final var credentials = new Credentials(testCredential, password)) {
             when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential.userId()));
 
-            var result = authService.getAuthenticatedUser(credentials);
+            final var result = authService.getAuthenticatedUser(credentials);
 
             assertTrue(result.isPresent());
             assertEquals(testCredential.userId(), result.get());
@@ -53,11 +53,11 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateInvalidPassword() {
-        Password password = new Password("wrong_password".toCharArray());
-        try (var credentials = new Credentials(testCredential, password)) {
+        final Password password = new Password("wrong_password".toCharArray());
+        try (final var credentials = new Credentials(testCredential, password)) {
             when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.empty());
 
-            var result = authService.getAuthenticatedUser(credentials);
+            final var result = authService.getAuthenticatedUser(credentials);
 
             assertTrue(result.isEmpty());
             verify(passwordHasher).verify(credentials);
@@ -66,7 +66,7 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateNullCredentialThrowsNullPointerException() {
-        Password password = new Password("password".toCharArray());
+        final Password password = new Password("password".toCharArray());
         assertThrows(NullPointerException.class, () -> createCredentialsAndClose(null, password));
     }
 
@@ -78,57 +78,57 @@ class AuthenticationServiceTest {
     /**
      * Helper that constructs and immediately closes Credentials, allowing constructor validation to throw.
      */
-    private void createCredentialsAndClose(UserCredential credential, Password password) {
-        try (Credentials credentials = new Credentials(credential, password)) {
+    private void createCredentialsAndClose(final UserCredential credential, final Password password) {
+        try (final Credentials credentials = new Credentials(credential, password)) {
             java.util.Objects.requireNonNull(credentials); // touch to satisfy analysis; construction is what we validate
         }
     }
 
     @Test
     void testAuthenticateClosesCredentialsAfterVerification() {
-        char[] passwordChars = "password123".toCharArray();
-        Password password = new Password(passwordChars);
-        Credentials credentials = new Credentials(testCredential, password);
+        final char[] passwordChars = "password123".toCharArray();
+        final Password password = new Password(passwordChars);
+        final Credentials credentials = new Credentials(testCredential, password);
         when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential.userId()));
 
         authService.getAuthenticatedUser(credentials);
 
         // After getAuthenticatedUser, the password should be cleared (close() was called)
         // Verify by checking that chars() returns zeroed array
-        char[] clearedChars = password.chars();
-        for (char c : clearedChars) {
+        final char[] clearedChars = password.chars();
+        for (final char c : clearedChars) {
             assertEquals('\0', c, "Password should be cleared after authentication");
         }
     }
 
     @Test
     void testAuthenticateClosesCredentialsEvenWhenVerificationFails() {
-        char[] passwordChars = "wrong_password".toCharArray();
-        Password password = new Password(passwordChars);
-        Credentials credentials = new Credentials(testCredential, password);
+        final char[] passwordChars = "wrong_password".toCharArray();
+        final Password password = new Password(passwordChars);
+        final Credentials credentials = new Credentials(testCredential, password);
         when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.empty());
 
         authService.getAuthenticatedUser(credentials);
 
         // After getAuthenticatedUser, the password should be cleared even on failure
-        char[] clearedChars = password.chars();
-        for (char c : clearedChars) {
+        final char[] clearedChars = password.chars();
+        for (final char c : clearedChars) {
             assertEquals('\0', c, "Password should be cleared after failed authentication");
         }
     }
 
     @Test
     void testAuthenticateClosesCredentialsWhenVerifierThrows() {
-        char[] passwordChars = "password123".toCharArray();
-        Password password = new Password(passwordChars);
-        Credentials credentials = new Credentials(testCredential, password);
+        final char[] passwordChars = "password123".toCharArray();
+        final Password password = new Password(passwordChars);
+        final Credentials credentials = new Credentials(testCredential, password);
         when(passwordHasher.verify(credentials)).thenThrow(new RuntimeException("Verifier error"));
 
         assertThrows(RuntimeException.class, () -> authService.getAuthenticatedUser(credentials));
 
         // After exception, the password should still be cleared (try-with-resources)
-        char[] clearedChars = password.chars();
-        for (char c : clearedChars) {
+        final char[] clearedChars = password.chars();
+        for (final char c : clearedChars) {
             assertEquals('\0', c, "Password should be cleared after exception");
         }
     }

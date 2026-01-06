@@ -151,17 +151,17 @@ class EnvironmentVariableTransformerTest {
     @Test
     void transformEnvVarSetToEmptyStringFallsBackToPropertyOrDefault() {
         // Mock provider: getenv returns empty string, getProperty returns fallback
-        EnvironmentVariableTransformer.VariableProvider provider = new EnvironmentVariableTransformer.VariableProvider() {
+        final EnvironmentVariableTransformer.VariableProvider provider = new EnvironmentVariableTransformer.VariableProvider() {
             @Override
-            public String getenv(String name) {
+            public String getenv(final String name) {
                 return "";
             }
             @Override
-            public String getProperty(String name) {
+            public String getProperty(final String name) {
                 return "fallback";
             }
         };
-        EnvironmentVariableTransformer transformer = new EnvironmentVariableTransformer(provider);
+        final EnvironmentVariableTransformer transformer = new EnvironmentVariableTransformer(provider);
         assertEquals("fallback", transformer.apply("${ANY_VAR:fallback}"));
     }
 }

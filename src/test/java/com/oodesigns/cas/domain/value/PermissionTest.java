@@ -12,28 +12,28 @@ class PermissionTest {
 
     @Test
     void testCreatePermission() {
-        Permission perm = Permission.of("view_users");
+        final Permission perm = Permission.of("view_users");
         assertEquals("view_users", perm.value());
     }
 
     @Test
     void testPermissionEquality() {
-        Permission perm1 = Permission.of("view_users");
-        Permission perm2 = Permission.of("view_users");
+        final Permission perm1 = Permission.of("view_users");
+        final Permission perm2 = Permission.of("view_users");
         assertEquals(perm1, perm2);
     }
 
     @Test
     void testPermissionInequality() {
-        Permission perm1 = Permission.of("view_users");
-        Permission perm2 = Permission.of("manage_users");
+        final Permission perm1 = Permission.of("view_users");
+        final Permission perm2 = Permission.of("manage_users");
         assertNotEquals(perm1, perm2);
     }
 
     @Test
     void testPermissionHashCode() {
-        Permission perm1 = Permission.of("view_users");
-        Permission perm2 = Permission.of("view_users");
+        final Permission perm1 = Permission.of("view_users");
+        final Permission perm2 = Permission.of("view_users");
         assertEquals(perm1.hashCode(), perm2.hashCode());
     }
 
@@ -60,12 +60,12 @@ class PermissionTest {
 
     @Test
     void testStandardPermissionConstants() {
-        Permission view = Permission.of("view_users");
-        Permission edit = Permission.of("edit_profile");
-        Permission reports = Permission.of("view_reports");
-        Permission manage = Permission.of("manage_users");
-        Permission delete = Permission.of("delete_accounts");
-        Permission approve = Permission.of("approve_transfers");
+        final Permission view = Permission.of("view_users");
+        final Permission edit = Permission.of("edit_profile");
+        final Permission reports = Permission.of("view_reports");
+        final Permission manage = Permission.of("manage_users");
+        final Permission delete = Permission.of("delete_accounts");
+        final Permission approve = Permission.of("approve_transfers");
 
         assertEquals("view_users", view.value());
         assertEquals("edit_profile", edit.value());
@@ -77,16 +77,16 @@ class PermissionTest {
 
     @Test
     void testPermissionToString() {
-        Permission perm = Permission.of("delete_accounts");
+        final Permission perm = Permission.of("delete_accounts");
         assertEquals("delete_accounts", perm.toString());
     }
 
     @Test
     void testFactoryMethods() {
-        Permission perm1 = Permission.of("view_users");
-        Permission perm2 = Permission.of("admin_123");
-        Permission perm3 = Permission.of("a");
-        Permission perm4 = Permission.of("view_users_and_roles");
+        final Permission perm1 = Permission.of("view_users");
+        final Permission perm2 = Permission.of("admin_123");
+        final Permission perm3 = Permission.of("a");
+        final Permission perm4 = Permission.of("view_users_and_roles");
 
         assertEquals("view_users", perm1.value());
         assertEquals("admin_123", perm2.value());

@@ -56,7 +56,7 @@ public sealed interface LoginResult
         }
 
         @Override
-        public <T> Mapper<T> mapTo(Function<SuccessResult, T> successMapper) {
+        public <T> Mapper<T> mapTo(final Function<SuccessResult, T> successMapper) {
             return new MapperSuccess<>(successMapper.apply(this));
         }
 
@@ -66,12 +66,12 @@ public sealed interface LoginResult
         static final class MapperSuccess<T> implements Mapper<T> {
             private final T value;
 
-            MapperSuccess(T value) {
+            MapperSuccess(final T value) {
                 this.value = value;
             }
 
             @Override
-            public T orElse(Function<FailureResult, T> failureMapper) {
+            public T orElse(final Function<FailureResult, T> failureMapper) {
                 return value;
             }
         }
@@ -92,7 +92,7 @@ public sealed interface LoginResult
         }
 
         @Override
-        public <T> Mapper<T> mapTo(Function<SuccessResult, T> successMapper) {
+        public <T> Mapper<T> mapTo(final Function<SuccessResult, T> successMapper) {
             // Success mapper intentionally ignored for failures
             return new MapperFailure<>(this);
         }
@@ -103,12 +103,12 @@ public sealed interface LoginResult
         static final class MapperFailure<T> implements Mapper<T> {
             private final FailureResult failure;
 
-            MapperFailure(FailureResult failure) {
+            MapperFailure(final FailureResult failure) {
                 this.failure = failure;
             }
 
             @Override
-            public T orElse(Function<FailureResult, T> failureMapper) {
+            public T orElse(final Function<FailureResult, T> failureMapper) {
                 return failureMapper.apply(failure);
             }
         }

@@ -35,7 +35,7 @@ class KeyPasswordTest {
     @SuppressWarnings("ConstantValue")
     void ofWithExactly32CharactersSucceeds() {
         final char[] validChars = VALID_SECRET_32_CHARS.toCharArray();
-        boolean result = validChars.length >= 32;
+        final boolean result = validChars.length >= 32;
         assertTrue(result);
         final KeyPassword keyPassword = KeyPassword.of(validChars);
         assertNotNull(keyPassword);
@@ -44,7 +44,7 @@ class KeyPasswordTest {
     @Test
     @SuppressWarnings("ConstantValue")
     void ofWithMoreThan32CharactersSucceeds() {
-        boolean result = VALID_SECRET_64_CHARS.length() > 32;
+        final boolean result = VALID_SECRET_64_CHARS.length() > 32;
         assertTrue(result);
         final char[] validChars = VALID_SECRET_64_CHARS.toCharArray();
         final KeyPassword keyPassword = KeyPassword.of(validChars);
@@ -122,9 +122,9 @@ class KeyPasswordTest {
     @Test
     void toUtf8BytesWithSpecialCharactersEncodesCorrectly() {
         // Test with characters that encode to multiple bytes in UTF-8
-        String secret = "ñ".repeat(32); // ñ is 2 bytes in UTF-8
-        KeyPassword keyPassword = KeyPassword.fromString(secret);
-        byte[] bytes = keyPassword.toUtf8Bytes();
+        final String secret = "ñ".repeat(32); // ñ is 2 bytes in UTF-8
+        final KeyPassword keyPassword = KeyPassword.fromString(secret);
+        final byte[] bytes = keyPassword.toUtf8Bytes();
         
         assertNotNull(bytes);
         assertTrue(bytes.length > 32, "Multi-byte UTF-8 chars should produce more bytes");
@@ -132,8 +132,8 @@ class KeyPasswordTest {
 
     @Test
     void toUtf8BytesWithExactly32BytesSucceeds() {
-        KeyPassword keyPassword = KeyPassword.fromString("x".repeat(32));
-        byte[] bytes = keyPassword.toUtf8Bytes();
+        final KeyPassword keyPassword = KeyPassword.fromString("x".repeat(32));
+        final byte[] bytes = keyPassword.toUtf8Bytes();
         
         assertEquals(32, bytes.length);
     }
@@ -141,9 +141,9 @@ class KeyPasswordTest {
     @Test
     void toUtf8BytesWithUnicodeCharactersEncodesCorrectly() {
         // Test with emoji and other Unicode characters
-        String secret = "🔐".repeat(16) + "x".repeat(16); // Mix of multibyte and single-byte
-        KeyPassword keyPassword = KeyPassword.fromString(secret);
-        byte[] bytes = keyPassword.toUtf8Bytes();
+        final String secret = "🔐".repeat(16) + "x".repeat(16); // Mix of multibyte and single-byte
+        final KeyPassword keyPassword = KeyPassword.fromString(secret);
+        final byte[] bytes = keyPassword.toUtf8Bytes();
         
         assertNotNull(bytes);
         assertTrue(bytes.length >= 32, "Unicode characters should encode to at least 32 bytes");
@@ -175,7 +175,7 @@ class KeyPasswordTest {
         keyPassword.clear();
         
         final char[] clearedChars = keyPassword.chars();
-        for (char c : clearedChars) {
+        for (final char c : clearedChars) {
             assertEquals('\0', c);
         }
     }

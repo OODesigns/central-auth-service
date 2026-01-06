@@ -65,7 +65,7 @@ public DatabaseContextFactory contextFactory(DatabaseConfig config) {
 }
 
 @Bean
-public DSLContext dslContext(DatabaseContextFactory factory) {
+public DSLContext dslContext(final DatabaseContextFactory factory) {
     return factory.getDslContext();
 }
 ```

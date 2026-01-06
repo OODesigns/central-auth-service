@@ -18,11 +18,11 @@ class LoginResultTest {
 
     @Test
     void testSuccessResult() {
-        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
+        final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token_123", "refresh_token_456");
-        UserId userId = UserId.generate();
-        Set<Permission> permissions = Set.of(Permission.of("read"), Permission.of("write"));
-        LoginResult result = LoginResult.success(tokenPair, userId, permissions);
+        final UserId userId = UserId.generate();
+        final Set<Permission> permissions = Set.of(Permission.of("read"), Permission.of("write"));
+        final LoginResult result = LoginResult.success(tokenPair, userId, permissions);
 
         result.mapTo(success -> {
                 assertEquals("access_token_123", success.tokenPair().accessToken());
@@ -39,7 +39,7 @@ class LoginResultTest {
 
     @Test
     void testFailureResult() {
-        LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
+        final LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
 
         result.mapTo(ignored -> {
                 fail("Expected failure result but got success");
@@ -55,7 +55,7 @@ class LoginResultTest {
     @Test
     void testAccessingTokenOnFailureThrows() {
         // With fold pattern, failure results never have token access - type-safe at compile time
-        LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
+        final LoginResult result = LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password");
 
         // This test verifies that FailureResult doesn't expose success methods
         result.mapTo(ignored -> {
@@ -73,11 +73,11 @@ class LoginResultTest {
 
     @Test
     void testAccessingErrorOnSuccessThrows() {
-        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
+        final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token", "refresh_token");
-        UserId userId = UserId.generate();
-        Set<Permission> permissions = Collections.emptySet();
-        LoginResult result = LoginResult.success(tokenPair, userId, permissions);
+        final UserId userId = UserId.generate();
+        final Set<Permission> permissions = Collections.emptySet();
+        final LoginResult result = LoginResult.success(tokenPair, userId, permissions);
 
         result.mapTo(success -> {
                 assertEquals("access_token", success.tokenPair().accessToken());
@@ -93,26 +93,26 @@ class LoginResultTest {
 
     @Test
     void testSuccessWithNullTokensThrows() {
-        UserId userId = UserId.generate();
-        Set<Permission> permissions = Set.of(Permission.of("read"));
+        final UserId userId = UserId.generate();
+        final Set<Permission> permissions = Set.of(Permission.of("read"));
         assertThrows(IllegalArgumentException.class,
             () -> LoginResult.success(null, userId, permissions));
     }
 
     @Test
     void testSuccessWithNullUserIdThrows() {
-        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
+        final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token", "refresh_token");
-        Set<Permission> permissions = Set.of(Permission.of("read"));
+        final Set<Permission> permissions = Set.of(Permission.of("read"));
         assertThrows(IllegalArgumentException.class,
             () -> LoginResult.success(tokenPair, null, permissions));
     }
 
     @Test
     void testSuccessWithNullPermissionsThrows() {
-        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
+        final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "access_token", "refresh_token");
-        UserId userId = UserId.generate();
+        final UserId userId = UserId.generate();
         assertThrows(IllegalArgumentException.class,
             () -> LoginResult.success(tokenPair, userId, null));
     }
@@ -148,7 +148,7 @@ class LoginResultTest {
             () -> createTokenPair("access_token", null));
     }
     
-    private void createTokenPair(String access, String refresh) {
+    private void createTokenPair(final String access, final String refresh) {
         new TokenService.TokenPair(access, refresh); // invocation for exception validation only
     }
 
@@ -166,15 +166,15 @@ class LoginResultTest {
 
     @Test
     void testMultipleSuccessResults() {
-        TokenService.TokenPair tokenPair1 = new TokenService.TokenPair(
+        final TokenService.TokenPair tokenPair1 = new TokenService.TokenPair(
             "token1", "refresh1");
-        TokenService.TokenPair tokenPair2 = new TokenService.TokenPair(
+        final TokenService.TokenPair tokenPair2 = new TokenService.TokenPair(
             "token2", "refresh2");
-        UserId userId1 = UserId.generate();
-        UserId userId2 = UserId.generate();
-        Set<Permission> permissions = Set.of(Permission.of("read"));
-        LoginResult result1 = LoginResult.success(tokenPair1, userId1, permissions);
-        LoginResult result2 = LoginResult.success(tokenPair2, userId2, permissions);
+        final UserId userId1 = UserId.generate();
+        final UserId userId2 = UserId.generate();
+        final Set<Permission> permissions = Set.of(Permission.of("read"));
+        final LoginResult result1 = LoginResult.success(tokenPair1, userId1, permissions);
+        final LoginResult result2 = LoginResult.success(tokenPair2, userId2, permissions);
 
         result1.mapTo(success1 -> {
                 result2.mapTo(success2 -> {
@@ -196,8 +196,8 @@ class LoginResultTest {
 
     @Test
     void testMultipleFailureResults() {
-        LoginResult result1 = LoginResult.failure("ERROR_1", "message 1");
-        LoginResult result2 = LoginResult.failure("ERROR_2", "message 2");
+        final LoginResult result1 = LoginResult.failure("ERROR_1", "message 1");
+        final LoginResult result2 = LoginResult.failure("ERROR_2", "message 2");
 
         result1.mapTo(ignored1 -> {
                 fail("Expected failure result for result1 but got success");
@@ -218,12 +218,12 @@ class LoginResultTest {
 
     @Test
     void testCannotSwitchStates() {
-        TokenService.TokenPair tokenPair = new TokenService.TokenPair(
+        final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
             "token", "refresh");
-        UserId userId = UserId.generate();
-        Set<Permission> permissions = Set.of(Permission.of("admin"));
-        LoginResult success = LoginResult.success(tokenPair, userId, permissions);
-        LoginResult failure = LoginResult.failure("CODE", "message");
+        final UserId userId = UserId.generate();
+        final Set<Permission> permissions = Set.of(Permission.of("admin"));
+        final LoginResult success = LoginResult.success(tokenPair, userId, permissions);
+        final LoginResult failure = LoginResult.failure("CODE", "message");
 
         // Success cannot be failed and vice versa
         success.mapTo(ignored -> {

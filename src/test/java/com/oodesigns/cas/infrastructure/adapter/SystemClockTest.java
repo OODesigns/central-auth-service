@@ -14,11 +14,11 @@ class SystemClockTest {
 
     @Test
     void testNowReturnsCurrentInstant() {
-        var clock = new SystemClock();
+        final var clock = new SystemClock();
         
-        Instant before = Instant.now();
-        Instant clockTime = clock.now();
-        Instant after = Instant.now();
+        final Instant before = Instant.now();
+        final Instant clockTime = clock.now();
+        final Instant after = Instant.now();
         
         // Clock time should be between before and after
         assertFalse(clockTime.isBefore(before), "Clock time should not be before test start");
@@ -27,10 +27,10 @@ class SystemClockTest {
 
     @Test
     void testNowReturnsNewInstantEachCall() {
-        var clock = new SystemClock();
+        final var clock = new SystemClock();
         
-        Instant first = clock.now();
-        Instant second = clock.now();
+        final Instant first = clock.now();
+        final Instant second = clock.now();
         
         assertFalse(second.isBefore(first), 
             "Second call should return same or later time");
@@ -38,7 +38,7 @@ class SystemClockTest {
 
     @Test
     void testImplementsClockPort() {
-        var clock = new SystemClock();
+        final var clock = new SystemClock();
         
         assertInstanceOf(com.oodesigns.cas.domain.service.Ports.Clock.class, clock);
     }

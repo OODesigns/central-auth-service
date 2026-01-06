@@ -48,12 +48,12 @@ class AdminLoginMockIntegrationTest {
         userRepository = new InMemoryUserRepository();
         passwordVerifier = new MockPasswordVerifier();
         clock = new MockClock(Instant.now());
-        var rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
-        var tokenSigner = new MockTokenSigner();
+        final var rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
+        final var tokenSigner = new MockTokenSigner();
 
         // Create domain services with injected ports
-        AuthenticationService authService = new AuthenticationService(passwordVerifier);
-        TokenService tokenService = new TokenService(clock, tokenSigner);
+        final AuthenticationService authService = new AuthenticationService(passwordVerifier);
+        final TokenService tokenService = new TokenService(clock, tokenSigner);
 
         // Create command handler
         loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, rateLimiter);
@@ -68,14 +68,14 @@ class AdminLoginMockIntegrationTest {
      */
     private void setupAdminUser() {
         // Create admin user with admin permissions
-        UserId adminId = UserId.generate();
-        Username adminUsername = new Username(ADMIN_USERNAME);
+        final UserId adminId = UserId.generate();
+        final Username adminUsername = new Username(ADMIN_USERNAME);
         
         // Create user with no permissions (permissions granted at authorization level, not stored with user)
-        User adminUser = new User(adminId, adminUsername, java.util.Set.of());
+        final User adminUser = new User(adminId, adminUsername, java.util.Set.of());
         
         // Hash the admin password
-        PasswordHash passwordHash = passwordVerifier.hash(ADMIN_PASSWORD.toCharArray());
+        final PasswordHash passwordHash = passwordVerifier.hash(ADMIN_PASSWORD.toCharArray());
         
         // Save user and credentials
         userRepository.save(adminUser);
@@ -94,14 +94,14 @@ class AdminLoginMockIntegrationTest {
     @Test
     void testAdminLoginWithCorrectCredentials() {
         // Arrange: Admin credentials
-        LoginCommand loginCmd = new LoginCommand(
+        final LoginCommand loginCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
             new Password(ADMIN_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.50")
         );
 
         // Act: Execute login
-        LoginResult result = loginHandler.handle(loginCmd);
+        final LoginResult result = loginHandler.handle(loginCmd);
 
         // Assert: Login succeeds with valid tokens
         result.mapTo(success -> {
@@ -135,14 +135,14 @@ class AdminLoginMockIntegrationTest {
     @Test
     void testAdminLoginWithIncorrectPassword() {
         // Arrange: Wrong password for admin user
-        LoginCommand loginCmd = new LoginCommand(
+        final LoginCommand loginCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
             new Password("wrong_password".toCharArray()),
             IpAddress.of("192.168.1.50")
         );
 
         // Act: Execute login
-        LoginResult result = loginHandler.handle(loginCmd);
+        final LoginResult result = loginHandler.handle(loginCmd);
 
         // Assert: Login fails with generic error
         result.mapTo(ignoredSuccess -> {
@@ -168,16 +168,16 @@ class AdminLoginMockIntegrationTest {
     @Test
     void testAdminUserExistsInRepository() {
         // Act: Retrieve admin user from repository by username
-        var adminCredential = userRepository.findCredentialsByUsername(new Username(ADMIN_USERNAME));
+        final var adminCredential = userRepository.findCredentialsByUsername(new Username(ADMIN_USERNAME));
 
         // Assert: Admin user exists
         assertTrue(adminCredential.isPresent(), "Admin user should exist");
         
         // Get the user to check it was stored correctly
-        var userOptional = userRepository.findById(adminCredential.get().userId());
+        final var userOptional = userRepository.findById(adminCredential.get().userId());
         assertTrue(userOptional.isPresent(), "Admin user should be retrievable by ID");
         
-        User adminUser = userOptional.get();
+        final User adminUser = userOptional.get();
         assertEquals(ADMIN_USERNAME, adminUser.username().value(),
             "Admin username should match");
     }
@@ -193,17 +193,17 @@ class AdminLoginMockIntegrationTest {
     @Test
     void testAdminLoginRateLimiting() {
         // Arrange: Same IP address for all attempts
-        String ipAddress = "192.168.1.100";
+        final String ipAddress = "192.168.1.100";
         
         // Act & Assert: First 5 attempts should not be rate limited
         for (int attemptNumber = 1; attemptNumber <= 5; attemptNumber++) {
-            LoginCommand loginCmd = new LoginCommand(
+            final LoginCommand loginCmd = new LoginCommand(
                 Username.of(ADMIN_USERNAME),
                 new Password(ADMIN_PASSWORD.toCharArray()),
                 IpAddress.of(ipAddress)
             );
             
-            LoginResult result = loginHandler.handle(loginCmd);
+            final LoginResult result = loginHandler.handle(loginCmd);
             
             // First 5 should succeed (not rate limited)
             final int attempt = attemptNumber;
@@ -221,13 +221,13 @@ class AdminLoginMockIntegrationTest {
         }
         
         // Act: 6th attempt should be rate limited
-        LoginCommand rateLimitedCmd = new LoginCommand(
+        final LoginCommand rateLimitedCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
             new Password(ADMIN_PASSWORD.toCharArray()),
             IpAddress.of(ipAddress)
         );
         
-        LoginResult rateLimitedResult = loginHandler.handle(rateLimitedCmd);
+        final LoginResult rateLimitedResult = loginHandler.handle(rateLimitedCmd);
         
         // Assert: 6th attempt is rate limited
         rateLimitedResult.mapTo(ignoredSuccess -> {
@@ -251,21 +251,21 @@ class AdminLoginMockIntegrationTest {
     @Test
     void testAdminLoginRateLimitingPerIP() {
         // Arrange: Different IP addresses
-        String[] ipAddresses = {
+        final String[] ipAddresses = {
             "192.168.1.100",
             "192.168.1.101",
             "192.168.1.102"
         };
 
         // Act & Assert: Login from 3 different IPs should all succeed
-        for (String ipAddress : ipAddresses) {
-            LoginCommand loginCmd = new LoginCommand(
+        for (final String ipAddress : ipAddresses) {
+            final LoginCommand loginCmd = new LoginCommand(
                 Username.of(ADMIN_USERNAME),
                 new Password(ADMIN_PASSWORD.toCharArray()),
                 IpAddress.of(ipAddress)
             );
 
-            LoginResult result = loginHandler.handle(loginCmd);
+            final LoginResult result = loginHandler.handle(loginCmd);
 
             // Assert: Each IP address should be able to log in
             result.mapTo(success -> {
@@ -293,17 +293,17 @@ class AdminLoginMockIntegrationTest {
     @Test
     void testAdminLoginTokenTimestamp() {
         // Arrange: Fixed time for verification
-        Instant testTime = Instant.parse("2025-12-30T10:00:00Z");
+        final Instant testTime = Instant.parse("2025-12-30T10:00:00Z");
         clock.setCurrentTime(testTime);
 
-        LoginCommand loginCmd = new LoginCommand(
+        final LoginCommand loginCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
             new Password(ADMIN_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.50")
         );
 
         // Act: Execute login
-        LoginResult result = loginHandler.handle(loginCmd);
+        final LoginResult result = loginHandler.handle(loginCmd);
 
         // Assert: Token timestamp is correct
         result.mapTo(success -> {

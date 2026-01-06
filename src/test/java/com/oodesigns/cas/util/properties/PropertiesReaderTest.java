@@ -79,10 +79,10 @@ class PropertiesReaderTest {
 
     @Test
     void constructorThrowsOnIOException() {
-        FileLoaderProvider failingProvider = fileName -> {
+        final FileLoaderProvider failingProvider = fileName -> {
             throw new java.io.IOException("Simulated IO failure");
         };
-        PropertiesReaderException ex = assertThrows(PropertiesReaderException.class, () -> new PropertiesReader("application.properties", s -> s, failingProvider));
+        final PropertiesReaderException ex = assertThrows(PropertiesReaderException.class, () -> new PropertiesReader("application.properties", s -> s, failingProvider));
         assert ex.getMessage().contains("Failed to parse");
         assert ex.getCause() instanceof java.io.IOException;
     }

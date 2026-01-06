@@ -24,7 +24,7 @@ public final class PropertiesReader {
      * @param fileLoaderProvider The provider for loading file content (allows dependency injection for testing)
      * @throws PropertiesReaderException if the file cannot be loaded or parsed
      */
-    public PropertiesReader(final String fileName, final UnaryOperator<String> transformer, FileLoaderProvider fileLoaderProvider) {
+    public PropertiesReader(final String fileName, final UnaryOperator<String> transformer, final FileLoaderProvider fileLoaderProvider) {
         this.transformer = transformer;
         this.properties = new Properties();
         try {
