@@ -77,7 +77,7 @@ class AdminLoginDatabaseIntegrationTest {
         // Create real JWT token signer with secret from environment
         final String jwtSecret = System.getenv().get("JWT_SECRET");
         final JwtTokenSigner tokenSigner = new JwtTokenSigner(
-            ignoredKeyId -> java.util.Optional.of(com.oodesigns.cas.domain.value.KeyPassword.fromString(jwtSecret)),
+            ignoredKeyId -> java.util.Optional.of(com.oodesigns.cas.domain.value.KeyPassword.of(jwtSecret)),
             "default"
         );
 

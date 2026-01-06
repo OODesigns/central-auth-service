@@ -16,50 +16,34 @@ public class KeyPassword extends Password {
 
     private KeyPassword(final char[] passwordChars) {
         super(passwordChars);
-    }
-
-    /**
-     * Create a KeyPassword from a char array, enforcing minimum length requirements.
-     * The provided array is not retained; callers should clear it after invocation.
-     *
-     * @param passwordChars secret key characters
-     * @return validated KeyPassword instance
-     * @throws IllegalArgumentException if characters are null or insufficient length
-     */
-    public static KeyPassword of(final char[] passwordChars) {
-        Objects.requireNonNull(passwordChars, "Secret key cannot be null");
         if (passwordChars.length < MINIMUM_BYTES) {
             throw new IllegalArgumentException("Secret key must be at least 32 characters (256 bits) for HS256");
         }
+    }
+
+    /**
+     * Create a KeyPassword from a char array.
+     * Validates that the key meets minimum length requirements.
+     *
+     * @param passwordChars the secret key as char array
+     * @return KeyPassword instance
+     * @throws IllegalArgumentException if key is null, empty, or insufficient length
+     */
+    public static KeyPassword of(final char[] passwordChars) {
         return new KeyPassword(passwordChars);
     }
 
     /**
-     * Convenience factory for creating a KeyPassword from a String.
+     * Create a KeyPassword from a String.
      * Intended for testing; avoid using in production code where Strings cannot be cleared.
      *
      * @param secret secret key as String
      * @return KeyPassword instance
-     */
-    public static KeyPassword fromString(final String secret) {
-        return of(secret);
-    }
-
-    /**
-     * Convenience factory for creating a KeyPassword from a String.
-     * Intended for testing; avoid using in production code where Strings cannot be cleared.
-     *
-     * @param secret secret key as String
-     * @return KeyPassword instance
+     * @throws NullPointerException if secret is null
      */
     public static KeyPassword of(final String secret) {
         Objects.requireNonNull(secret, "Secret key cannot be null");
-        final char[] chars = secret.toCharArray();
-        try {
-            return of(chars);
-        } finally {
-            Arrays.fill(chars, '\0');
-        }
+        return KeyPassword.of(secret.toCharArray());
     }
 
     /**

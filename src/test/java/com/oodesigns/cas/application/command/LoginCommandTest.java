@@ -80,32 +80,30 @@ class LoginCommandTest {
     @Test
     void testPasswordCharArrayCloned() {
         final char[] original = "password123".toCharArray();
-        final Password password = new Password(original);
-        
-        original[0] = 'X';
-        
-        assertEquals('p', password.chars()[0]);
+        try (final Password password = new Password(original)) {
+            original[0] = 'X';
+            assertEquals('p', password.chars()[0]);
+        }
     }
 
     @Test
     void testPasswordCharArrayNotMutableViaGetter() {
-        final Password password = new Password("password123".toCharArray());
-        
-        final char[] retrieved = password.chars();
-        retrieved[0] = 'X';
-        
-        assertEquals('p', password.chars()[0]);
+        try (final Password password = new Password("password123".toCharArray())) {
+            final char[] retrieved = password.chars();
+            retrieved[0] = 'X';
+            assertEquals('p', password.chars()[0]);
+        }
     }
 
     @Test
     void testPasswordClear() {
         final char[] passwordChars = "secret".toCharArray();
-        final Password password = new Password(passwordChars);
-        
-        password.clear();
-        
-        for (final char c : password.chars()) {
-            assertEquals('\0', c);
+        try (final Password password = new Password(passwordChars)) {
+            password.clear();
+            
+            for (final char c : password.chars()) {
+                assertEquals('\0', c);
+            }
         }
     }
 

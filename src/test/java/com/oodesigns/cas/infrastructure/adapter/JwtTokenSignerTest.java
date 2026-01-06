@@ -29,7 +29,7 @@ class JwtTokenSignerTest {
 
     @BeforeEach
     void setUp() {
-        signer = new JwtTokenSigner(_ -> java.util.Optional.of(KeyPassword.fromString(TEST_SECRET)), "test-key");
+        signer = new JwtTokenSigner(_ -> java.util.Optional.of(KeyPassword.of(TEST_SECRET)), "test-key");
     }
 
     @Test
@@ -48,7 +48,7 @@ class JwtTokenSignerTest {
     @Test
     @DisplayName("Should throw NullPointerException for null keyId")
     void shouldThrowForNullKeyId() {
-        assertThrows(NullPointerException.class, () -> new JwtTokenSigner(_ -> java.util.Optional.of(KeyPassword.fromString(TEST_SECRET)), null),
+        assertThrows(NullPointerException.class, () -> new JwtTokenSigner(_ -> java.util.Optional.of(KeyPassword.of(TEST_SECRET)), null),
                 "Should throw NullPointerException for null keyId");
     }
 
@@ -57,7 +57,7 @@ class JwtTokenSignerTest {
     void shouldReturnEmptyForInsufficientKeyLength() {
         final JwtTokenSigner shortKeySigner = new JwtTokenSigner(ignored -> {
             try {
-                return java.util.Optional.of(KeyPassword.fromString("short"));
+                return java.util.Optional.of(KeyPassword.of("short"));
             } catch (IllegalArgumentException _) {
                 return java.util.Optional.empty();
             }

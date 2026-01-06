@@ -19,38 +19,37 @@ class PasswordTest {
     @Test
     void testValidPassword() {
         final char[] chars = "myPassword123".toCharArray();
-        final Password password = new Password(chars);
-        assertArrayEquals(chars, password.chars());
+        try (final Password password = new Password(chars)) {
+            assertArrayEquals(chars, password.chars());
+        }
     }
 
     @Test
     void testPasswordCharArrayCloned() {
         final char[] original = "password123".toCharArray();
-        final Password password = new Password(original);
-        
-        original[0] = 'X';
-        
-        assertEquals('p', password.chars()[0]);
+        try (final Password password = new Password(original)) {
+            original[0] = 'X';
+            assertEquals('p', password.chars()[0]);
+        }
     }
 
     @Test
     void testPasswordCharArrayNotMutableViaGetter() {
-        final Password password = new Password("password123".toCharArray());
-        
-        final char[] retrieved = password.chars();
-        retrieved[0] = 'X';
-        
-        assertEquals('p', password.chars()[0]);
+        try (final Password password = new Password("password123".toCharArray())) {
+            final char[] retrieved = password.chars();
+            retrieved[0] = 'X';
+            assertEquals('p', password.chars()[0]);
+        }
     }
 
     @Test
     void testPasswordClear() {
-        final Password password = new Password("secret".toCharArray());
-        
-        password.clear();
-        
-        for (final char c : password.chars()) {
-            assertEquals('\0', c);
+        try (final Password password = new Password("secret".toCharArray())) {
+            password.clear();
+            
+            for (final char c : password.chars()) {
+                assertEquals('\0', c);
+            }
         }
     }
 
@@ -67,67 +66,74 @@ class PasswordTest {
     @Test
     void testOfFactory() {
         final char[] chars = "factoryPassword".toCharArray();
-        final Password password = Password.of(chars);
-        assertArrayEquals(chars, password.chars());
+        try (final Password password = Password.of(chars)) {
+            assertArrayEquals(chars, password.chars());
+        }
     }
 
     @Test
-    void testFromStringFactory() {
-        final Password password = Password.fromString("stringPassword");
-        assertArrayEquals("stringPassword".toCharArray(), password.chars());
+    void testOfFactoryString() {
+        try (final Password password = Password.of("stringPassword")) {
+            assertArrayEquals("stringPassword".toCharArray(), password.chars());
+        }
     }
 
     @Test
-    void testFromStringNullThrows() {
-        assertThrows(IllegalArgumentException.class, () -> Password.fromString(null));
+    void testOfStringNullThrows() {
+        assertThrows(NullPointerException.class, () -> Password.of((String) null));
     }
 
     @Test
-    void testFromStringEmptyThrows() {
-        assertThrows(IllegalArgumentException.class, () -> Password.fromString(""));
+    void testOfStringEmptyThrows() {
+        assertThrows(IllegalArgumentException.class, () -> Password.of(""));
     }
 
     @Test
     void testToStringMasksPassword() {
-        final Password password = new Password("secret".toCharArray());
-        final String str = password.toString();
-        assertFalse(str.contains("secret"));
-        assertTrue(str.contains("***"));
+        try (final Password password = new Password("secret".toCharArray())) {
+            final String str = password.toString();
+            assertFalse(str.contains("secret"));
+            assertTrue(str.contains("***"));
+        }
     }
 
     @Test
     void testPasswordsWithSameContentAreEquivalent() {
         // Password is not a record - it doesn't override equals()
         // Test that content is equivalent by comparing chars()
-        final Password pwd1 = new Password("pass123".toCharArray());
-        final Password pwd2 = new Password("pass123".toCharArray());
-        assertArrayEquals(pwd1.chars(), pwd2.chars());
+        try (final Password pwd1 = new Password("pass123".toCharArray());
+             final Password pwd2 = new Password("pass123".toCharArray())) {
+            assertArrayEquals(pwd1.chars(), pwd2.chars());
+        }
     }
 
     @Test
     void testPasswordsWithDifferentContentAreDifferent() {
-        final Password pwd1 = new Password("pass123".toCharArray());
-        final Password pwd2 = new Password("pass456".toCharArray());
-        final char[] pwd1Chars = pwd1.chars();
-        final char[] pwd2Chars = pwd2.chars();
-        assertNotEquals(new String(pwd1Chars), new String(pwd2Chars));
+        try (final Password pwd1 = new Password("pass123".toCharArray());
+             final Password pwd2 = new Password("pass456".toCharArray())) {
+            final char[] pwd1Chars = pwd1.chars();
+            final char[] pwd2Chars = pwd2.chars();
+            assertNotEquals(new String(pwd1Chars), new String(pwd2Chars));
+        }
     }
 
     @Test
     void testPasswordCharArrayIndependence() {
         // Verify that two Password instances with same content are independent
-        final Password pwd1 = new Password("pass123".toCharArray());
-        final Password pwd2 = new Password("pass123".toCharArray());
-        // Clearing one doesn't affect the other
-        pwd1.clear();
-        assertFalse(Arrays.equals(pwd1.chars(), pwd2.chars()));
+        try (final Password pwd1 = new Password("pass123".toCharArray());
+             final Password pwd2 = new Password("pass123".toCharArray())) {
+            // Clearing one doesn't affect the other
+            pwd1.clear();
+            assertFalse(Arrays.equals(pwd1.chars(), pwd2.chars()));
+        }
     }
 
     @Test
     void testPasswordToStringDefaultResponse() {
-        final Password password = new Password("anyPassword".toCharArray());
-        final String str = password.toString();
-        assertEquals("Password{***}", str);
+        try (final Password password = new Password("anyPassword".toCharArray())) {
+            final String str = password.toString();
+            assertEquals("Password{***}", str);
+        }
     }
 
     @Nested
@@ -144,8 +150,9 @@ class PasswordTest {
         })
         void testPasswordWithVariousCharacterTypes(final String passwordString) {
             final char[] chars = passwordString.toCharArray();
-            final Password password = new Password(chars);
-            assertArrayEquals(chars, password.chars());
+            try (final Password password = new Password(chars)) {
+                assertArrayEquals(chars, password.chars());
+            }
         }
     }
 
@@ -156,24 +163,27 @@ class PasswordTest {
         @Test
         void testSingleCharacterPassword() {
             final char[] chars = "a".toCharArray();
-            final Password password = new Password(chars);
-            assertArrayEquals(chars, password.chars());
-            assertEquals(1, password.chars().length);
+            try (final Password password = new Password(chars)) {
+                assertArrayEquals(chars, password.chars());
+                assertEquals(1, password.chars().length);
+            }
         }
 
         @Test
         void testVeryLongPassword() {
             final char[] chars = new char[10000];
             Arrays.fill(chars, 'a');
-            final Password password = new Password(chars);
-            assertEquals(10000, password.chars().length);
+            try (final Password password = new Password(chars)) {
+                assertEquals(10000, password.chars().length);
+            }
         }
 
         @Test
         void testPasswordWithAllNumericChars() {
             final char[] chars = "1234567890".toCharArray();
-            final Password password = new Password(chars);
-            assertArrayEquals(chars, password.chars());
+            try (final Password password = new Password(chars)) {
+                assertArrayEquals(chars, password.chars());
+            }
         }
     }
 
@@ -183,35 +193,38 @@ class PasswordTest {
 
         @Test
         void testClearFillsAllCharactersWithNull() {
-            final Password password = new Password("verysecret123password".toCharArray());
-            password.clear();
+            try (final Password password = new Password("verysecret123password".toCharArray())) {
+                password.clear();
 
-            final char[] cleared = password.chars();
-            for (final char c : cleared) {
-                assertEquals('\0', c, "All characters should be null after clear");
+                final char[] cleared = password.chars();
+                for (final char c : cleared) {
+                    assertEquals('\0', c, "All characters should be null after clear");
+                }
             }
         }
 
         @Test
         void testClearCanBeCalledMultipleTimes() {
-            final Password password = new Password("password".toCharArray());
-            password.clear();
-            password.clear();
-            password.clear();
+            try (final Password password = new Password("password".toCharArray())) {
+                password.clear();
+                password.clear();
+                password.clear();
 
-            for (final char c : password.chars()) {
-                assertEquals('\0', c);
+                for (final char c : password.chars()) {
+                    assertEquals('\0', c);
+                }
             }
         }
 
         @Test
         void testClearedPasswordIsStillAccessible() {
-            final Password password = new Password("password".toCharArray());
-            password.clear();
+            try (final Password password = new Password("password".toCharArray())) {
+                password.clear();
 
-            // Should not throw exception, just return cleared array
-            assertNotNull(password.chars());
-            assertEquals(8, password.chars().length);
+                // Should not throw exception, just return cleared array
+                assertNotNull(password.chars());
+                assertEquals(8, password.chars().length);
+            }
         }
     }
 
@@ -222,30 +235,34 @@ class PasswordTest {
         @Test
         void testOfFactoryPreservesContent() {
             final char[] original = "factoryTest123".toCharArray();
-            final Password pwd = Password.of(original);
-            assertArrayEquals(original, pwd.chars());
+            try (final Password pwd = Password.of(original)) {
+                assertArrayEquals(original, pwd.chars());
+            }
         }
 
         @Test
         void testOfFactoryIndependentFromSource() {
             final char[] original = "factory".toCharArray();
-            final Password pwd = Password.of(original);
-            original[0] = 'X';
-            assertEquals('f', pwd.chars()[0]);
+            try (final Password pwd = Password.of(original)) {
+                original[0] = 'X';
+                assertEquals('f', pwd.chars()[0]);
+            }
         }
 
         @Test
-        void testFromStringFactoryPreservesContent() {
+        void testOfStringFactoryPreservesContent() {
             final String str = "stringPassword123";
-            final Password pwd = Password.fromString(str);
-            assertEquals(str, new String(pwd.chars()));
+            try (final Password pwd = Password.of(str)) {
+                assertEquals(str, new String(pwd.chars()));
+            }
         }
 
         @Test
-        void testFromStringWithSpecialCharacters() {
+        void testOfStringWithSpecialCharacters() {
             final String str = "P@$$w0rd!@#$%";
-            final Password pwd = Password.fromString(str);
-            assertEquals(str, new String(pwd.chars()));
+            try (final Password pwd = Password.of(str)) {
+                assertEquals(str, new String(pwd.chars()));
+            }
         }
     }
 
@@ -272,19 +289,19 @@ class PasswordTest {
         }
 
         @Test
-        void testFromStringThrowsForNull() {
-            final IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> Password.fromString(null)
+        void testOfStringThrowsForNull() {
+            final NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> Password.of((String) null)
             );
-            assertTrue(exception.getMessage().contains("cannot be null or empty"));
+            assertTrue(exception.getMessage().contains("cannot be null"));
         }
 
         @Test
-        void testFromStringThrowsForEmptyString() {
+        void testOfStringThrowsForEmptyString() {
             final IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> Password.fromString("")
+                () -> Password.of("")
             );
             assertTrue(exception.getMessage().contains("cannot be null or empty"));
         }
@@ -296,34 +313,35 @@ class PasswordTest {
 
         @Test
         void testMultipleCallsToCharsReturnIndependentCopies() {
-            final Password password = new Password("password".toCharArray());
+            try (final Password password = new Password("password".toCharArray())) {
+                final char[] first = password.chars();
+                final char[] second = password.chars();
 
-            final char[] first = password.chars();
-            final char[] second = password.chars();
-
-            first[0] = 'X';
-            assertEquals('p', second[0], "Modifying one copy should not affect another");
+                first[0] = 'X';
+                assertEquals('p', second[0], "Modifying one copy should not affect another");
+            }
         }
 
         @Test
         void testIndependentPasswordInstances() {
-            final Password pwd1 = new Password("pass123".toCharArray());
-            final Password pwd2 = new Password("pass123".toCharArray());
+            try (final Password pwd1 = new Password("pass123".toCharArray());
+                 final Password pwd2 = new Password("pass123".toCharArray())) {
+                pwd1.clear();
 
-            pwd1.clear();
-
-            assertNotEquals('\0', pwd2.chars()[0], "Clearing one instance should not affect another");
-            assertEquals('p', pwd2.chars()[0]);
+                assertNotEquals('\0', pwd2.chars()[0], "Clearing one instance should not affect another");
+                assertEquals('p', pwd2.chars()[0]);
+            }
         }
 
         @Test
         void testToStringDoesNotExposePassword() {
-            final Password password = new Password("secretPassword123".toCharArray());
-            final String str = password.toString();
+            try (final Password password = new Password("secretPassword123".toCharArray())) {
+                final String str = password.toString();
 
-            assertFalse(str.contains("secretPassword123"));
-            assertFalse(str.contains("secret"));
-            assertTrue(str.contains("***"));
+                assertFalse(str.contains("secretPassword123"));
+                assertFalse(str.contains("secret"));
+                assertTrue(str.contains("***"));
+            }
         }
     }
 
@@ -333,34 +351,93 @@ class PasswordTest {
 
         @Test
         void testSameContentPasswordsAreEquivalent() {
-            final Password pwd1 = new Password("identical".toCharArray());
-            final Password pwd2 = new Password("identical".toCharArray());
-
-            assertArrayEquals(pwd1.chars(), pwd2.chars());
+            try (final Password pwd1 = new Password("identical".toCharArray());
+                 final Password pwd2 = new Password("identical".toCharArray())) {
+                assertArrayEquals(pwd1.chars(), pwd2.chars());
+            }
         }
 
         @Test
         void testDifferentContentPasswordsAreDifferent() {
-            final Password pwd1 = new Password("password1".toCharArray());
-            final Password pwd2 = new Password("password2".toCharArray());
-
-            assertFalse(Arrays.equals(pwd1.chars(), pwd2.chars()));
+            try (final Password pwd1 = new Password("password1".toCharArray());
+                 final Password pwd2 = new Password("password2".toCharArray())) {
+                assertFalse(Arrays.equals(pwd1.chars(), pwd2.chars()));
+            }
         }
 
         @Test
         void testPasswordLengthPreserved() {
             final String originalStr = "myPassword123456";
-            final Password password = new Password(originalStr.toCharArray());
-
-            assertEquals(originalStr.length(), password.chars().length);
+            try (final Password password = new Password(originalStr.toCharArray())) {
+                assertEquals(originalStr.length(), password.chars().length);
+            }
         }
 
         @Test
         void testCaseSensitivity() {
-            final Password pwd1 = new Password("PassWord".toCharArray());
-            final Password pwd2 = new Password("password".toCharArray());
+            try (final Password pwd1 = new Password("PassWord".toCharArray());
+                 final Password pwd2 = new Password("password".toCharArray())) {
+                assertFalse(Arrays.equals(pwd1.chars(), pwd2.chars()));
+            }
+        }
+    }
 
-            assertFalse(Arrays.equals(pwd1.chars(), pwd2.chars()));
+    @Nested
+    @DisplayName("AutoCloseable and close() Tests")
+    class AutoCloseableTests {
+
+        @Test
+        void testCloseImplementsAutoCloseable() {
+            try (final Password password = new Password("password".toCharArray())) {
+                assertTrue(password instanceof AutoCloseable);
+            }
+        }
+
+        @Test
+        void testCloseMethodClearsPassword() {
+            final Password password = new Password("secretPassword".toCharArray());
+            password.close();
+
+            for (final char c : password.chars()) {
+                assertEquals('\0', c, "All characters should be null after close()");
+            }
+        }
+
+        @Test
+        void testTryWithResourcesAutomaticallyCloses() {
+            final char[] testChars = "password123".toCharArray();
+            try (final Password password = new Password(testChars)) {
+                assertArrayEquals(testChars, password.chars());
+                
+                password.clear();
+                
+                for (final char c : password.chars()) {
+                    assertEquals('\0', c, "Password should be cleared");
+                }
+            }
+        }
+
+        @Test
+        void testCloseCanBeCalledMultipleTimes() {
+            final Password password = new Password("password".toCharArray());
+            password.close();
+            password.close();
+            password.close();
+
+            for (final char c : password.chars()) {
+                assertEquals('\0', c);
+            }
+        }
+
+        @Test
+        void testCloseAndClearBothClearPassword() {
+            try (final Password password1 = new Password("password".toCharArray());
+                 final Password password2 = new Password("password".toCharArray())) {
+                password1.close();
+                password2.clear();
+
+                assertArrayEquals(password1.chars(), password2.chars());
+            }
         }
     }
 }

@@ -69,19 +69,20 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
     }
 
     private Optional<String> signWithPassword(final Payload payload, final Instant expiresAt, final KeyPassword password) {
-        final byte[] secretKey = password.toUtf8Bytes();
-        try {
-            final String token = Jwts.builder()
-                    .claim("payload", payload.toString())
-                    .expiration(Date.from(expiresAt))
-                    .signWith(Keys.hmacShaKeyFor(secretKey), Jwts.SIG.HS256)
-                    .compact();
-            return Optional.of(token);
-        } catch (final RuntimeException _) {
-            return Optional.empty();
-        } finally {
-            Arrays.fill(secretKey, (byte) 0);
-            password.clear();
+        try (password) {
+            final byte[] secretKey = password.toUtf8Bytes();
+            try {
+                final String token = Jwts.builder()
+                        .claim("payload", payload.toString())
+                        .expiration(Date.from(expiresAt))
+                        .signWith(Keys.hmacShaKeyFor(secretKey), Jwts.SIG.HS256)
+                        .compact();
+                return Optional.of(token);
+            } catch (final RuntimeException _) {
+                return Optional.empty();
+            } finally {
+                Arrays.fill(secretKey, (byte) 0);
+            }
         }
     }
 }

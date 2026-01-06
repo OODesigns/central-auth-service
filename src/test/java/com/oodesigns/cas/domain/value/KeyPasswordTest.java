@@ -52,28 +52,28 @@ class KeyPasswordTest {
     }
 
     @Test
-    void fromStringWithValidSecretCreatesKeyPassword() {
-        final KeyPassword keyPassword = KeyPassword.fromString(VALID_SECRET_32_CHARS);
+    void ofWithValidStringCreatesKeyPassword() {
+        final KeyPassword keyPassword = KeyPassword.of(VALID_SECRET_32_CHARS);
         assertNotNull(keyPassword);
     }
 
     @Test
-    void fromStringWithNullThrowsNullPointerException() {
-        assertThrows(NullPointerException.class, () -> KeyPassword.fromString(null));
+    void ofWithNullStringThrowsNullPointerException() {
+        assertThrows(NullPointerException.class, () -> KeyPassword.of((String) null));
     }
 
     @Test
-    void fromStringWithInsufficientLengthThrowsIllegalArgumentException() {
+    void ofWithStringInsufficientLengthThrowsIllegalArgumentException() {
         final IllegalArgumentException ex = assertThrows(
             IllegalArgumentException.class,
-            () -> KeyPassword.fromString("short")
+            () -> KeyPassword.of("short")
         );
         assertTrue(ex.getMessage().contains("32 characters"));
     }
 
     @Test
     void toUtf8BytesConvertsPasswordToBytes() {
-        final KeyPassword keyPassword = KeyPassword.fromString(VALID_SECRET_32_CHARS);
+        final KeyPassword keyPassword = KeyPassword.of(VALID_SECRET_32_CHARS);
         final byte[] utf8Bytes = keyPassword.toUtf8Bytes();
         assertNotNull(utf8Bytes);
         assertTrue(utf8Bytes.length >= 32, "UTF-8 encoded bytes should be at least 32 bytes");
@@ -81,9 +81,9 @@ class KeyPasswordTest {
 
     @Test
     void toUtf8BytesWithLongerSecretProducesMoreBytes() {
-        final KeyPassword keyPassword32 = KeyPassword.fromString(VALID_SECRET_32_CHARS);
-        final KeyPassword keyPassword64 = KeyPassword.fromString(VALID_SECRET_64_CHARS);
-        
+        final KeyPassword keyPassword32 = KeyPassword.of(VALID_SECRET_32_CHARS);
+        final KeyPassword keyPassword64 = KeyPassword.of(VALID_SECRET_64_CHARS);
+
         final byte[] bytes32 = keyPassword32.toUtf8Bytes();
         final byte[] bytes64 = keyPassword64.toUtf8Bytes();
         
@@ -92,7 +92,7 @@ class KeyPasswordTest {
 
     @Test
     void multipleCallsToToUtf8BytesProduceIdenticalResults() {
-        final KeyPassword keyPassword = KeyPassword.fromString(VALID_SECRET_32_CHARS);
+        final KeyPassword keyPassword = KeyPassword.of(VALID_SECRET_32_CHARS);
         final byte[] bytes1 = keyPassword.toUtf8Bytes();
         final byte[] bytes2 = keyPassword.toUtf8Bytes();
         
@@ -100,10 +100,10 @@ class KeyPasswordTest {
     }
 
     @Test
-    void fromStringWithInvalidLengthClearsCharArrayInFinally() {
+    void ofWithStringInvalidLengthClearsCharArrayInFinally() {
         // This test verifies the finally block clears the char array even when exception is thrown
         // The test passes if no exception escapes (finally block executed)
-        assertThrows(IllegalArgumentException.class, () -> KeyPassword.fromString("tooshort"));
+        assertThrows(IllegalArgumentException.class, () -> KeyPassword.of("tooshort"));
         // If we reach here, the finally block successfully executed
     }
 
@@ -123,7 +123,7 @@ class KeyPasswordTest {
     void toUtf8BytesWithSpecialCharactersEncodesCorrectly() {
         // Test with characters that encode to multiple bytes in UTF-8
         final String secret = "ñ".repeat(32); // ñ is 2 bytes in UTF-8
-        final KeyPassword keyPassword = KeyPassword.fromString(secret);
+        final KeyPassword keyPassword = KeyPassword.of(secret);
         final byte[] bytes = keyPassword.toUtf8Bytes();
         
         assertNotNull(bytes);
@@ -132,7 +132,7 @@ class KeyPasswordTest {
 
     @Test
     void toUtf8BytesWithExactly32BytesSucceeds() {
-        final KeyPassword keyPassword = KeyPassword.fromString("x".repeat(32));
+        final KeyPassword keyPassword = KeyPassword.of("x".repeat(32));
         final byte[] bytes = keyPassword.toUtf8Bytes();
         
         assertEquals(32, bytes.length);
@@ -142,7 +142,7 @@ class KeyPasswordTest {
     void toUtf8BytesWithUnicodeCharactersEncodesCorrectly() {
         // Test with emoji and other Unicode characters
         final String secret = "🔐".repeat(16) + "x".repeat(16); // Mix of multibyte and single-byte
-        final KeyPassword keyPassword = KeyPassword.fromString(secret);
+        final KeyPassword keyPassword = KeyPassword.of(secret);
         final byte[] bytes = keyPassword.toUtf8Bytes();
         
         assertNotNull(bytes);
@@ -150,19 +150,13 @@ class KeyPasswordTest {
     }
 
     @Test
-    void ofWithEmptyCharArrayThrowsIllegalArgumentException() {
-        final char[] emptyChars = new char[0];
-        assertThrows(IllegalArgumentException.class, () -> KeyPassword.of(emptyChars));
-    }
-
-    @Test
-    void fromStringWithEmptyStringThrowsIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class, () -> KeyPassword.fromString(""));
+    void ofWithEmptyStringThrowsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () -> KeyPassword.of(""));
     }
 
     @Test
     void keyPasswordInheritsPasswordBehavior() {
-        final KeyPassword keyPassword = KeyPassword.fromString(VALID_SECRET_32_CHARS);
+        final KeyPassword keyPassword = KeyPassword.of(VALID_SECRET_32_CHARS);
         final char[] chars = keyPassword.chars();
         
         assertNotNull(chars);
@@ -171,7 +165,7 @@ class KeyPasswordTest {
 
     @Test
     void keyPasswordClearMethodWorks() {
-        final KeyPassword keyPassword = KeyPassword.fromString(VALID_SECRET_32_CHARS);
+        final KeyPassword keyPassword = KeyPassword.of(VALID_SECRET_32_CHARS);
         keyPassword.clear();
         
         final char[] clearedChars = keyPassword.chars();
@@ -182,7 +176,7 @@ class KeyPasswordTest {
 
     @Test
     void toUtf8BytesReturnsNewArrayEachCall() {
-        final KeyPassword keyPassword = KeyPassword.fromString(VALID_SECRET_32_CHARS);
+        final KeyPassword keyPassword = KeyPassword.of(VALID_SECRET_32_CHARS);
         final byte[] bytes1 = keyPassword.toUtf8Bytes();
         final byte[] bytes2 = keyPassword.toUtf8Bytes();
         

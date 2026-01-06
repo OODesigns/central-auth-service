@@ -20,8 +20,8 @@ public final class Payload extends ValidatedValue<String, String> {
 
     @Override
     protected String validate(final String value) {
-        if (value.isEmpty()) {
-            throw new IllegalArgumentException("Payload cannot be empty");
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Payload cannot be blank");
         }
         return value;
     }

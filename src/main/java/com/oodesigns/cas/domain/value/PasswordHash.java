@@ -32,4 +32,15 @@ public final class PasswordHash extends ValidatedValue<String, String> {
     protected String getDisplayValue() {
         return "PasswordHash(****)";
     }
+
+    /**
+     * Factory method to create a validated password hash.
+     *
+     * @param hash the bcrypt password hash
+     * @return PasswordHash instance containing the provided value
+     * @throws IllegalArgumentException if hash is null, blank, or not in valid bcrypt format
+     */
+    public static PasswordHash of(final String hash) {
+        return new PasswordHash(hash);
+    }
 }

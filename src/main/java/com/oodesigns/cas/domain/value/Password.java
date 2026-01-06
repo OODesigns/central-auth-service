@@ -3,19 +3,24 @@ package com.oodesigns.cas.domain.value;
 import jakarta.annotation.Nonnull;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Value object representing a plaintext password.
  * Stores password as char[] for secure memory handling.
  * Ensures password can be zeroed out from memory after use.
+ * Implements the ValidatedValue pattern: parse then validate.
+ * 
+ * Implements AutoCloseable to support try-with-resources for automatic cleanup.
  */
-public class Password {
+public class Password implements AutoCloseable {
     private final char[] passwordChars;
 
     /**
      * Create a Password from a char array.
      * The provided char array is cloned internally for security.
-     * 
+     * Only performs null/empty validation; subclasses must validate via factory methods.
+     *
      * @param passwordChars the plaintext password as char array
      * @throws IllegalArgumentException if password is null or empty
      */
@@ -46,10 +51,20 @@ public class Password {
     }
 
     /**
+     * Closes this resource and securely clears the password from memory.
+     * Implements AutoCloseable to support try-with-resources.
+     */
+    @Override
+    public void close() {
+        clear();
+    }
+
+    /**
      * Create a Password from a char array.
      * 
      * @param passwordChars the plaintext password as char array
      * @return a new Password instance
+     * @throws IllegalArgumentException if passwordChars is null or empty
      */
     public static Password of(final char[] passwordChars) {
         return new Password(passwordChars);
@@ -62,14 +77,19 @@ public class Password {
     }
 
     /**
-     * Prevent creation of Password from String for security reasons.
+     * Create a Password from a String.
      * Strings are immutable and cannot be zeroed from memory.
-     * Use char[] instead.
+     * Use the char[] constructor/factory method when possible.
+     * <p>
+     * NOTE: This method is primarily for testing. In production, avoid creating
+     * Password from String since the String parameter cannot be cleared from memory.
+     *
+     * @param password the plaintext password as String
+     * @return a new Password instance
+     * @throws NullPointerException if password is null     
      */
-    public static Password fromString(final String password) {
-        if (password == null || password.isEmpty()) {
-            throw new IllegalArgumentException("Password cannot be null or empty");
-        }
-        return new Password(password.toCharArray());
+    public static Password of(final String password) {
+        Objects.requireNonNull(password, "Password cannot be null");
+        return Password.of(password.toCharArray());
     }
 }
