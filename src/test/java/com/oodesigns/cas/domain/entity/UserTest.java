@@ -26,7 +26,7 @@ class UserTest {
 
     @Test
     void testCreateNewUser() {
-        User user = new User(userId, username, Set.of());
+        final User user = new User(userId, username, Set.of());
         
         assertEquals(userId, user.userId());
         assertEquals(username, user.username());
@@ -35,19 +35,19 @@ class UserTest {
 
     @Test
     void testCreateThrowsWithNullUserId() {
-        Set<Permission> permissions = Set.of();
+        final Set<Permission> permissions = Set.of();
         assertThrows(NullPointerException.class, () -> new User(null, username, permissions));
     }
 
     @Test
     void testCreateThrowsWithNullUsername() {
-        Set<Permission> permissions = Set.of();
+        final Set<Permission> permissions = Set.of();
         assertThrows(NullPointerException.class, () -> new User(userId, null, permissions));
     }
 
     @Test
     void testGrantMultiplePermissions() {
-        User user = new User(userId, username, Set.of(
+        final User user = new User(userId, username, Set.of(
             Permission.of("view_users"),
             Permission.of("edit_profile")
         ));
@@ -59,44 +59,44 @@ class UserTest {
 
     @Test
     void testEqualityBasedOnAllFields() {
-        User user1 = new User(userId, username, Set.of());
-        User user2 = new User(userId, username, Set.of());
+        final User user1 = new User(userId, username, Set.of());
+        final User user2 = new User(userId, username, Set.of());
         
         assertEquals(user1, user2);
     }
 
     @Test
     void testInequalityDifferentUserIds() {
-        User user1 = new User(userId, username, Set.of());
-        User user2 = new User(UserId.generate(), username, Set.of());
+        final User user1 = new User(userId, username, Set.of());
+        final User user2 = new User(UserId.generate(), username, Set.of());
         
         assertNotEquals(user1, user2);
     }
 
     @Test
     void testInequalityDifferentUsernames() {
-        User user1 = new User(userId, username, Set.of());
-        User user2 = new User(userId, new Username("different"), Set.of());
+        final User user1 = new User(userId, username, Set.of());
+        final User user2 = new User(userId, new Username("different"), Set.of());
         
         assertNotEquals(user1, user2);
     }
 
     @Test
     void testHashCodeConsistency() {
-        User user1 = new User(userId, username, Set.of());
-        User user2 = new User(userId, username, Set.of());
+        final User user1 = new User(userId, username, Set.of());
+        final User user2 = new User(userId, username, Set.of());
         
         assertEquals(user1.hashCode(), user2.hashCode());
     }
 
     @Test
     void testImmutabilityGetPermissionsReturnsUnmodifiable() {
-        User user = new User(userId, username, Set.of(Permission.of("view_users")));
+        final User user = new User(userId, username, Set.of(Permission.of("view_users")));
         
-        Set<Permission> permissions = user.permissions();
+        final Set<Permission> permissions = user.permissions();
         
         // permissions returns unmodifiable set
-        Permission editProfile = Permission.of("edit_profile");
+        final Permission editProfile = Permission.of("edit_profile");
         assertThrows(UnsupportedOperationException.class, () -> permissions.add(editProfile));
 
         // Original user unchanged
@@ -105,10 +105,10 @@ class UserTest {
 
     @Test
     void testCanBeUsedInHashBasedCollections() {
-        User user1 = new User(userId, username, Set.of());
-        User user2 = new User(UserId.generate(), username, Set.of());
+        final User user1 = new User(userId, username, Set.of());
+        final User user2 = new User(UserId.generate(), username, Set.of());
 
-        Set<User> users = new HashSet<>();
+        final Set<User> users = new HashSet<>();
         users.add(user1);
         users.add(user2);
 
@@ -119,9 +119,9 @@ class UserTest {
 
     @Test
     void testToStringContainsUserIdAndUsername() {
-        User user = new User(userId, username, Set.of());
+        final User user = new User(userId, username, Set.of());
         
-        String str = user.toString();
+        final String str = user.toString();
         
         assertTrue(str.contains("User{"), "Should contain class name");
         assertTrue(str.contains(userId.toString()), "Should contain userId");

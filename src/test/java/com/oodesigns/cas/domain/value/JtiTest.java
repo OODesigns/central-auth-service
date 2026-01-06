@@ -13,7 +13,7 @@ class JtiTest {
 
     @Test
     void testGenerateCreatesValidUUID() {
-        Jti jti = Jti.generate();
+        final Jti jti = Jti.generate();
         assertNotNull(jti);
         assertNotNull(jti.asUUID());
         assertNotNull(jti.toString());
@@ -21,15 +21,15 @@ class JtiTest {
 
     @Test
     void testFromUUID() {
-        UUID uuid = UUID.randomUUID();
-        Jti jti = new Jti(uuid);
+        final UUID uuid = UUID.randomUUID();
+        final Jti jti = new Jti(uuid);
         assertEquals(uuid, jti.asUUID());
     }
 
     @Test
     void testFromString() {
-        String uuidStr = UUID.randomUUID().toString();
-        Jti jti = Jti.of(uuidStr);
+        final String uuidStr = UUID.randomUUID().toString();
+        final Jti jti = Jti.of(uuidStr);
         assertEquals(uuidStr, jti.toString());
     }
 
@@ -40,24 +40,24 @@ class JtiTest {
 
     @Test
     void testEqualityBasedOnUUID() {
-        UUID uuid = UUID.randomUUID();
-        Jti jti1 = new Jti(uuid);
-        Jti jti2 = new Jti(uuid);
+        final UUID uuid = UUID.randomUUID();
+        final Jti jti1 = new Jti(uuid);
+        final Jti jti2 = new Jti(uuid);
         assertEquals(jti1, jti2);
     }
 
     @Test
     void testInequalityDifferentUUIDs() {
-        Jti jti1 = Jti.generate();
-        Jti jti2 = Jti.generate();
+        final Jti jti1 = Jti.generate();
+        final Jti jti2 = Jti.generate();
         assertNotEquals(jti1, jti2);
     }
 
     @Test
     void testHashCodeConsistency() {
-        UUID uuid = UUID.randomUUID();
-        Jti jti1 = new Jti(uuid);
-        Jti jti2 = new Jti(uuid);
+        final UUID uuid = UUID.randomUUID();
+        final Jti jti1 = new Jti(uuid);
+        final Jti jti2 = new Jti(uuid);
         assertEquals(jti1.hashCode(), jti2.hashCode());
     }
 
@@ -73,8 +73,8 @@ class JtiTest {
 
     @Test
     void testToStringReturnsUUIDString() {
-        UUID uuid = UUID.randomUUID();
-        Jti jti = new Jti(uuid);
+        final UUID uuid = UUID.randomUUID();
+        final Jti jti = new Jti(uuid);
         assertEquals(uuid.toString(), jti.toString());
     }
 }

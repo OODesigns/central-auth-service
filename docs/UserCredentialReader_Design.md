@@ -129,7 +129,7 @@ public Ports.UserCredentialReader userCredentialReader(DataSource dataSource) {
 public class AuthenticationService {
     private final Ports.UserCredentialReader reader;
     
-    public Optional<UserId> authenticate(Credentials credentials) {
+    public Optional<UserId> authenticate(final Credentials credentials) {
         return reader.findCredentialsByUsername(credentials.username())
             .flatMap(userCred -> verifyPassword(userCred, credentials.password()));
     }

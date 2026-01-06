@@ -33,34 +33,34 @@ class JooqUserCredentialReaderTest {
 
     @Test
     void findCredentialsByUsername_ReturnsEmpty_WhenUsernameIsNull() {
-        Optional<UserCredential> result = reader.findCredentialsByUsername(null);
+        final Optional<UserCredential> result = reader.findCredentialsByUsername(null);
         assertTrue(result.isEmpty());
     }
 
     @Test
     void findCredentialsByUsername_ReturnsEmpty_WhenNoRecordFound() {
-        Username username = new Username("user");
+        final Username username = new Username("user");
         when(dsl.fetchOptional(any(String.class), any(Object.class))).thenReturn(Optional.empty());
 
-        Optional<UserCredential> result = reader.findCredentialsByUsername(username);
+        final Optional<UserCredential> result = reader.findCredentialsByUsername(username);
         assertTrue(result.isEmpty());
     }
 
     @Test
     void findCredentialsByUsername_ReturnsCredential_WhenRecordFound() {
-        Username username = new Username("user");
-        UUID userId = UUID.randomUUID();
+        final Username username = new Username("user");
+        final UUID userId = UUID.randomUUID();
         // Valid bcrypt hash format: $2a$ + cost + 22 char salt + 31 char hash = 60 chars
-        String hash = "$2a$10$12345678901234567890123456789012345678901234567890123";
+        final String hash = "$2a$10$12345678901234567890123456789012345678901234567890123";
 
-        Record jooqRecord = mock(Record.class);
+        final Record jooqRecord = mock(Record.class);
         when(jooqRecord.get("user_id", UUID.class)).thenReturn(userId);
         when(jooqRecord.get("password_hash", String.class)).thenReturn(hash);
 
         when(dsl.fetchOptional("SELECT * FROM auth.find_user_credentials(?)", "user"))
                 .thenReturn(Optional.of(jooqRecord));
 
-        Optional<UserCredential> result = reader.findCredentialsByUsername(username);
+        final Optional<UserCredential> result = reader.findCredentialsByUsername(username);
 
         assertTrue(result.isPresent());
         assertEquals(userId, result.get().userId().value());

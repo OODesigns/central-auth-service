@@ -19,14 +19,14 @@ class PortsTest {
 
     static class TestPasswordVerifier implements Ports.PasswordVerifier {
         @Override
-        public Optional<UserId> verify(Credentials credentials) {
+        public Optional<UserId> verify(final Credentials credentials) {
             return Optional.of(UserId.generate());
         }
     }
 
     static class TestTokenSigner implements Ports.TokenSigner {
         @Override
-        public Optional<String> sign(Payload payload, Instant expiresAt) {
+        public Optional<String> sign(final Payload payload, final Instant expiresAt) {
             return Optional.of("test.token.here");
         }
     }
@@ -40,21 +40,21 @@ class PortsTest {
 
     static class TestRateLimiter implements Ports.RateLimiter {
         @Override
-        public Ports.RateLimitResult checkLimit(String key) {
+        public Ports.RateLimitResult checkLimit(final String key) {
             return Ports.RateLimitResult.allowed();
         }
     }
 
     static class TestUserCredentialReader implements Ports.UserCredentialReader {
         @Override
-        public Optional<UserCredential> findCredentialsByUsername(Username username) {
+        public Optional<UserCredential> findCredentialsByUsername(final Username username) {
             return Optional.empty();
         }
     }
 
     static class TestUserRepository implements Ports.UserRepository {
         @Override
-        public Optional<User> findById(UserId userId) {
+        public Optional<User> findById(final UserId userId) {
             return Optional.empty();
         }
     }

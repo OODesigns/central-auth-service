@@ -15,10 +15,10 @@ class LoginCommandTest {
 
     @Test
     void testValidCommand() {
-        Username username = Username.of("john_doe");
-        Password password = new Password("password123".toCharArray());
-        IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+        final Username username = Username.of("john_doe");
+        final Password password = new Password("password123".toCharArray());
+        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+        final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
 
         assertEquals(username, cmd.username());
         assertEquals(ipAddress, cmd.ipAddress());
@@ -27,24 +27,24 @@ class LoginCommandTest {
 
     @Test
     void testNullUsernameThrows() {
-        Password password = new Password("password123".toCharArray());
-        IpAddress ipAddress = IpAddress.of("192.168.1.1");
+        final Password password = new Password("password123".toCharArray());
+        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
         assertThrows(NullPointerException.class,
             () -> new LoginCommand(null, password, ipAddress));
     }
 
     @Test
     void testNullPasswordThrows() {
-        Username username = Username.of("john_doe");
-        IpAddress ipAddress = IpAddress.of("192.168.1.1");
+        final Username username = Username.of("john_doe");
+        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
         assertThrows(NullPointerException.class,
             () -> new LoginCommand(username, null, ipAddress));
     }
 
     @Test
     void testNullIpAddressThrows() {
-        Username username = Username.of("john_doe");
-        Password password = new Password("password123".toCharArray());
+        final Username username = Username.of("john_doe");
+        final Password password = new Password("password123".toCharArray());
         assertThrows(NullPointerException.class,
             () -> new LoginCommand(username, password, null));
     }
@@ -79,8 +79,8 @@ class LoginCommandTest {
 
     @Test
     void testPasswordCharArrayCloned() {
-        char[] original = "password123".toCharArray();
-        Password password = new Password(original);
+        final char[] original = "password123".toCharArray();
+        final Password password = new Password(original);
         
         original[0] = 'X';
         
@@ -89,9 +89,9 @@ class LoginCommandTest {
 
     @Test
     void testPasswordCharArrayNotMutableViaGetter() {
-        Password password = new Password("password123".toCharArray());
+        final Password password = new Password("password123".toCharArray());
         
-        char[] retrieved = password.chars();
+        final char[] retrieved = password.chars();
         retrieved[0] = 'X';
         
         assertEquals('p', password.chars()[0]);
@@ -99,56 +99,56 @@ class LoginCommandTest {
 
     @Test
     void testPasswordClear() {
-        char[] passwordChars = "secret".toCharArray();
-        Password password = new Password(passwordChars);
+        final char[] passwordChars = "secret".toCharArray();
+        final Password password = new Password(passwordChars);
         
         password.clear();
         
-        for (char c : password.chars()) {
+        for (final char c : password.chars()) {
             assertEquals('\0', c);
         }
     }
 
     @Test
     void testEqualsWithSameInstance() {
-        Username username = Username.of("john_doe");
-        Password password = new Password("password123".toCharArray());
-        IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        LoginCommand cmd1 = new LoginCommand(username, password, ipAddress);
-        LoginCommand cmd2 = new LoginCommand(username, password, ipAddress);
+        final Username username = Username.of("john_doe");
+        final Password password = new Password("password123".toCharArray());
+        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+        final LoginCommand cmd1 = new LoginCommand(username, password, ipAddress);
+        final LoginCommand cmd2 = new LoginCommand(username, password, ipAddress);
         
         assertEquals(cmd1, cmd2);
     }
 
     @Test
     void testEqualsWithNull() {
-        Username username = Username.of("john_doe");
-        Password password = new Password("password123".toCharArray());
-        IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+        final Username username = Username.of("john_doe");
+        final Password password = new Password("password123".toCharArray());
+        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+        final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
         
         assertNotEquals(null, cmd);
     }
 
     @Test
     void testEqualsWithDifferentType() {
-        Username username = Username.of("john_doe");
-        Password password = new Password("password123".toCharArray());
-        IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        LoginCommand cmd = new LoginCommand(username, password, ipAddress);
-        LoginCommand differentCmd = new LoginCommand(Username.of("jane_doe"), password, ipAddress);
+        final Username username = Username.of("john_doe");
+        final Password password = new Password("password123".toCharArray());
+        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+        final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+        final LoginCommand differentCmd = new LoginCommand(Username.of("jane_doe"), password, ipAddress);
         
         assertNotEquals(differentCmd, cmd);
     }
 
     @Test
     void testToStringMasksPassword() {
-        Username username = Username.of("john_doe");
-        Password password = new Password("password123".toCharArray());
-        IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+        final Username username = Username.of("john_doe");
+        final Password password = new Password("password123".toCharArray());
+        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+        final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
         
-        String cmdString = cmd.toString();
+        final String cmdString = cmd.toString();
         
         // Record's toString delegates to field's toString()
         // Password.toString() returns "Password{***}"
@@ -158,14 +158,14 @@ class LoginCommandTest {
 
     @Test
     void testValidIPv6Address() {
-        IpAddress ipv6 = IpAddress.of("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
+        final IpAddress ipv6 = IpAddress.of("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
         assertEquals("2001:0db8:85a3:0000:0000:8a2e:0370:7334", ipv6.value());
     }
 
     @Test
     void testUsernameNormalized() {
-        Username username1 = Username.of("John_Doe");
-        Username username2 = Username.of("john_doe");
+        final Username username1 = Username.of("John_Doe");
+        final Username username2 = Username.of("john_doe");
         
         assertEquals(username1, username2);
     }

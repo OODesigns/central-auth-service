@@ -30,7 +30,7 @@ public final class UserId extends ValidatedValue<UUID, UUID> {
         Objects.requireNonNull(value, "User ID string cannot be null");
         try {
             return new UserId(UUID.fromString(value));
-        } catch (IllegalArgumentException e) {
+        } catch (final IllegalArgumentException e) {
             throw new IllegalArgumentException(String.format("Invalid user ID format: %s", value), e);
         }
     }

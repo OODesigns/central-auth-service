@@ -60,7 +60,7 @@ public DatabaseConfig databaseConfig() {
 }
 
 @Bean
-public DatabaseContextFactory contextFactory(DatabaseConfig config) {
+public DatabaseContextFactory contextFactory(final DatabaseConfig config) {
     return new DatabaseContextFactory(config);
 }
 

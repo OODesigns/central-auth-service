@@ -13,7 +13,7 @@ class UserIdTest {
 
     @Test
     void testGenerateCreatesValidUUID() {
-        UserId id = UserId.generate();
+        final UserId id = UserId.generate();
         assertNotNull(id);
         assertNotNull(id.asUUID());
         assertNotNull(id.toString());
@@ -21,15 +21,15 @@ class UserIdTest {
 
     @Test
     void testFromUUID() {
-        UUID uuid = UUID.randomUUID();
-        UserId id = new UserId(uuid);
+        final UUID uuid = UUID.randomUUID();
+        final UserId id = new UserId(uuid);
         assertEquals(uuid, id.asUUID());
     }
 
     @Test
     void testFromString() {
-        String uuidStr = UUID.randomUUID().toString();
-        UserId id = UserId.of(uuidStr);
+        final String uuidStr = UUID.randomUUID().toString();
+        final UserId id = UserId.of(uuidStr);
         assertEquals(uuidStr, id.toString());
     }
 
@@ -40,33 +40,33 @@ class UserIdTest {
 
     @Test
     void testEqualityBasedOnUUID() {
-        UUID uuid = UUID.randomUUID();
-        UserId id1 = new UserId(uuid);
-        UserId id2 = new UserId(uuid);
+        final UUID uuid = UUID.randomUUID();
+        final UserId id1 = new UserId(uuid);
+        final UserId id2 = new UserId(uuid);
         assertEquals(id1, id2);
     }
 
     @Test
     void testInequalityDifferentUUIDs() {
-        UserId id1 = UserId.generate();
-        UserId id2 = UserId.generate();
+        final UserId id1 = UserId.generate();
+        final UserId id2 = UserId.generate();
         assertNotEquals(id1, id2);
     }
 
     @Test
     void testHashCodeConsistency() {
-        UUID uuid = UUID.randomUUID();
-        UserId id1 = new UserId(uuid);
-        UserId id2 = new UserId(uuid);
+        final UUID uuid = UUID.randomUUID();
+        final UserId id1 = new UserId(uuid);
+        final UserId id2 = new UserId(uuid);
         assertEquals(id1.hashCode(), id2.hashCode());
     }
 
     @Test
     void testToStringReturnsUUID() {
-        UserId id = UserId.generate();
-        String str = id.toString();
+        final UserId id = UserId.generate();
+        final String str = id.toString();
         // Should be parseable back
-        UserId id2 = UserId.of(str);
+        final UserId id2 = UserId.of(str);
         assertEquals(id, id2);
     }
 

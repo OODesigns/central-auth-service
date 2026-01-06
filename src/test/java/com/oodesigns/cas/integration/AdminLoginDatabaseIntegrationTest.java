@@ -46,7 +46,7 @@ class AdminLoginDatabaseIntegrationTest {
      * Defaults to "admin_initial_password" if not set.
      */
     private static String getAdminPasswordPlain() {
-        String envPassword = System.getenv("ADMIN_PASSWORD_PLAIN");
+        final String envPassword = System.getenv("ADMIN_PASSWORD_PLAIN");
         if (envPassword != null && !envPassword.isEmpty()) {
             return envPassword;
         }
@@ -68,22 +68,22 @@ class AdminLoginDatabaseIntegrationTest {
         dslContext = DatabaseContextFactory.create(databaseConfig);
         
         // Create real adapters from infrastructure layer
-        var userCredentialReader = new JooqUserCredentialReader(dslContext);
-        var userRepository = new JooqUserRepository(dslContext);
-        var passwordVerifier = new BcryptPasswordVerifier();
+        final var userCredentialReader = new JooqUserCredentialReader(dslContext);
+        final var userRepository = new JooqUserRepository(dslContext);
+        final var passwordVerifier = new BcryptPasswordVerifier();
         
         final Bucket4jRateLimiter rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
         
         // Create real JWT token signer with secret from environment
-        String jwtSecret = System.getenv().get("JWT_SECRET");
+        final String jwtSecret = System.getenv().get("JWT_SECRET");
         final JwtTokenSigner tokenSigner = new JwtTokenSigner(
             ignoredKeyId -> java.util.Optional.of(com.oodesigns.cas.domain.value.KeyPassword.fromString(jwtSecret)),
             "default"
         );
 
         // Create domain services with real adapters
-        AuthenticationService authService = new AuthenticationService(passwordVerifier);
-        TokenService tokenService = new TokenService(
+        final AuthenticationService authService = new AuthenticationService(passwordVerifier);
+        final TokenService tokenService = new TokenService(
             new SystemClock(),  // Real system clock
             tokenSigner
         );
@@ -104,15 +104,15 @@ class AdminLoginDatabaseIntegrationTest {
     void testAdminLoginWithDatabaseCredentials() {
         // Spring Security's BCryptPasswordEncoder supports all bcrypt hash formats ($2a$, $2b$, $2y$)
         // Ensure the admin user has a valid bcrypt hash in the database
-        String actualHash;
+        final String actualHash;
         try {
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
-            Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
+            final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+            final Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
             
             // Check if admin user exists and has valid password hash
-            Statement stmt = conn.createStatement();
+            final Statement stmt = conn.createStatement();
             //noinspection SqlResolve
-            var rs = stmt.executeQuery("SELECT user_id, password_hash FROM users WHERE username = 'admin'");
+            final var rs = stmt.executeQuery("SELECT user_id, password_hash FROM users WHERE username = 'admin'");
             if (!rs.next()) {
                 fail("Admin user not found in database");
             }
@@ -123,18 +123,18 @@ class AdminLoginDatabaseIntegrationTest {
                     %n""", actualHash, ADMIN_PASSWORD);
             
             // Test bcrypt directly
-            org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder = 
+            final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder =
                 new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
-            boolean directMatch = encoder.matches(ADMIN_PASSWORD, actualHash);
+            final boolean directMatch = encoder.matches(ADMIN_PASSWORD, actualHash);
             System.out.printf("""
                     DEBUG: Direct BCrypt match: %s
                     %n""", directMatch);
             
             // Test auth.find_user_credentials function
             //noinspection SqlResolve
-            var rs2 = stmt.executeQuery("SELECT * FROM auth.find_user_credentials('admin')");
+            final var rs2 = stmt.executeQuery("SELECT * FROM auth.find_user_credentials('admin')");
             if (rs2.next()) {
-                String funcHash = rs2.getString("password_hash");
+                final String funcHash = rs2.getString("password_hash");
                 System.out.printf("""
                         DEBUG: Hash from auth.find_user_credentials: %s
                         DEBUG: Hashes match: %s
@@ -145,21 +145,21 @@ class AdminLoginDatabaseIntegrationTest {
             
             stmt.close();
             conn.close();
-        } catch (Exception e) {
+        } catch (final Exception e) {
             fail("""
                 Database error: %s
                 """.formatted(e.getMessage()));
         }
         
         // Arrange: Admin credentials (use plain password for login)
-        LoginCommand loginCmd = new LoginCommand(
+        final LoginCommand loginCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
             new Password(ADMIN_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.50")
         );
 
         // Act: Execute login against real database
-        LoginResult result = loginHandler.handle(loginCmd);
+        final LoginResult result = loginHandler.handle(loginCmd);
 
         // Assert: Login succeeds with real database credentials
         result.mapTo(success -> {
@@ -188,14 +188,14 @@ class AdminLoginDatabaseIntegrationTest {
     @Test
     void testAdminLoginFailsWithWrongPassword() {
         // Arrange: Wrong password
-        LoginCommand loginCmd = new LoginCommand(
+        final LoginCommand loginCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
             new Password("wrong_password".toCharArray()),
             IpAddress.of("192.168.1.50")
         );
 
         // Act: Execute login against real database
-        LoginResult result = loginHandler.handle(loginCmd);
+        final LoginResult result = loginHandler.handle(loginCmd);
 
         // Assert: Login fails with proper error
         result.mapTo(ignoredSuccess -> {
@@ -221,10 +221,10 @@ class AdminLoginDatabaseIntegrationTest {
     @Test
     void testJooqUserCredentialReaderQueries() {
         // Create fresh reader for this test
-        var userCredentialReader = new JooqUserCredentialReader(dslContext);
+        final var userCredentialReader = new JooqUserCredentialReader(dslContext);
         
         // Act: Query admin credentials using JOOQ
-        var credentials = userCredentialReader.findCredentialsByUsername(new Username(ADMIN_USERNAME));
+        final var credentials = userCredentialReader.findCredentialsByUsername(new Username(ADMIN_USERNAME));
 
         // Assert: Credentials found and have correct data
         assertTrue(credentials.isPresent(), 
@@ -242,16 +242,16 @@ class AdminLoginDatabaseIntegrationTest {
     @Test
     void testJooqUserRepositoryQueries() {
         // First, get admin ID from credentials
-        var userCredentialReader = new JooqUserCredentialReader(dslContext);
-        var credentials = userCredentialReader.findCredentialsByUsername(new Username(ADMIN_USERNAME));
+        final var userCredentialReader = new JooqUserCredentialReader(dslContext);
+        final var credentials = userCredentialReader.findCredentialsByUsername(new Username(ADMIN_USERNAME));
         
         assertTrue(credentials.isPresent(), "Admin credentials should exist");
         
         // Create fresh repository for this test
-        var userRepository = new JooqUserRepository(dslContext);
+        final var userRepository = new JooqUserRepository(dslContext);
         
         // Act: Query user by ID using JOOQ
-        var user = userRepository.findById(credentials.get().userId());
+        final var user = userRepository.findById(credentials.get().userId());
 
         // Assert: User found with correct data
         assertTrue(user.isPresent(), "JOOQ should retrieve user from database");
@@ -272,14 +272,14 @@ class AdminLoginDatabaseIntegrationTest {
     @Test
     void testDatabaseSchemaCreatedByFlyway() {
         try {
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
-            Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
-            Statement stmt = conn.createStatement();
+            final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+            final Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
+            final Statement stmt = conn.createStatement();
             
             // Check required tables
-            var tables = new String[]{"users", "roles", "permissions", "user_roles"};
-            for (String table : tables) {
-                var rs = stmt.executeQuery(
+            final var tables = new String[]{"users", "roles", "permissions", "user_roles"};
+            for (final String table : tables) {
+                final var rs = stmt.executeQuery(
                     "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '%s')"
                         .formatted(table)
                 );
@@ -305,7 +305,7 @@ class AdminLoginDatabaseIntegrationTest {
                 "Function auth.get_user() should exist");
 stmt.close();
             conn.close();
-        } catch (SQLException e) {
+        } catch (final SQLException e) {
             fail("""
                 Failed to verify database schema: %s
                 """.formatted(e.getMessage()));
@@ -321,16 +321,16 @@ stmt.close();
     @Test
     void testFlywayMigrationHistoryTracked() {
         try {
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
-            Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
-            Statement stmt = conn.createStatement();
+            final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+            final Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
+            final Statement stmt = conn.createStatement();
 
             //noinspection SqlResolve
-            var rs = stmt.executeQuery(
+            final var rs = stmt.executeQuery(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = true"
             );
             assertTrue(rs.next(), "Should have migration history");
-            int migrationsRun = rs.getInt(1);
+            final int migrationsRun = rs.getInt(1);
             
             // Migrations should exist (they are run as part of docker-compose setup)
             assertTrue(migrationsRun >= 0,
@@ -353,9 +353,9 @@ stmt.close();
     @Test
     void testAdminUserExistsInDatabaseWithRole() {
         try {
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
-            Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
-            Statement stmt = conn.createStatement();
+            final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+            final Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
+            final Statement stmt = conn.createStatement();
             
             // Check admin user exists
             //noinspection SqlResolve
@@ -364,8 +364,8 @@ stmt.close();
             );
             assertTrue(rs.next(), "Admin user should exist in database");
             
-            String userId = rs.getString("user_id");
-            String passwordHash = rs.getString("password_hash");
+            final String userId = rs.getString("user_id");
+            final String passwordHash = rs.getString("password_hash");
             assertNotNull(passwordHash, "Password hash should not be null");
             assertFalse(passwordHash.isEmpty(), "Password hash should not be empty");
             
@@ -380,7 +380,7 @@ stmt.close();
                 "Admin user should have exactly one admin role");
             stmt.close();
             conn.close();
-        } catch (SQLException e) {
+        } catch (final SQLException e) {
             fail("""
                 Failed to verify admin user in database: %s
                 """.formatted(e.getMessage()));

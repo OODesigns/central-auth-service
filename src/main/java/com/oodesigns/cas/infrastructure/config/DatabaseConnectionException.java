@@ -12,7 +12,7 @@ public class DatabaseConnectionException extends RuntimeException {
      *
      * @param message the detail message
      */
-    public DatabaseConnectionException(String message) {
+    public DatabaseConnectionException(final String message) {
         super(message);
     }
     
@@ -22,7 +22,7 @@ public class DatabaseConnectionException extends RuntimeException {
      * @param message the detail message
      * @param cause the cause of the exception
      */
-    public DatabaseConnectionException(String message, Throwable cause) {
+    public DatabaseConnectionException(final String message, final Throwable cause) {
         super(message, cause);
     }
 }

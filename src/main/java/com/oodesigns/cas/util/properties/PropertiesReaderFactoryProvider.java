@@ -27,7 +27,7 @@ public final class PropertiesReaderFactoryProvider {
      * @param fileLoaderProviderSupplier The supplier for FileLoaderProvider
      * @return A PropertiesReaderFactory instance
      */
-    public static PropertiesReaderFactory create(Supplier<FileLoaderProvider> fileLoaderProviderSupplier) {
+    public static PropertiesReaderFactory create(final Supplier<FileLoaderProvider> fileLoaderProviderSupplier) {
         return new PropertiesReaderFactory(fileLoaderProviderSupplier);
     }
 }

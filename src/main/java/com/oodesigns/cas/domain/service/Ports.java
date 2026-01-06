@@ -69,19 +69,19 @@ public class Ports {
 
         record Allowed() implements RateLimitResult {
             @Override
-            public <T> Mapper<T> mapTo(Function<Allowed, T> onAllowed) {
+            public <T> Mapper<T> mapTo(final Function<Allowed, T> onAllowed) {
                 return new MapperAllowed<>(onAllowed.apply(this));
             }
 
             static final class MapperAllowed<T> implements Mapper<T> {
                 private final T value;
 
-                MapperAllowed(T value) {
+                MapperAllowed(final T value) {
                     this.value = value;
                 }
 
                 @Override
-                public T orElse(Function<Blocked, T> onBlocked) {
+                public T orElse(final Function<Blocked, T> onBlocked) {
                     return value;
                 }
             }
@@ -95,19 +95,19 @@ public class Ports {
             }
 
             @Override
-            public <T> Mapper<T> mapTo(Function<Allowed, T> onAllowed) {
+            public <T> Mapper<T> mapTo(final Function<Allowed, T> onAllowed) {
                 return new MapperBlocked<>(this);
             }
 
             static final class MapperBlocked<T> implements Mapper<T> {
                 private final Blocked blocked;
 
-                MapperBlocked(Blocked blocked) {
+                MapperBlocked(final Blocked blocked) {
                     this.blocked = blocked;
                 }
 
                 @Override
-                public T orElse(Function<Blocked, T> onBlocked) {
+                public T orElse(final Function<Blocked, T> onBlocked) {
                     return onBlocked.apply(blocked);
                 }
             }

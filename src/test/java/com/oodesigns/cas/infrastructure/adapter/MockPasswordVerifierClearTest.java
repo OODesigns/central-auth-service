@@ -13,12 +13,12 @@ class MockPasswordVerifierClearTest {
 
     @Test
     void clearRemovesRegisteredPasswords() {
-        MockPasswordVerifier verifier = new MockPasswordVerifier();
-        Password password = new Password("secret".toCharArray());
-        PasswordHash hash = verifier.hash(password.chars());
-        UserCredential credential = new UserCredential(UserId.generate(), hash);
+        final MockPasswordVerifier verifier = new MockPasswordVerifier();
+        final Password password = new Password("secret".toCharArray());
+        final PasswordHash hash = verifier.hash(password.chars());
+        final UserCredential credential = new UserCredential(UserId.generate(), hash);
 
-        try (Credentials credentials = new Credentials(credential, password)) {
+        try (final Credentials credentials = new Credentials(credential, password)) {
             assertTrue(verifier.verify(credentials).isPresent(), "Credential should verify before clear");
             verifier.clear();
             assertTrue(verifier.verify(credentials).isEmpty(), "Credential should not verify after clear");

@@ -9,7 +9,7 @@ class MockRateLimiterTest {
 
     @Test
     void tracksCallsAndBlocksAfterLimit() {
-        MockRateLimiter limiter = new MockRateLimiter(2);
+        final MockRateLimiter limiter = new MockRateLimiter(2);
 
         assertEquals(Ports.RateLimitResult.allowed(), limiter.checkLimit("user"));
         assertEquals(Ports.RateLimitResult.allowed(), limiter.checkLimit("user"));
@@ -20,7 +20,7 @@ class MockRateLimiterTest {
 
     @Test
     void resetClearsSingleKey() {
-        MockRateLimiter limiter = new MockRateLimiter(1);
+        final MockRateLimiter limiter = new MockRateLimiter(1);
         limiter.checkLimit("key");
         limiter.checkLimit("key"); // now blocked
         assertTrue(limiter.isBlocked("key"));
@@ -33,7 +33,7 @@ class MockRateLimiterTest {
 
     @Test
     void resetAllClearsAllState() {
-        MockRateLimiter limiter = new MockRateLimiter(1);
+        final MockRateLimiter limiter = new MockRateLimiter(1);
         limiter.checkLimit("a");
         limiter.checkLimit("a");
         limiter.checkLimit("b");

@@ -38,8 +38,8 @@ public final class TokenService {
     }
 
     private Optional<TokenPair> createTokenPairForUser(final User user) {
-        Instant now = clock.now();
-        Jti jti = Jti.generate();
+        final Instant now = clock.now();
+        final Jti jti = Jti.generate();
         
         return createAccessToken(user.userId(), jti, user.permissions(), now)
             .flatMap(accessToken -> createRefreshToken(user.userId(), now)
@@ -49,7 +49,7 @@ public final class TokenService {
     private Optional<String> createAccessToken(final UserId userId, final Jti jti,
                                                final java.util.Set<Permission> permissions,
                                                final Instant issuedAt) {
-        Instant expiresAt = issuedAt.plus(ACCESS_TOKEN_TTL);
+        final Instant expiresAt = issuedAt.plus(ACCESS_TOKEN_TTL);
         return getPermissionsList(permissions)
                 .flatMap(p -> createAccessTokenPayload(userId, jti, p, issuedAt, expiresAt))
                 .flatMap(payload -> tokenSigner.sign(payload, expiresAt));
@@ -65,8 +65,8 @@ public final class TokenService {
     }
 
 
-    private Optional<String> getPermissionsList(Set<Permission> permissions) {
-        String permissionsJson = String.format("[%s]",
+    private Optional<String> getPermissionsList(final Set<Permission> permissions) {
+        final String permissionsJson = String.format("[%s]",
                 permissions.stream()
                     .map(p -> String.format("\"%s\"", p.toString()))
                     .collect(Collectors.joining(",")));
@@ -74,7 +74,7 @@ public final class TokenService {
     }
 
     private Optional<String> createRefreshToken(final UserId userId, final Instant issuedAt) {
-        Instant expiresAt = issuedAt.plus(REFRESH_TOKEN_TTL);
+        final Instant expiresAt = issuedAt.plus(REFRESH_TOKEN_TTL);
 
         return createRefreshTokenPayload(userId, issuedAt, expiresAt)
                 .flatMap(payload -> tokenSigner.sign(payload, expiresAt));

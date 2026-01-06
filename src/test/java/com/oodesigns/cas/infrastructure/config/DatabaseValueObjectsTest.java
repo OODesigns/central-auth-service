@@ -8,7 +8,7 @@ class DatabaseValueObjectsTest {
 
     @Test
     void databaseHostAcceptsValidValuesAndTrims() {
-        DatabaseHost host = new DatabaseHost(" db.example.com ");
+        final DatabaseHost host = new DatabaseHost(" db.example.com ");
         assertEquals("db.example.com", host.value());
     }
 
