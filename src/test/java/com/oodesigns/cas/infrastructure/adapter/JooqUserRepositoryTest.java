@@ -1,8 +1,6 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -160,7 +158,7 @@ class JooqUserRepositoryTest {
     void testConstructorWithNullDslContext() {
         try {
             new JooqUserRepository(null);
-            assertTrue(false, "Expected NullPointerException");
+            fail("Expected NullPointerException");
         } catch (final NullPointerException e) {
             assertEquals("DSLContext cannot be null", e.getMessage());
         }
@@ -191,7 +189,7 @@ class JooqUserRepositoryTest {
         // Verify immutability by attempting to modify
         try {
             perms.add(Permission.of("edit_profile"));
-            assertTrue(false, "Expected UnsupportedOperationException");
+            fail("Expected UnsupportedOperationException");
         } catch (final UnsupportedOperationException e) {
             assertNotNull(e);
         }

@@ -389,7 +389,7 @@ class PasswordTest {
         @Test
         void testCloseImplementsAutoCloseable() {
             try (final Password password = new Password("password".toCharArray())) {
-                assertTrue(password instanceof AutoCloseable);
+                assertInstanceOf(AutoCloseable.class, password);
             }
         }
 

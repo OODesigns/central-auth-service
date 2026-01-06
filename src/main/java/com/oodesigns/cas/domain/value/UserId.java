@@ -44,7 +44,7 @@ public final class UserId extends ValidatedValue<UUID> {
      */
     public static UserId of(final String value) {
         Objects.requireNonNull(value, "User ID string cannot be null");
-        UUID uuid = validateAndParseUuid(value);
+        final UUID uuid = validateAndParseUuid(value);
         return new UserId(uuid);
     }
 

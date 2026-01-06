@@ -54,7 +54,7 @@ public final class Jti extends ValidatedValue<UUID> {
      */
     public static Jti of(final String value) {
         Objects.requireNonNull(value, "JTI string cannot be null");
-        UUID uuid = validateAndParseUuid(value);
+        final UUID uuid = validateAndParseUuid(value);
         return new Jti(uuid);
     }
 

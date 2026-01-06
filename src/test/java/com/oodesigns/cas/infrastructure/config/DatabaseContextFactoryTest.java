@@ -200,7 +200,7 @@ class DatabaseContextFactoryTest {
         final DataSource dataSource = DatabaseContextFactory.createDataSource(config);
         
         assertNotNull(dataSource);
-        assertTrue(dataSource instanceof DataSource);
+        assertInstanceOf(DataSource.class, dataSource);
     }
 
     @Test

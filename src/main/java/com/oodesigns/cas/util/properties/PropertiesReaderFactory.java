@@ -11,9 +11,9 @@ import com.oodesigns.cas.util.file.FileLoaderProvider;
 public class PropertiesReaderFactory {
 
     private static final String APPLICATION_PROPERTIES = "application.properties";
-    private Supplier<FileLoaderProvider> fileLoaderProviderSupplier; 
+    private final Supplier<FileLoaderProvider> fileLoaderProviderSupplier;
 
-    PropertiesReaderFactory(Supplier<FileLoaderProvider> fileLoaderProviderSupplier) {
+    PropertiesReaderFactory(final Supplier<FileLoaderProvider> fileLoaderProviderSupplier) {
         this.fileLoaderProviderSupplier = fileLoaderProviderSupplier;
     }
 

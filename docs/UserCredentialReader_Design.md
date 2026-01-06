@@ -74,20 +74,20 @@ static Ports.UserCredentialReader jdbc(final DataSource dataSource) {
    - Can swap implementations without domain changes
    - Future JOOQ implementation would look like:
    ```java
-   public final class JooqUserCredentialReader implements Ports.UserCredentialReader {
-       public JooqUserCredentialReader(final DSLContext dsl) { ... }
-       @Override
-       public Optional<UserCredential> findCredentialsByUsername(Username username) {
-           return dsl.selectFrom(USERS)
-               .where(USERS.USERNAME.eq(username.value()))
-               .fetchOptional()
-               .map(record -> new UserCredential(
-                   new UserId(record.getUserId()),
-                   new PasswordHash(record.getPasswordHash())
-               ));
-       }
-   }
-   ```
+public final class JooqUserCredentialReader implements Ports.UserCredentialReader {
+    public JooqUserCredentialReader(final DSLContext dsl) { ... }
+    @Override
+    public Optional<UserCredential> findCredentialsByUsername(final Username username) {
+        return dsl.selectFrom(USERS)
+            .where(USERS.USERNAME.eq(username.value()))
+            .fetchOptional()
+            .map(record -> new UserCredential(
+                new UserId(record.getUserId()),
+                new PasswordHash(record.getPasswordHash())
+            ));
+    }
+}
+```
 
 ### PostgreSQL Function Called
 
@@ -121,7 +121,7 @@ $$;
 ```java
 // In configuration/dependency injection
 @Bean
-public Ports.UserCredentialReader userCredentialReader(DataSource dataSource) {
+public Ports.UserCredentialReader userCredentialReader(final DataSource dataSource) {
     return UserCredentialReader.jdbc(dataSource);
 }
 

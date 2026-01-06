@@ -12,37 +12,37 @@ class UsernameTest {
 
     @Test
     void testValidUsername() {
-        Username username = Username.of("john_doe");
+        final Username username = Username.of("john_doe");
         assertEquals("john_doe", username.value());
     }
 
     @Test
     void testNormalizesToLowercase() {
-        Username username = Username.of("JohnDoe");
+        final Username username = Username.of("JohnDoe");
         assertEquals("johndoe", username.value());
     }
 
     @Test
     void testValidWithNumbers() {
-        Username username = Username.of("user123");
+        final Username username = Username.of("user123");
         assertEquals("user123", username.value());
     }
 
     @Test
     void testValidWithHyphen() {
-        Username username = Username.of("user-name");
+        final Username username = Username.of("user-name");
         assertEquals("user-name", username.value());
     }
 
     @Test
     void testValidWithUnderscore() {
-        Username username = Username.of("user_name");
+        final Username username = Username.of("user_name");
         assertEquals("user_name", username.value());
     }
 
     @Test
     void testValidMinimumLength() {
-        Username username = Username.of("abc");
+        final Username username = Username.of("abc");
         assertEquals("abc", username.value());
     }
 
@@ -53,7 +53,7 @@ class UsernameTest {
 
     @Test
     void testTooLongThrows() {
-        String longName = "a".repeat(51);
+        final String longName = "a".repeat(51);
         assertThrows(IllegalArgumentException.class, () -> Username.of(longName));
     }
 
@@ -76,22 +76,22 @@ class UsernameTest {
 
     @Test
     void testEqualityBasedOnValue() {
-        Username user1 = Username.of("john_doe");
-        Username user2 = Username.of("JOHN_DOE");
+        final Username user1 = Username.of("john_doe");
+        final Username user2 = Username.of("JOHN_DOE");
         assertEquals(user1, user2);
     }
 
     @Test
     void testInequalityDifferentValues() {
-        Username user1 = Username.of("john");
-        Username user2 = Username.of("jane");
+        final Username user1 = Username.of("john");
+        final Username user2 = Username.of("jane");
         assertNotEquals(user1, user2);
     }
 
     @Test
     void testHashCodeConsistency() {
-        Username user1 = Username.of("john_doe");
-        Username user2 = Username.of("JOHN_DOE");
+        final Username user1 = Username.of("john_doe");
+        final Username user2 = Username.of("JOHN_DOE");
         assertEquals(user1.hashCode(), user2.hashCode());
     }
 }

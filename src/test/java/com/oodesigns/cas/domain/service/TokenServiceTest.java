@@ -35,8 +35,8 @@ class TokenServiceTest {
     void setUp() {
         tokenService = new TokenService(clock, tokenSigner);
         
-        UserId userId = UserId.of(UUID.randomUUID());
-        Username username = Username.of("test_user");
+        final UserId userId = UserId.of(UUID.randomUUID());
+        final Username username = Username.of("test_user");
         testUser = new User(userId, username, Set.of());
     }
 
@@ -48,20 +48,20 @@ class TokenServiceTest {
     @Test
     void testGenerateTokensReturnsValidTokenPair() {
         setupTokenSignerMock();
-        Instant now = Instant.now();
+        final Instant now = Instant.now();
         when(clock.now()).thenReturn(now);
 
-        var tokensOptional = tokenService.generateTokens(testUser);
+        final var tokensOptional = tokenService.generateTokens(testUser);
 
         assertTrue(tokensOptional.isPresent());
-        TokenService.TokenPair tokens = tokensOptional.get();
+        final TokenService.TokenPair tokens = tokensOptional.get();
         assertNotNull(tokens.accessToken());
         assertNotNull(tokens.refreshToken());
     }
 
     @Test
     void testGenerateTokensNullUserReturnsEmpty() {
-        var result = tokenService.generateTokens(null);
+        final var result = tokenService.generateTokens(null);
         assertTrue(result.isEmpty());
     }
 
@@ -70,8 +70,8 @@ class TokenServiceTest {
         setupTokenSignerMock();
         when(clock.now()).thenReturn(Instant.now());
 
-        var tokens1Optional = tokenService.generateTokens(testUser);
-        var tokens2Optional = tokenService.generateTokens(testUser);
+        final var tokens1Optional = tokenService.generateTokens(testUser);
+        final var tokens2Optional = tokenService.generateTokens(testUser);
         
         assertTrue(tokens1Optional.isPresent());
         assertTrue(tokens2Optional.isPresent());
@@ -83,10 +83,10 @@ class TokenServiceTest {
         setupTokenSignerMock();
         when(clock.now()).thenReturn(Instant.now());
 
-        var tokensOptional = tokenService.generateTokens(testUser);
+        final var tokensOptional = tokenService.generateTokens(testUser);
         assertTrue(tokensOptional.isPresent());
         
-        TokenService.TokenPair tokens = tokensOptional.get();
+        final TokenService.TokenPair tokens = tokensOptional.get();
         assertNotNull(tokens.accessToken());
         assertNotNull(tokens.refreshToken());
         assertFalse(tokens.accessToken().isEmpty());
