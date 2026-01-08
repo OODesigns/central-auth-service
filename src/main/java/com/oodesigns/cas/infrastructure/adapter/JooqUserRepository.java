@@ -16,11 +16,11 @@ import org.jooq.Record;
 /**
  * Jooq-based implementation of UserRepository.
  * Type-safe queries to PostgreSQL {@code auth.get_user(user_id)} function.
- *
+ * <p>
  * Retrieves authenticated user data with permissions for authorization decisions.
  * This adapter bridges between the database view (user_id, username, permissions[])
  * and the domain model (User record with immutable permission set).
- *
+ * <p>
  * Benefits over JDBC:
  * - Compile-time schema validation: Function signature changes detected at build time
  * - Type safety: UUID and text[] properly mapped to domain types

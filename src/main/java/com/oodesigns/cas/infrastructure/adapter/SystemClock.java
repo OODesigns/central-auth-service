@@ -7,7 +7,7 @@ import java.time.Instant;
 /**
  * Real system clock implementation.
  * Returns the current system time using Instant.now().
- * 
+ * <p>
  * This is the production implementation for clock services.
  * For testing, use MockClock to control time deterministically.
  */

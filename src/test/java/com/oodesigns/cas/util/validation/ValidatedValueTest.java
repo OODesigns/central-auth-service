@@ -67,7 +67,8 @@ class ValidatedValueTest {
     void testEqualsReturnsFalseForNull() {
         final var v1 = TestValidatedValue.of("test");
         
-        assertNotEquals(null, v1);
+        // Explicitly call equals(null) to test the null check in equals()
+        assertFalse(v1.equals(null));
     }
 
     @Test
@@ -81,8 +82,8 @@ class ValidatedValueTest {
     @Test
     void testEqualsReturnsFalseForDifferentSubclass() {
         final var v1 = TestValidatedValue.of("test");
-        final Object v2 = new ValidatedValue<String>("test") {};
-        
+        final Object v2 = new ValidatedValue<>("test") {};
+
         // Different classes should not be equal even with same value
         assertNotEquals(v2, v1);
     }
@@ -111,10 +112,11 @@ class ValidatedValueTest {
     }
 
     @Test
+    @SuppressWarnings("EqualsWithItself")
     void testEqualsWithSameInstance() {
         final var v1 = TestValidatedValue.of("test");
         
-        // Same instance should be equal to itself
+        // Same instance should be equal to itself (reflexivity property)
         assertEquals(v1, v1);
     }
 
@@ -128,13 +130,6 @@ class ValidatedValueTest {
         assertEquals(v2, v1);
     }
 
-    @Test
-    void testEqualsWithObjectExplicitlyNull() {
-        final var v1 = TestValidatedValue.of("test");
-        final Object nullObj = null;
-        
-        assertNotEquals(v1, nullObj);
-    }
 
     @Test
     void testEqualsWithDifferentValidatedValueSubtype() {

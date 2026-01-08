@@ -13,24 +13,28 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class LoginCommandTest {
 
+    private static final String VALID_PASSWORD = "ValidPassword1234";  // 16 chars
+
     @Test
     void testValidCommand() {
         final Username username = Username.of("john_doe");
-        final Password password = new Password("password123".toCharArray());
-        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+        try (final Password password = Password.of(VALID_PASSWORD.toCharArray())) {
+            final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+            final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
 
-        assertEquals(username, cmd.username());
-        assertEquals(ipAddress, cmd.ipAddress());
-        assertEquals(password, cmd.password());
+            assertEquals(username, cmd.username());
+            assertEquals(ipAddress, cmd.ipAddress());
+            assertEquals(password, cmd.password());
+        }
     }
 
     @Test
     void testNullUsernameThrows() {
-        final Password password = new Password("password123".toCharArray());
-        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        assertThrows(NullPointerException.class,
-            () -> new LoginCommand(null, password, ipAddress));
+        try (final Password password = Password.of(VALID_PASSWORD.toCharArray())) {
+            final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+            assertThrows(NullPointerException.class,
+                () -> new LoginCommand(null, password, ipAddress));
+        }
     }
 
     @Test
@@ -44,9 +48,10 @@ class LoginCommandTest {
     @Test
     void testNullIpAddressThrows() {
         final Username username = Username.of("john_doe");
-        final Password password = new Password("password123".toCharArray());
-        assertThrows(NullPointerException.class,
-            () -> new LoginCommand(username, password, null));
+        try (final Password password = Password.of(VALID_PASSWORD.toCharArray())) {
+            assertThrows(NullPointerException.class,
+                () -> new LoginCommand(username, password, null));
+        }
     }
 
     @Test
@@ -66,39 +71,49 @@ class LoginCommandTest {
     }
 
     @Test
+    @SuppressWarnings("unused")
     void testEmptyPasswordThrows() {
-        assertThrows(IllegalArgumentException.class,
-            () -> new Password(new char[0]));
+        assertThrows(IllegalArgumentException.class, () -> {
+            //noinspection EmptyTryBlock
+            try (final Password password = Password.of(new char[0])) {
+                // Won't reach here
+            }
+        });
     }
 
     @Test
+    @SuppressWarnings("unused")
     void testNullPasswordCharArrayThrows() {
-        assertThrows(NullPointerException.class,
-            () -> new Password(null));
+        assertThrows(NullPointerException.class, () -> {
+            //noinspection EmptyTryBlock
+            try (final Password password = Password.of((char[]) null)) {
+                // Won't reach here
+            }
+        });
     }
 
     @Test
     void testPasswordCharArrayCloned() {
-        final char[] original = "password123".toCharArray();
-        try (final Password password = new Password(original)) {
+        final char[] original = VALID_PASSWORD.toCharArray();
+        try (final Password password = Password.of(original)) {
             original[0] = 'X';
-            assertEquals('p', password.chars()[0]);
+            assertEquals('V', password.chars()[0]);
         }
     }
 
     @Test
     void testPasswordCharArrayNotMutableViaGetter() {
-        try (final Password password = new Password("password123".toCharArray())) {
+        try (final Password password = Password.of(VALID_PASSWORD.toCharArray())) {
             final char[] retrieved = password.chars();
             retrieved[0] = 'X';
-            assertEquals('p', password.chars()[0]);
+            assertEquals('V', password.chars()[0]);
         }
     }
 
     @Test
     void testPasswordClear() {
-        final char[] passwordChars = "secret".toCharArray();
-        try (final Password password = new Password(passwordChars)) {
+        final char[] passwordChars = VALID_PASSWORD.toCharArray();
+        try (final Password password = Password.of(passwordChars)) {
             password.clear();
             
             for (final char c : password.chars()) {
@@ -110,48 +125,52 @@ class LoginCommandTest {
     @Test
     void testEqualsWithSameInstance() {
         final Username username = Username.of("john_doe");
-        final Password password = new Password("password123".toCharArray());
-        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        final LoginCommand cmd1 = new LoginCommand(username, password, ipAddress);
-        final LoginCommand cmd2 = new LoginCommand(username, password, ipAddress);
-        
-        assertEquals(cmd1, cmd2);
+        try (final Password password = Password.of(VALID_PASSWORD.toCharArray())) {
+            final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+            final LoginCommand cmd1 = new LoginCommand(username, password, ipAddress);
+            final LoginCommand cmd2 = new LoginCommand(username, password, ipAddress);
+            
+            assertEquals(cmd1, cmd2);
+        }
     }
 
     @Test
     void testEqualsWithNull() {
         final Username username = Username.of("john_doe");
-        final Password password = new Password("password123".toCharArray());
-        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
-        
-        assertNotEquals(null, cmd);
+        try (final Password password = Password.of(VALID_PASSWORD.toCharArray())) {
+            final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+            final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+            
+            assertNotEquals(null, cmd);
+        }
     }
 
     @Test
     void testEqualsWithDifferentType() {
-        final Username username = Username.of("john_doe");
-        final Password password = new Password("password123".toCharArray());
-        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
-        final LoginCommand differentCmd = new LoginCommand(Username.of("jane_doe"), password, ipAddress);
-        
-        assertNotEquals(differentCmd, cmd);
+        try (final Password password = Password.of(VALID_PASSWORD.toCharArray())) {
+            final Username username = Username.of("john_doe");
+            final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+            final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+            final LoginCommand differentCmd = new LoginCommand(Username.of("jane_doe"), password, ipAddress);
+            
+            assertNotEquals(differentCmd, cmd);
+        }
     }
 
     @Test
     void testToStringMasksPassword() {
         final Username username = Username.of("john_doe");
-        final Password password = new Password("password123".toCharArray());
-        final IpAddress ipAddress = IpAddress.of("192.168.1.1");
-        final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
-        
-        final String cmdString = cmd.toString();
-        
-        // Record's toString delegates to field's toString()
-        // Password.toString() returns "Password{***}"
-        assertTrue(cmdString.contains("Password{***}"));
-        assertFalse(cmdString.contains("password123"));
+        try (final Password password = Password.of(VALID_PASSWORD.toCharArray())) {
+            final IpAddress ipAddress = IpAddress.of("192.168.1.1");
+            final LoginCommand cmd = new LoginCommand(username, password, ipAddress);
+            
+            final String cmdString = cmd.toString();
+            
+            // Record's toString delegates to field's toString()
+            // Password.toString() returns "Password{***}"
+            assertTrue(cmdString.contains("Password{***}"));
+            assertFalse(cmdString.contains(VALID_PASSWORD));
+        }
     }
 
     @Test

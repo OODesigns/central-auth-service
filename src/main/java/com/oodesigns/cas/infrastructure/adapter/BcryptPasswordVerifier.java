@@ -11,14 +11,14 @@ import java.util.Optional;
 /**
  * Production implementation of PasswordVerifier using Spring Security's BCrypt.
  * Verifies password credentials against stored password hashes using the bcrypt algorithm.
- * 
+ * <p>
  * Security Properties:
  * - Uses BCrypt with salting and work factor for resistance against rainbow table and brute force attacks
  * - Spring Security's BCryptPasswordEncoder uses constant-time comparison to prevent timing attacks
  * - Password is cleared via Credentials.close() when used with try-with-resources
  * - Avoids logging or exposing verification failure reasons
  * - Supports all bcrypt hash formats: $2a$, $2b$, $2y$
- * 
+ * <p>
  * Requires Spring Security: org.springframework.security:spring-security-crypto:6.3.0
  */
 public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
@@ -69,9 +69,6 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
 
         // Spring Security's matches() performs constant-time comparison
         final boolean matches = encoder.matches(providedPassword, storedHash);
-        
-        // Clear the password string reference to encourage GC
-        providedPassword = null; // NOSONAR - intentional null assignment for security
         
         if (matches) {
             return Optional.of(credentials.credential().userId());

@@ -5,9 +5,6 @@ import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.*;
-import com.oodesigns.cas.domain.value.IpAddress;
-import com.oodesigns.cas.domain.value.Password;
-import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.infrastructure.adapter.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +16,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for admin user authentication using mock adapters.
+ * <p>
+ * ✅ NO DATABASE REQUIRED: Uses in-memory mocks for fast testing.
+ * Run with all other unit tests: `gradle test`
  * <p>
  * Tests admin-specific scenarios with in-memory mocks:
  * - Admin login with correct credentials
@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * For general login scenarios, see: LoginMockIntegrationTest
  * For real database testing, see: AdminLoginDatabaseIntegrationTest
  */
+@org.junit.jupiter.api.Tag("integration")
 class AdminLoginMockIntegrationTest {
 
     private LoginCommandHandler loginHandler;
@@ -97,7 +98,7 @@ class AdminLoginMockIntegrationTest {
         // Arrange: Admin credentials
         final LoginCommand loginCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
-            new Password(ADMIN_PASSWORD.toCharArray()),
+            Password.of(ADMIN_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.50")
         );
 
@@ -138,7 +139,7 @@ class AdminLoginMockIntegrationTest {
         // Arrange: Wrong password for admin user
         final LoginCommand loginCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
-            new Password("wrong_password".toCharArray()),
+            Password.of("wrong_password".toCharArray()),
             IpAddress.of("192.168.1.50")
         );
 
@@ -200,7 +201,7 @@ class AdminLoginMockIntegrationTest {
         for (int attemptNumber = 1; attemptNumber <= 5; attemptNumber++) {
             final LoginCommand loginCmd = new LoginCommand(
                 Username.of(ADMIN_USERNAME),
-                new Password(ADMIN_PASSWORD.toCharArray()),
+                Password.of(ADMIN_PASSWORD.toCharArray()),
                 IpAddress.of(ipAddress)
             );
             
@@ -224,7 +225,7 @@ class AdminLoginMockIntegrationTest {
         // Act: 6th attempt should be rate limited
         final LoginCommand rateLimitedCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
-            new Password(ADMIN_PASSWORD.toCharArray()),
+            Password.of(ADMIN_PASSWORD.toCharArray()),
             IpAddress.of(ipAddress)
         );
         
@@ -262,7 +263,7 @@ class AdminLoginMockIntegrationTest {
         for (final String ipAddress : ipAddresses) {
             final LoginCommand loginCmd = new LoginCommand(
                 Username.of(ADMIN_USERNAME),
-                new Password(ADMIN_PASSWORD.toCharArray()),
+                Password.of(ADMIN_PASSWORD.toCharArray()),
                 IpAddress.of(ipAddress)
             );
 
@@ -299,7 +300,7 @@ class AdminLoginMockIntegrationTest {
 
         final LoginCommand loginCmd = new LoginCommand(
             Username.of(ADMIN_USERNAME),
-            new Password(ADMIN_PASSWORD.toCharArray()),
+            Password.of(ADMIN_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.50")
         );
 

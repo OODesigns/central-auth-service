@@ -13,17 +13,7 @@ import java.util.function.Function;
 
 /**
  * Factory for creating JOOQ DSLContext from DatabaseConfig.
- * Intended to be used as a Spring @Bean for singleton management.
- * 
- * Usage with Spring:
- * @Configuration
- * public class DatabaseConfiguration {
- *     @Bean
- *     public DSLContext dslContext(DatabaseConfig config) {
- *         return DatabaseContextFactory.create(config);
- *     }
- * }
- */
+ **/
 public final class DatabaseContextFactory {
     
     static final int CONNECTION_TIMEOUT_SECONDS = 30;

@@ -2,15 +2,15 @@ package com.oodesigns.cas.util.validation;
 
 /**
  * Minimal base type for validated immutable values.
- * 
+ * <p>
  * All validation happens in static factory methods (e.g., {@code of()}) 
  * BEFORE the constructor is called.
- * 
+ * <p>
  * Subclasses:
  * 1. Have a private constructor that only accepts pre-validated values
  * 2. Implement a public static {@code of()} factory method for creation
  * 3. Perform all validation logic in the factory method before calling constructor
- * 
+ * <p>
  * Example:
  * <pre>
  * public final class Username extends ValidatedValue&lt;String&gt; {

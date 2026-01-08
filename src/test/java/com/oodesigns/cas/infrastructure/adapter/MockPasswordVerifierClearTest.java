@@ -16,7 +16,7 @@ class MockPasswordVerifierClearTest {
     @Test
     void clearRemovesRegisteredPasswords() {
         final MockPasswordVerifier verifier = new MockPasswordVerifier();
-        final Password password = new Password("secret".toCharArray());
+        final Password password = Password.of("ValidSecretPassword".toCharArray());  // 19 chars
         final PasswordHash hash = verifier.hash(password.chars());
         final UserCredential credential = UserCredential.of(UserId.of(UUID.randomUUID()), hash);
 

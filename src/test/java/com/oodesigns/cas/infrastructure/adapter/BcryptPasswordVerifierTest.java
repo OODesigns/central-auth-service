@@ -24,15 +24,16 @@ import static org.junit.jupiter.api.Assertions.*;
 class BcryptPasswordVerifierTest {
     private BcryptPasswordVerifier verifier;
     private UserCredential testCredential;
+    private static final String TEST_PASSWORD = "ValidPassword1234";  // 16 chars
 
     @BeforeEach
     void setUp() {
         verifier = new BcryptPasswordVerifier();
 
         final UserId userId = UserId.of(UUID.randomUUID());
-        // Generate a real BCrypt hash for "correct_password" using Spring Security
+        // Generate a real BCrypt hash for TEST_PASSWORD using Spring Security
         final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        final String bcryptHash = encoder.encode("correct_password");
+        final String bcryptHash = encoder.encode(TEST_PASSWORD);
         final PasswordHash passwordHash = PasswordHash.of(bcryptHash);
         testCredential = UserCredential.of(userId, passwordHash);
     }
@@ -40,7 +41,7 @@ class BcryptPasswordVerifierTest {
     @Test
     @DisplayName("Should verify correct password")
     void shouldVerifyCorrectPassword() {
-        final Password password = new Password("correct_password".toCharArray());
+        final Password password = Password.of(TEST_PASSWORD.toCharArray());
         try (final Credentials creds = Credentials.of(testCredential, password)) {
             final Optional<UserId> result = verifier.verify(creds);
             
@@ -52,7 +53,7 @@ class BcryptPasswordVerifierTest {
     @Test
     @DisplayName("Should reject incorrect password")
     void shouldRejectIncorrectPassword() {
-        final Password wrongPassword = new Password("wrong_password".toCharArray());
+        final Password wrongPassword = Password.of("WrongPassword123".toCharArray());  // 15 chars
         try (final Credentials creds = Credentials.of(testCredential, wrongPassword)) {
             final Optional<UserId> result = verifier.verify(creds);
             
@@ -72,7 +73,7 @@ class BcryptPasswordVerifierTest {
     @Test
     @DisplayName("Should return Optional (never null)")
     void shouldReturnOptionalNeverNull() {
-        final Password password = new Password("any_password".toCharArray());
+        final Password password = Password.of("AnyPassword123456".toCharArray());  // 16 chars
         try (final Credentials creds = Credentials.of(testCredential, password)) {
             final Optional<UserId> result = verifier.verify(creds);
             
@@ -84,7 +85,7 @@ class BcryptPasswordVerifierTest {
     @Test
     @DisplayName("Should handle credentials with AutoCloseable")
     void shouldHandleCredentialsWithAutoCloseable() {
-        final Password password = new Password("test_password".toCharArray());
+        final Password password = Password.of("TestPassword1234".toCharArray());  // 16 chars
         final int originalLength = password.chars().length;
         
         // Test that credentials can be used with try-with-resources
@@ -100,7 +101,7 @@ class BcryptPasswordVerifierTest {
     @Test
     @DisplayName("Should handle short password gracefully")
     void shouldHandleShortPasswordGracefully() {
-        final Password shortPassword = new Password("a".toCharArray());
+        final Password shortPassword = Password.of("MinimumLength1234".toCharArray());  // 17 chars
         try (final Credentials creds = Credentials.of(testCredential, shortPassword)) {
             final Optional<UserId> result = verifier.verify(creds);
             
@@ -112,8 +113,10 @@ class BcryptPasswordVerifierTest {
     @DisplayName("Should verify with multiple users")
     void shouldVerifyWithMultipleUsers() {
         final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        final String bcryptHash1 = encoder.encode("password1");
-        final String bcryptHash2 = encoder.encode("password2");
+        final String testPass1 = "Password123456789";  // 17 chars
+        final String testPass2 = "AnotherPassword123";  // 18 chars
+        final String bcryptHash1 = encoder.encode(testPass1);
+        final String bcryptHash2 = encoder.encode(testPass2);
         final PasswordHash hash1 = PasswordHash.of(bcryptHash1);
         final PasswordHash hash2 = PasswordHash.of(bcryptHash2);
         
@@ -122,9 +125,9 @@ class BcryptPasswordVerifierTest {
         final UserCredential cred1 = UserCredential.of(userId1, hash1);
         final UserCredential cred2 = UserCredential.of(userId2, hash2);
         
-        final Password pwd1 = new Password("password1".toCharArray());
-        final Password pwd2 = new Password("password2".toCharArray());
-        
+        final Password pwd1 = Password.of(testPass1.toCharArray());
+        final Password pwd2 = Password.of(testPass2.toCharArray());
+
            try (final Credentials c1 = Credentials.of(cred1, pwd1);
                final Credentials c2 = Credentials.of(cred2, pwd2)) {
             final Optional<UserId> result1 = verifier.verify(c1);
@@ -151,7 +154,7 @@ class BcryptPasswordVerifierTest {
         final PasswordHash hash = PasswordHash.of(validFormatHash);
         final UserCredential credential = UserCredential.of(UserId.of(UUID.randomUUID()), hash);
         
-        final Password password = new Password("password".toCharArray());
+        final Password password = Password.of("ValidPassword1234".toCharArray());  // 16 chars
         try (final Credentials creds = Credentials.of(credential, password)) {
             final Optional<UserId> result = verifierWithMock.verify(creds);
             

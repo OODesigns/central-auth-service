@@ -5,9 +5,6 @@ import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.*;
-import com.oodesigns.cas.domain.value.IpAddress;
-import com.oodesigns.cas.domain.value.Password;
-import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.infrastructure.adapter.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for the login command handler using mock adapters.
+ * ✅ NO DATABASE REQUIRED: Uses in-memory mocks for fast testing.
+ * <p>
  * Tests general login scenarios (not admin-specific) with in-memory mocks:
  * - Valid credentials login
  * - Invalid password handling
@@ -30,9 +29,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * Uses mock adapters (InMemoryUserRepository, MockPasswordVerifier, MockClock, etc.)
  * for fast unit-like testing without external dependencies.
  * For admin-specific scenarios with mocks, see: AdminLoginMockIntegrationTest
- * For real database testing, see: AdminLoginDatabaseIntegrationTest
+ * For real database testing, see: integration/database/AdminLoginDatabaseIntegrationTest
  */
+@org.junit.jupiter.api.Tag("integration")
 class LoginMockIntegrationTest {
+
+    private static final String VALID_PASSWORD = "ValidPassword1234";  // 16 chars
+    private static final String VALID_WRONG_PASSWORD = "WrongPassword1234";  // 16 chars
 
     private LoginCommandHandler loginHandler;
     private InMemoryUserRepository userRepository;
@@ -61,9 +64,9 @@ class LoginMockIntegrationTest {
      * Test helper: Set up a user with credentials for authentication.
      * Saves both the User (for post-auth) and UserCredential (for authentication).
      */
-    private void setupUserWithCredentials(final UserId userId, final Username username, final String password) {
+    private void setupUserWithCredentials(final UserId userId, final Username username) {
         final User user = new User(userId, username, Set.of());
-        final PasswordHash passwordHash = passwordHasher.hash(password.toCharArray());
+        final PasswordHash passwordHash = passwordHasher.hash(LoginMockIntegrationTest.VALID_PASSWORD.toCharArray());
         userRepository.save(user);
         userRepository.saveCredential(UserCredential.of(userId, passwordHash));
     }
@@ -73,12 +76,12 @@ class LoginMockIntegrationTest {
         // 1. Setup: Create and persist a user
         final UserId userId = UserId.of(UUID.randomUUID());
         final Username username = Username.of("alice_smith");
-        setupUserWithCredentials(userId, username, "correct_password");
+        setupUserWithCredentials(userId, username);
 
         // 2. Execute: Login command
-        final LoginCommand loginCmd = new LoginCommand(Username.of("alice_smith"), new Password("correct_password".toCharArray()),
+        final LoginCommand loginCmd = new LoginCommand(Username.of("alice_smith"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.100"));
-        
+
         final LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Successful login using fluent mapTo/orElse
@@ -99,12 +102,12 @@ class LoginMockIntegrationTest {
         // 1. Setup: Create user with specific password
         final UserId userId = UserId.of(UUID.randomUUID());
         final Username username = Username.of("bob_jones");
-        setupUserWithCredentials(userId, username, "correct_password");
+        setupUserWithCredentials(userId, username);
 
         // 2. Execute: Wrong password
-        final LoginCommand loginCmd = new LoginCommand(Username.of("bob_jones"), new Password("wrong_password".toCharArray()),
+        final LoginCommand loginCmd = new LoginCommand(Username.of("bob_jones"), Password.of(VALID_WRONG_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.101"));
-        
+
         final LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Failed login with generic error
@@ -124,9 +127,9 @@ class LoginMockIntegrationTest {
         // 1. Setup: No users in repository
 
         // 2. Execute: Login for non-existent user
-        final LoginCommand loginCmd = new LoginCommand(Username.of("nonexistent"), new Password("password".toCharArray()),
+        final LoginCommand loginCmd = new LoginCommand(Username.of("nonexistent"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.102"));
-        
+
         final LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Generic error (no "user not found")
@@ -146,17 +149,17 @@ class LoginMockIntegrationTest {
         final UserId aliceId = UserId.of(UUID.randomUUID());
         final UserId bobId = UserId.of(UUID.randomUUID());
         final UserId charlieId = UserId.of(UUID.randomUUID());
-        
-        setupUserWithCredentials(aliceId, Username.of("alice"), "correct_password");
-        setupUserWithCredentials(bobId, Username.of("bob"), "correct_password");
-        setupUserWithCredentials(charlieId, Username.of("charlie"), "correct_password");
+
+        setupUserWithCredentials(aliceId, Username.of("alice"));
+        setupUserWithCredentials(bobId, Username.of("bob"));
+        setupUserWithCredentials(charlieId, Username.of("charlie"));
 
         // 2. Execute: Login as each user
-        final LoginCommand aliceCmd = new LoginCommand(Username.of("alice"), new Password("correct_password".toCharArray()),
+        final LoginCommand aliceCmd = new LoginCommand(Username.of("alice"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.100"));
-        final LoginCommand bobCmd = new LoginCommand(Username.of("bob"), new Password("correct_password".toCharArray()),
+        final LoginCommand bobCmd = new LoginCommand(Username.of("bob"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.101"));
-        final LoginCommand charlieCmd = new LoginCommand(Username.of("charlie"), new Password("correct_password".toCharArray()),
+        final LoginCommand charlieCmd = new LoginCommand(Username.of("charlie"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.102"));
 
         final LoginResult aliceResult = loginHandler.handle(aliceCmd);
@@ -196,12 +199,12 @@ class LoginMockIntegrationTest {
     void testRateLimitingPerIPAddress() {
         // 1. Setup: User
         final UserId userId = UserId.of(UUID.randomUUID());
-        setupUserWithCredentials(userId, Username.of("rate_test"), "correct_password");
+        setupUserWithCredentials(userId, Username.of("rate_test"));
 
         // 2. Execute: Multiple login attempts from same IP
         final String testIP = "10.0.0.5";
         for (int i = 0; i < 5; i++) {
-            final LoginCommand cmd = new LoginCommand(Username.of("rate_test"), new Password("correct_password".toCharArray()),
+            final LoginCommand cmd = new LoginCommand(Username.of("rate_test"), Password.of(VALID_PASSWORD.toCharArray()),
                 IpAddress.of(testIP));
             final LoginResult result = loginHandler.handle(cmd);
             final int attempt = i + 1;
@@ -216,10 +219,10 @@ class LoginMockIntegrationTest {
         }
 
         // 3. Verify: 6th attempt is rate limited
-        final LoginCommand blockedCmd = new LoginCommand(Username.of("rate_test"), new Password("correct_password".toCharArray()),
+        final LoginCommand blockedCmd = new LoginCommand(Username.of("rate_test"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of(testIP));
         final LoginResult blockedResult = loginHandler.handle(blockedCmd);
-        
+
         blockedResult.mapTo(ignored -> {
                 fail("Should have been rate limited");
                 return null;
@@ -234,12 +237,12 @@ class LoginMockIntegrationTest {
     void testDifferentIPsNotRateLimited() {
         // 1. Setup: User
         final UserId userId = UserId.of(UUID.randomUUID());
-        setupUserWithCredentials(userId, Username.of("multi_ip_test"), "correct_password");
+        setupUserWithCredentials(userId, Username.of("multi_ip_test"));
 
         // 2. Execute: Attempts from different IPs should succeed independently
         final String[] ips = {"10.0.0.1", "10.0.0.2", "10.0.0.3"};
         for (final String ip : ips) {
-            final LoginCommand cmd = new LoginCommand(Username.of("multi_ip_test"), new Password("correct_password".toCharArray()),
+            final LoginCommand cmd = new LoginCommand(Username.of("multi_ip_test"), Password.of(VALID_PASSWORD.toCharArray()),
                 IpAddress.of(ip));
             final LoginResult result = loginHandler.handle(cmd);
             result.mapTo(success -> {
@@ -257,7 +260,7 @@ class LoginMockIntegrationTest {
     void testUserWithMultiplePermissions() {
         // 1. Setup: User with multiple permissions
         final UserId userId = UserId.of(UUID.randomUUID());
-        setupUserWithCredentials(userId, Username.of("super_admin"), "correct_password");
+        setupUserWithCredentials(userId, Username.of("super_admin"));
         final User user = new User(userId, Username.of("super_admin"), Set.of(
             Permission.of("manage_users"),
             Permission.of("delete_accounts")
@@ -269,7 +272,7 @@ class LoginMockIntegrationTest {
         assertTrue(user.permissions().contains(Permission.of("delete_accounts")));
 
         // 3. Execute: Login should work
-        final LoginCommand cmd = new LoginCommand(Username.of("super_admin"), new Password("correct_password".toCharArray()),
+        final LoginCommand cmd = new LoginCommand(Username.of("super_admin"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.100"));
         final LoginResult result = loginHandler.handle(cmd);
 
@@ -287,12 +290,12 @@ class LoginMockIntegrationTest {
     void testImmutabilityOfUserAfterLogin() {
         // 1. Setup: Create and persist user
         final UserId userId = UserId.of(UUID.randomUUID());
-        setupUserWithCredentials(userId, Username.of("immutable_test"), "correct_password");
+        setupUserWithCredentials(userId, Username.of("immutable_test"));
         final User originalUser = new User(userId, Username.of("immutable_test"), Set.of());
         userRepository.save(originalUser);
 
         // 2. Execute: Login (which uses the user from repository)
-        final LoginCommand cmd = new LoginCommand(Username.of("immutable_test"), new Password("correct_password".toCharArray()),
+        final LoginCommand cmd = new LoginCommand(Username.of("immutable_test"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.100"));
         final LoginResult result = loginHandler.handle(cmd);
 
@@ -311,13 +314,13 @@ class LoginMockIntegrationTest {
     void testPasswordSecurityWithCharArrays() {
         // 1. Setup: User
         final UserId userId = UserId.of(UUID.randomUUID());
-        setupUserWithCredentials(userId, Username.of("security_test"), "correct_password");
+        setupUserWithCredentials(userId, Username.of("security_test"));
 
         // 2. Execute: Login with char array password
-        final char[] password = "correct_password".toCharArray();
-        final LoginCommand cmd = new LoginCommand(Username.of("security_test"), new Password(password),
+        final char[] password = VALID_PASSWORD.toCharArray();
+        final LoginCommand cmd = new LoginCommand(Username.of("security_test"), Password.of(password),
             IpAddress.of("192.168.1.100"));
-        
+
         // Clear the original char array after command creation
         Arrays.fill(password, '\0');
 
@@ -338,13 +341,13 @@ class LoginMockIntegrationTest {
         // 1. Setup: Create users with specific value objects
         final Username username = Username.of("VALUE_OBJECT_TEST");
         final UserId userId = UserId.of(UUID.randomUUID());
-        
-        setupUserWithCredentials(userId, username, "correct_password");
+
+        setupUserWithCredentials(userId, username);
         final User user = new User(userId, username, Set.of());
         userRepository.save(user);
 
         // 2. Execute: Login with normalized username
-        final LoginCommand cmd = new LoginCommand(Username.of("value_object_test"), new Password("correct_password".toCharArray()),
+        final LoginCommand cmd = new LoginCommand(Username.of("value_object_test"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.100"));
         final LoginResult result = loginHandler.handle(cmd);
 
@@ -363,12 +366,12 @@ class LoginMockIntegrationTest {
     void testClockAdvancement() {
         // 1. Setup: User with mock clock
         final UserId userId = UserId.of(UUID.randomUUID());
-        setupUserWithCredentials(userId, Username.of("clock_test"), "correct_password");
+        setupUserWithCredentials(userId, Username.of("clock_test"));
 
         final Instant t1 = clock.now();
 
         // 2. Execute: First login
-        final LoginCommand cmd1 = new LoginCommand(Username.of("clock_test"), new Password("correct_password".toCharArray()),
+        final LoginCommand cmd1 = new LoginCommand(Username.of("clock_test"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.100"));
         final LoginResult result1 = loginHandler.handle(cmd1);
 
@@ -377,7 +380,7 @@ class LoginMockIntegrationTest {
         final Instant t2 = clock.now();
 
         // 4. Execute: Second login
-        final LoginCommand cmd2 = new LoginCommand(Username.of("clock_test"), new Password("correct_password".toCharArray()),
+        final LoginCommand cmd2 = new LoginCommand(Username.of("clock_test"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.101"));
         final LoginResult result2 = loginHandler.handle(cmd2);
 
@@ -408,8 +411,8 @@ class LoginMockIntegrationTest {
         // 1. Setup: Save multiple users with credentials
         final UserId user1Id = UserId.of(UUID.randomUUID());
         final UserId user2Id = UserId.of(UUID.randomUUID());
-        setupUserWithCredentials(user1Id, Username.of("persist1"), "password1");
-        setupUserWithCredentials(user2Id, Username.of("persist2"), "password2");
+        setupUserWithCredentials(user1Id, Username.of("persist1"));
+        setupUserWithCredentials(user2Id, Username.of("persist2"));
 
         // 2. Verify: Repository persists users
         assertEquals(2, userRepository.size());
@@ -423,10 +426,10 @@ class LoginMockIntegrationTest {
         // 1. User registration
         final UserId userId = UserId.of(UUID.randomUUID());
         final Username username = Username.of("secure_user");
-        setupUserWithCredentials(userId, username, "MySecurePassword123");
+        setupUserWithCredentials(userId, username);
 
         // 2. Successful login
-        final LoginCommand correctCmd = new LoginCommand(Username.of("secure_user"), new Password("MySecurePassword123".toCharArray()),
+        final LoginCommand correctCmd = new LoginCommand(Username.of("secure_user"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.50"));
         final LoginResult correctResult = loginHandler.handle(correctCmd);
         correctResult.mapTo(success -> {
@@ -439,7 +442,7 @@ class LoginMockIntegrationTest {
             });
 
         // 3. Failed login attempt
-        final LoginCommand wrongCmd = new LoginCommand(Username.of("secure_user"), new Password("WrongPassword".toCharArray()),
+        final LoginCommand wrongCmd = new LoginCommand(Username.of("secure_user"), Password.of(VALID_WRONG_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.50"));
         final LoginResult wrongResult = loginHandler.handle(wrongCmd);
         wrongResult.mapTo(ignored -> {
@@ -452,7 +455,7 @@ class LoginMockIntegrationTest {
             });
 
         // 4. Verify rate limit not hit (different IP, new user)
-        final LoginCommand anotherUserCmd = new LoginCommand(Username.of("secure_user"), new Password("MySecurePassword123".toCharArray()),
+        final LoginCommand anotherUserCmd = new LoginCommand(Username.of("secure_user"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.51"));
         final LoginResult anotherResult = loginHandler.handle(anotherUserCmd);
         anotherResult.mapTo(success -> {
@@ -470,20 +473,20 @@ class LoginMockIntegrationTest {
         // 1. Setup: Create user with permissions
         final UserId userId = UserId.of(UUID.randomUUID());
         final Username username = Username.of("powerful_user");
-        setupUserWithCredentials(userId, username, "super_secret");
-        
+        setupUserWithCredentials(userId, username);
+
         final User user = new User(userId, username, Set.of(
             com.oodesigns.cas.domain.value.Permission.of("manage_users"),
             com.oodesigns.cas.domain.value.Permission.of("view_reports"),
             com.oodesigns.cas.domain.value.Permission.of("delete_accounts")
         ));
-        
+
         userRepository.save(user);
 
         // 2. Execute: Login
-        final LoginCommand loginCmd = new LoginCommand(Username.of("powerful_user"), new Password("super_secret".toCharArray()),
+        final LoginCommand loginCmd = new LoginCommand(Username.of("powerful_user"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.99"));
-        
+
         final LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Token pair returned in response
@@ -504,12 +507,12 @@ class LoginMockIntegrationTest {
         // 1. Setup: Create user with no permissions
         final UserId userId = UserId.of(UUID.randomUUID());
         final Username username = Username.of("basic_user");
-        setupUserWithCredentials(userId, username, "basic_pass");
+        setupUserWithCredentials(userId, username);
 
         // 2. Execute: Login
-        final LoginCommand loginCmd = new LoginCommand(Username.of("basic_user"), new Password("basic_pass".toCharArray()),
+        final LoginCommand loginCmd = new LoginCommand(Username.of("basic_user"), Password.of(VALID_PASSWORD.toCharArray()),
             IpAddress.of("192.168.1.88"));
-        
+
         final LoginResult result = loginHandler.handle(loginCmd);
 
         // 3. Verify: Token pair still returned
@@ -525,3 +528,4 @@ class LoginMockIntegrationTest {
             });
     }
 }
+

@@ -13,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
@@ -27,6 +26,8 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 class LoginCommandHandlerTest {
+
+    private static final String VALID_PASSWORD = "ValidPassword1234";  // 16 chars
 
     @Mock
     private Ports.UserCredentialReader credentialReader;
@@ -78,7 +79,7 @@ class LoginCommandHandlerTest {
         when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
         when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
 
-        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password123".toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
         final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(success -> {
@@ -100,7 +101,7 @@ class LoginCommandHandlerTest {
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
         when(passwordHasher.verify(any())).thenReturn(Optional.empty());
 
-        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("wrong_pass".toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of("WrongPassword123".toCharArray()), IpAddress.of("192.168.1.1"));  // 15 chars
         final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(ignored -> {
@@ -118,7 +119,7 @@ class LoginCommandHandlerTest {
             .thenReturn(Ports.RateLimitResult.allowed());
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.empty());
 
-        final LoginCommand cmd = new LoginCommand(Username.of("unknown"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginCommand cmd = new LoginCommand(Username.of("unknown"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
         final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(ignored -> {
@@ -135,7 +136,7 @@ class LoginCommandHandlerTest {
         when(rateLimiter.checkLimit(anyString()))
             .thenReturn(Ports.RateLimitResult.blocked("Too many attempts"));
 
-        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
         final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(ignored -> {
@@ -179,7 +180,7 @@ class LoginCommandHandlerTest {
             when(credentialReader.findCredentialsByUsername(any()))
                 .thenThrow(new RuntimeException("Database error"));
 
-            final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), new Password("password".toCharArray()), IpAddress.of("192.168.1.1"));
+            final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
             final LoginResult result = loginHandler.handle(cmd);
 
             result.mapTo(_ -> {

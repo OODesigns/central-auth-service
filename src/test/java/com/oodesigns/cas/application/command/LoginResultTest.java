@@ -150,7 +150,8 @@ class LoginResultTest {
     }
     
     private void createTokenPair(final String access, final String refresh) {
-        new TokenService.TokenPair(access, refresh); // invocation for exception validation only
+        final TokenService.TokenPair tokenPair = new TokenService.TokenPair(access, refresh); // invocation for exception validation only
+        java.util.Objects.requireNonNull(tokenPair); // touch to avoid unused variable warning
     }
 
     @Test

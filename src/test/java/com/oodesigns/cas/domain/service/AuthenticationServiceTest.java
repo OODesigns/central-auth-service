@@ -40,7 +40,7 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateValidPassword() {
-        final Password password = new Password("password123".toCharArray());
+        final Password password = Password.of("ValidPassword1234".toCharArray());  // 16 chars
         try (final var credentials = Credentials.of(testCredential, password)) {
             when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential.userId()));
 
@@ -54,7 +54,7 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateInvalidPassword() {
-        final Password password = new Password("wrong_password".toCharArray());
+        final Password password = Password.of("WrongPassword123".toCharArray());  // 15 chars
         try (final var credentials = Credentials.of(testCredential, password)) {
             when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.empty());
 
@@ -67,8 +67,9 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateNullCredentialThrowsNullPointerException() {
-        final Password password = new Password("password".toCharArray());
-        assertThrows(NullPointerException.class, () -> createCredentialsAndClose(null, password));
+        try (Password password = Password.of("ValidPassword1234".toCharArray())) {
+            assertThrows(NullPointerException.class, () -> createCredentialsAndClose(null, password));
+        }  // 16 chars
     }
 
     @Test
@@ -87,8 +88,8 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateClosesCredentialsAfterVerification() {
-        final char[] passwordChars = "password123".toCharArray();
-        final Password password = new Password(passwordChars);
+        final char[] passwordChars = "ValidPassword1234".toCharArray();  // 16 chars
+        final Password password = Password.of(passwordChars);
         final Credentials credentials = Credentials.of(testCredential, password);
         when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.of(testCredential.userId()));
 
@@ -104,8 +105,8 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateClosesCredentialsEvenWhenVerificationFails() {
-        final char[] passwordChars = "wrong_password".toCharArray();
-        final Password password = new Password(passwordChars);
+        final char[] passwordChars = "WrongPassword123".toCharArray();  // 15 chars
+        final Password password = Password.of(passwordChars);
         final Credentials credentials = Credentials.of(testCredential, password);
         when(passwordHasher.verify(credentials)).thenReturn(java.util.Optional.empty());
 
@@ -120,8 +121,8 @@ class AuthenticationServiceTest {
 
     @Test
     void testAuthenticateClosesCredentialsWhenVerifierThrows() {
-        final char[] passwordChars = "password123".toCharArray();
-        final Password password = new Password(passwordChars);
+        final char[] passwordChars = "ValidPassword1234".toCharArray();  // 16 chars
+        final Password password = Password.of(passwordChars);
         final Credentials credentials = Credentials.of(testCredential, password);
         when(passwordHasher.verify(credentials)).thenThrow(new RuntimeException("Verifier error"));
 

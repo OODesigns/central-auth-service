@@ -74,9 +74,25 @@ tasks.register('integrationTest', Test) {
     classpath = sourceSets.test.runtimeClasspath
     useJUnitPlatform {
         includeTags 'integration'
+        excludeTags 'database'  // Exclude database tests from general integration tests
     }
     jvmArgs += "-javaagent:${configurations.mockitoAgent.singleFile}"
     shouldRunAfter test
+}
+
+tasks.register('databaseIntegrationTest', Test) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'database'
+    }
+    jvmArgs += "-javaagent:${configurations.mockitoAgent.singleFile}"
+    shouldRunAfter test
+
+    // Only run if database is available (check via environment variable or manual flag)
+    onlyIf {
+        System.getenv('RUN_DATABASE_TESTS') == 'true' || project.hasProperty('includeDbTests')
+    }
 }
 
 jacocoTestReport {

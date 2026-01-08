@@ -118,6 +118,11 @@ public sealed interface LoginResult
      * Common mapper contract for the fluent API.
      */
     interface Mapper<T> {
+        /**
+         * False positive: method IS tested (LoginResultTest) and used in production code;
+         * tests intentionally ignore return value while validating behavior via side effects
+         */
+        @SuppressWarnings("UnusedReturnValue")
         T orElse(Function<FailureResult, T> failureMapper);
     }
 

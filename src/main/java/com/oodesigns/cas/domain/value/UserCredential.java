@@ -6,7 +6,7 @@ import com.oodesigns.cas.util.validation.ValidatedValue;
  * Lightweight value object containing only the credentials needed for authentication.
  * Used to avoid loading the entire User object during password verification.
  * Validation happens in the static factory method before construction.
- * 
+ * <p>
  * Contains:
  * - userId: identifier for the authenticated user
  * - passwordHash: the hashed password for verification

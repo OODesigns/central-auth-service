@@ -9,11 +9,9 @@ import com.oodesigns.cas.util.validation.ValidatedValue;
 /**
  * Value object representing an IP address.
  * Validates both IPv4 and IPv6 formats using Java's built-in validation.
- * 
+ * <p>
  * Validation happens in the static factory method before construction.
- * 
- * @throws NullPointerException if IP address is null (via factory method)
- * @throws IllegalArgumentException if IP address is blank or invalid format
+ *
  */
 public final class IpAddress extends ValidatedValue<String> {
 

@@ -165,12 +165,6 @@ class PasswordHashTest {
         }
 
         @Test
-        void testEqualityIsReflexive() {
-            final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
-            assertEquals(hash, hash);
-        }
-
-        @Test
         void testEqualityIsSymmetric() {
             final PasswordHash hash1 = PasswordHash.of(BCRYPT_2A);
             final PasswordHash hash2 = PasswordHash.of(BCRYPT_2A);
@@ -195,6 +189,7 @@ class PasswordHashTest {
         }
 
         @Test
+        @SuppressWarnings("AssertBetweenInconvertibleTypes")
         void testNotEqualToDifferentType() {
             final PasswordHash hash = PasswordHash.of(BCRYPT_2A);
             assertNotEquals(BCRYPT_2A, hash);

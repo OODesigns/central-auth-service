@@ -16,6 +16,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -212,20 +213,22 @@ class JwtTokenSignerTest {
 
     @Test
     @DisplayName("Should return empty Optional when signing throws RuntimeException")
+    @SuppressWarnings("unused")  // MockKeyPassword is for test setup, not direct usage
     void shouldReturnEmptyWhenSigningThrowsException() {
         // Create a mock KeyPassword that returns a key too short for HS256
         // This will cause Keys.hmacShaKeyFor() to throw WeakKeyException
-        final KeyPassword mockPassword = mock(KeyPassword.class);
-        when(mockPassword.toUtf8Bytes()).thenReturn(new byte[16]); // HS256 requires 32+ bytes
+        try (final KeyPassword mockPassword = mock(KeyPassword.class)) {
+            when(mockPassword.toUtf8Bytes()).thenReturn(new byte[16]); // HS256 requires 32+ bytes
 
-        final JwtTokenSigner exceptionSigner = new JwtTokenSigner(
-                _ -> java.util.Optional.of(mockPassword), "test-key"
-        );
-        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+            final JwtTokenSigner exceptionSigner = new JwtTokenSigner(
+                    _ -> java.util.Optional.of(mockPassword), "test-key"
+            );
+            final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final var result = exceptionSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
-        
-        assertTrue(result.isEmpty(), "Should return empty Optional when signing fails");
+            final var result = exceptionSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
+
+            assertTrue(result.isEmpty(), "Should return empty Optional when signing fails");
+        }
     }
 
     @Test
@@ -262,13 +265,8 @@ class JwtTokenSignerTest {
     @Test
     @DisplayName("Should handle very large payload")
     void shouldHandleVeryLargePayload() {
-        final StringBuilder largeJson = new StringBuilder("{\"sub\":\"user\",\"data\":\"");
-        for (int i = 0; i < 10000; i++) {
-            largeJson.append("x");
-        }
-        largeJson.append("\"}");
-
-        final Payload payload = Payload.of(largeJson.toString());
+        final String largeJson = "{\"sub\":\"user\",\"data\":\"" + "x".repeat(10000) + "\"}";
+        final Payload payload = Payload.of(largeJson);
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
         final String token = signer.sign(payload, expiresAt).orElseThrow();
@@ -347,12 +345,17 @@ class JwtTokenSignerTest {
     }
 
     @Test
+    @SuppressWarnings({"unused", "EmptyTryBlock"})  // Variable is for cleanup; body unreachable as exception thrown in constructor
     @DisplayName("Should require minimum 32-character key for HS256")
     void shouldRequireMinimumKeyLength() {
         final String tooShortKey = "short"; // Less than 32 chars
 
         // KeyPassword.of() should throw IllegalArgumentException for insufficient key
-        assertThrows(IllegalArgumentException.class, () -> KeyPassword.of(tooShortKey),
+        assertThrows(IllegalArgumentException.class, () -> {
+            try (final KeyPassword password = KeyPassword.of(tooShortKey)) {
+                // Won't reach here as exception is thrown in try-with-resources header
+            }
+        },
             "KeyPassword should reject keys shorter than 32 characters");
     }
 
@@ -383,6 +386,38 @@ class JwtTokenSignerTest {
             final var claims = parseToken(token);
             assertEquals(payload.value(), claims.get("payload", String.class),
                 "Signature " + i + " should be valid");
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unused")  // Mock is for test setup, not direct usage
+    @DisplayName("Should log and return empty when signing throws RuntimeException")
+    void shouldLogWhenPasswordConversionThrows() {
+        // Create a mock KeyPassword that throws RuntimeException on toUtf8Bytes()
+        // This ensures the catch block and logger line are executed
+        try (final KeyPassword faultyPassword = mock(KeyPassword.class)) {
+            doThrow(new RuntimeException("Simulated password conversion failure"))
+                    .when(faultyPassword).toUtf8Bytes();
+
+            final JwtTokenSigner faultySigner = new JwtTokenSigner(
+                    _ -> java.util.Optional.of(faultyPassword), "error-key"
+            );
+
+            // Enable FINE logging to ensure logger lambda is evaluated for code coverage
+            final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(JwtTokenSigner.class.getName());
+            final java.util.logging.Level previousLevel = logger.getLevel();
+            logger.setLevel(java.util.logging.Level.FINE);
+
+            try {
+                final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+                final var result = faultySigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
+
+                assertTrue(result.isEmpty(), "Should return empty Optional when password conversion fails");
+                // The catch block and logger.log() lambda should be fully evaluated here
+            } finally {
+                // Restore original log level
+                logger.setLevel(previousLevel);
+            }
         }
     }
 }

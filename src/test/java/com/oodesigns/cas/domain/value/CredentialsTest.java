@@ -1,10 +1,13 @@
 package com.oodesigns.cas.domain.value;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 
 /**
  * Unit tests for Credentials record.
@@ -20,7 +23,14 @@ class CredentialsTest {
         final UserId userId = UserId.of(UUID.randomUUID());
         final PasswordHash passwordHash = PasswordHash.of("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
         testCredential = UserCredential.of(userId, passwordHash);
-        testPassword = new Password("password123".toCharArray());
+        testPassword = Password.of("ValidPassword1234".toCharArray());  // 16 chars
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (testPassword != null) {
+            testPassword.close();
+        }
     }
 
     @Test
@@ -111,7 +121,7 @@ class CredentialsTest {
 
     @Test
     void testCredentialsClosesClearsPassword() {
-        final Password password = new Password("password123".toCharArray());
+        final Password password = Password.of("ValidPassword1234".toCharArray());  // 16 chars
         try (final var credentials = Credentials.of(testCredential, password)) {
             // Close credentials - should not throw
             assertDoesNotThrow(credentials::close);
@@ -120,7 +130,7 @@ class CredentialsTest {
 
     @Test
     void testCredentialsCloseIsIdempotent() {
-        final Password password = new Password("password123".toCharArray());
+        final Password password = Password.of("ValidPassword1234".toCharArray());  // 16 chars
         try (final var credentials = Credentials.of(testCredential, password)) {
             // Call close multiple times - should not throw
             assertDoesNotThrow(() -> {
@@ -128,6 +138,18 @@ class CredentialsTest {
                 credentials.close();
                 credentials.close();
             });
+        }
+    }
+
+    @Test
+    void testCredentialsCloseHandlesPasswordCloseException() {
+        // Create a mock Password that throws an exception when closed
+        final Password mockPassword = mock(Password.class);
+        doThrow(new RuntimeException("Simulated password close failure")).when(mockPassword).close();
+
+        try (final var credentials = Credentials.of(testCredential, mockPassword)) {
+            // Should not throw even though password.close() throws an exception
+            assertDoesNotThrow(credentials::close);
         }
     }
 }

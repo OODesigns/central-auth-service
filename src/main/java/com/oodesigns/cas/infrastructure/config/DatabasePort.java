@@ -21,7 +21,7 @@ final class DatabasePort extends ValidatedValue<Integer> {
             throw new IllegalArgumentException("db.port is blank");
         }
         try {
-            final Integer port = Integer.parseInt(value);
+            final int port = Integer.parseInt(value);
             if (port < MIN_PORT || port > MAX_PORT) {
                 throw new IllegalArgumentException(String.format("db.port must be between %d and %d: %s", MIN_PORT, MAX_PORT, port));
             }

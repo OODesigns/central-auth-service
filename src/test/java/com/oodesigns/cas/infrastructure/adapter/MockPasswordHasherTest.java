@@ -39,7 +39,7 @@ class MockPasswordHasherTest {
 
         final PasswordHash hash = PasswordHash.of(testPasswordHash);
         final UserCredential credential = UserCredential.of(testUserId, hash);
-        final Password password = new Password(testRawPassword.toCharArray());
+        final Password password = Password.of(testRawPassword.toCharArray());
         final Credentials credentials = Credentials.of(credential, password);
 
         final Optional<UserId> result = mockHasher.verify(credentials);
@@ -55,7 +55,7 @@ class MockPasswordHasherTest {
 
         final PasswordHash hash = PasswordHash.of(testPasswordHash);
         final UserCredential credential = UserCredential.of(testUserId, hash);
-        final Password wrongPassword = new Password("wrong_password".toCharArray());
+        final Password wrongPassword = Password.of("wrong_password".toCharArray());
         final Credentials credentials = Credentials.of(credential, wrongPassword);
 
         final Optional<UserId> result = mockHasher.verify(credentials);
@@ -69,7 +69,7 @@ class MockPasswordHasherTest {
         // Don't register any hash
         final PasswordHash hash = PasswordHash.of(testPasswordHash);
         final UserCredential credential = UserCredential.of(testUserId, hash);
-        final Password password = new Password(testRawPassword.toCharArray());
+        final Password password = Password.of(testRawPassword.toCharArray());
         final Credentials credentials = Credentials.of(credential, password);
 
         final Optional<UserId> result = mockHasher.verify(credentials);
@@ -125,14 +125,14 @@ class MockPasswordHasherTest {
         // Verify first password
         final PasswordHash hash1 = PasswordHash.of(testPasswordHash);
         final UserCredential cred1 = UserCredential.of(testUserId, hash1);
-        final Password pwd1 = new Password(testRawPassword.toCharArray());
+        final Password pwd1 = Password.of(testRawPassword.toCharArray());
         final Credentials credentials1 = Credentials.of(cred1, pwd1);
         assertTrue(mockHasher.verify(credentials1).isPresent());
 
         // Verify second password
         final PasswordHash hashObj2 = PasswordHash.of(hash2);
         final UserCredential cred2 = UserCredential.of(userId2, hashObj2);
-        final Password pwd2 = new Password(password2.toCharArray());
+        final Password pwd2 = Password.of(password2.toCharArray());
         final Credentials credentials2 = Credentials.of(cred2, pwd2);
         assertTrue(mockHasher.verify(credentials2).isPresent());
     }

@@ -53,8 +53,13 @@ public final class Credentials extends ValidatedValue<Credentials.CredentialsDat
      */
     @Override
     public void close() {
-        password().clear();
+      try {
+            password().close();
+            } catch (Exception _) {
+             // idempotent: ignore any exception from clearing/closing the password
+            }
     }
+
 }
 
 

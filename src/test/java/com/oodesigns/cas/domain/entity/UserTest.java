@@ -1,7 +1,6 @@
 package com.oodesigns.cas.domain.entity;
 
 import com.oodesigns.cas.domain.value.*;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 
