@@ -213,7 +213,6 @@ class JwtTokenSignerTest {
 
     @Test
     @DisplayName("Should return empty Optional when signing throws RuntimeException")
-    @SuppressWarnings("unused")  // MockKeyPassword is for test setup, not direct usage
     void shouldReturnEmptyWhenSigningThrowsException() {
         // Create a mock KeyPassword that returns a key too short for HS256
         // This will cause Keys.hmacShaKeyFor() to throw WeakKeyException
@@ -254,7 +253,7 @@ class JwtTokenSignerTest {
     @DisplayName("Should handle past expiration time")
     void shouldHandlePastExpirationTime() {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
-        final Instant expiresAt = Instant.now().minus(1, ChronoUnit.HOURS); // Past time
+        final Instant expiresAt = Instant.now().minus(1, ChronoUnit.HOURS);
 
         final String token = signer.sign(payload, expiresAt).orElseThrow();
 
@@ -390,7 +389,6 @@ class JwtTokenSignerTest {
     }
 
     @Test
-    @SuppressWarnings("unused")  // Mock is for test setup, not direct usage
     @DisplayName("Should log and return empty when signing throws RuntimeException")
     void shouldLogWhenPasswordConversionThrows() {
         // Create a mock KeyPassword that throws RuntimeException on toUtf8Bytes()

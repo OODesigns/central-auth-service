@@ -8,7 +8,7 @@ This is a **Hexagonal Architecture (Ports & Adapters)** authentication service i
 - **application/** - Command handlers orchestrating domain services (e.g., `LoginCommandHandler`)
 - **infrastructure/** - Adapters implementing `Ports.*` interfaces (JOOQ, BCrypt, JWT, Bucket4j)
 
-All external dependencies flow through `Ports` interfaces defined in [Ports.java](src/main/java/com/oodesigns/cas/domain/service/Ports.java).
+All external dependencies flow through `Ports` interfaces defined in `src/main/java/com/oodesigns/cas/domain/service/Ports.java`.
 
 ## Key Patterns
 
@@ -20,7 +20,7 @@ public final class Username extends ValidatedValue<String> {
     public static Username of(String value) { /* validate then construct */ }  // factory method
 }
 ```
-Validation happens in `of()` factory methods, NOT constructors. See [Username](src/main/java/com/oodesigns/cas/domain/value/Username.java).
+Validation happens in `of()` factory methods, NOT constructors. See `Username.java` for an example.
 
 ### Fluent Result Pattern (mapTo/orElse)
 Results use sealed interfaces with fluent mapping instead of exceptions:
@@ -48,14 +48,14 @@ Applied in: `LoginResult`, `RateLimitResult`. Never use `instanceof` checks.
 **100% line coverage enforced** via JaCoCo (excludes `Ports.java` and `DatabaseContextFactory`).
 
 ### Mocking Pattern
-Tests use Mockito with `@ExtendWith(MockitoExtension.class)`. Mock all `Ports.*` interfaces in unit tests. See [LoginCommandHandlerTest](src/test/java/com/oodesigns/cas/application/command/LoginCommandHandlerTest.java).
+Tests use Mockito with `@ExtendWith(MockitoExtension.class)`. Mock all `Ports.*` interfaces in unit tests. See `LoginCommandHandlerTest.java` for an example.
 
 ## Database
 
 - **PostgreSQL** via docker-compose with Flyway migrations
 - **JOOQ** for type-safe queries - adapters in `infrastructure/adapter/`
 - Stored procedures in `auth` schema (e.g., `auth.find_user_credentials()`)
-- Config via [application.properties](src/main/resources/application.properties) with `${ENV_VAR:default}` syntax
+- Config via `application.properties` with `${ENV_VAR:default}` syntax
 
 ## Build Commands
 

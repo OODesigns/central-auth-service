@@ -13,21 +13,26 @@ class FileLoaderProviderFactoryTest {
     @Test
     void defaultProviderCanLoadFile() throws Exception {
         final FileLoaderProvider provider = FileLoaderProviderFactory.defaultProvider();
-        final Reader reader = provider.loadFile("testfile.txt");
-        assertNotNull(reader);
+        try (final Reader reader = provider.loadFile("testfile.txt")) {
+            assertNotNull(reader);
+        }
     }
     @Test
     void defaultProviderReturnsReader() throws Exception {
         final FileLoaderProvider provider = FileLoaderProviderFactory.defaultProvider();
-        final Reader reader = provider.loadFile("testfile.txt");
-        assertInstanceOf(java.io.StringReader.class, reader);
+        try (final Reader reader = provider.loadFile("testfile.txt")) {
+            assertInstanceOf(java.io.StringReader.class, reader);
+        }
     }
 
     @Test
-    @SuppressWarnings("resource")
     void defaultProviderThrowsOnMissingFile() {
         final FileLoaderProvider provider = FileLoaderProviderFactory.defaultProvider();
-        assertThrows(FileLoaderException.class, () -> provider.loadFile("nonexistent.txt"));
+        assertThrows(FileLoaderException.class, () -> {
+            try (final var _ = provider.loadFile("nonexistent.txt")) {
+                fail("Should have thrown FileLoaderException");
+            }
+        });
     }
     @Test
     void defaultProviderCanBeCalledMultipleTimes() throws Exception {
@@ -35,16 +40,20 @@ class FileLoaderProviderFactoryTest {
         final FileLoaderProvider provider2 = FileLoaderProviderFactory.defaultProvider();
         assertNotNull(provider1);
         assertNotNull(provider2);
-        final Reader reader1 = provider1.loadFile("testfile.txt");
-        final Reader reader2 = provider2.loadFile("testfile.txt");
-        assertNotNull(reader1);
-        assertNotNull(reader2);
+        try (final Reader reader1 = provider1.loadFile("testfile.txt");
+             final Reader reader2 = provider2.loadFile("testfile.txt")) {
+            assertNotNull(reader1);
+            assertNotNull(reader2);
+        }
     }
     @Test
-    @SuppressWarnings("resource")
     void defaultProviderThrowsFileLoaderExceptionForInvalidFile() {
         final FileLoaderProvider provider = FileLoaderProviderFactory.defaultProvider();
-        assertThrows(FileLoaderException.class, () -> provider.loadFile("invalid-file-xyz.txt"));
+        assertThrows(FileLoaderException.class, () -> {
+            try (final var _ = provider.loadFile("invalid-file-xyz.txt")) {
+                fail("Should have thrown FileLoaderException");
+            }
+        });
     }
     @Test
     void factoryHasPrivateConstructor() {
@@ -67,10 +76,11 @@ class FileLoaderProviderFactoryTest {
     @Test
     void defaultProviderReturnsNewReadersEachCall() throws Exception {
         final FileLoaderProvider provider = FileLoaderProviderFactory.defaultProvider();
-        final Reader reader1 = provider.loadFile("testfile.txt");
-        final Reader reader2 = provider.loadFile("testfile.txt");
-        assertNotNull(reader1);
-        assertNotNull(reader2);
-        assertNotSame(reader1, reader2);
+        try (final Reader reader1 = provider.loadFile("testfile.txt");
+             final Reader reader2 = provider.loadFile("testfile.txt")) {
+            assertNotNull(reader1);
+            assertNotNull(reader2);
+            assertNotSame(reader1, reader2);
+        }
     }
 }

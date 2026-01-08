@@ -68,7 +68,7 @@ class ValidatedValueTest {
         final var v1 = TestValidatedValue.of("test");
         
         // Explicitly call equals(null) to test the null check in equals()
-        assertFalse(v1.equals(null));
+        assertNotEquals(null, v1);
     }
 
     @Test
@@ -112,7 +112,6 @@ class ValidatedValueTest {
     }
 
     @Test
-    @SuppressWarnings("EqualsWithItself")
     void testEqualsWithSameInstance() {
         final var v1 = TestValidatedValue.of("test");
         
