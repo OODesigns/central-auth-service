@@ -68,9 +68,10 @@ public abstract class ValidatedValue<T> {
 
     @Override
     public final boolean equals(final Object o) {
-        return o != null
-            && o.getClass() == getClass()
-            && value.equals(((ValidatedValue<?>) o).value);
+        if (o == null || o.getClass() != getClass()) {
+            return false;
+        }
+        return value.equals(((ValidatedValue<?>) o).value);
     }
 
     @Override

@@ -68,7 +68,7 @@ class ValidatedValueTest {
         final var v1 = TestValidatedValue.of("test");
         
         // Explicitly call equals(null) to test the null check in equals()
-        assertNotEquals(null, v1);
+        assertFalse(v1.equals(null));
     }
 
     @Test
