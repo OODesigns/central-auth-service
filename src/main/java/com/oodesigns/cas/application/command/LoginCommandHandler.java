@@ -4,10 +4,12 @@ import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Credentials;
+import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -66,9 +68,19 @@ public final class LoginCommandHandler {
         return credentialReader.findCredentialsByUsername(command.username())
             .map(cred -> Credentials.of(cred, command.password()))
             .flatMap(authService::getAuthenticatedUser)
-            .flatMap(this::fetchFullUserAndGenerateTokens)
-            .<LoginResult>map(pair -> LoginResult.success(pair.tokenPair(), pair.user().userId(), pair.user().permissions()))
+            .flatMap(this::generateTokens)
+            .map(this::createLoginResult)
             .orElseGet(() -> LoginResult.failure("INVALID_CREDENTIALS", "Invalid username or password."));
+    }
+
+    /**
+     * Create a LoginResult from TokenAndUserPair.
+     * Extracts userId and permissions from the authenticated user for the token response.
+     * @param pair the token pair and authenticated user
+     * @return successful LoginResult with tokens and user metadata
+     */
+    private LoginResult createLoginResult(final TokenAndUserPair pair) {
+        return LoginResult.success(pair.tokenPair(), pair.userId(), pair.permissions());
     }
 
     /**
@@ -76,7 +88,7 @@ public final class LoginCommandHandler {
      * This only executes after password has been verified.
      * Returns a TokenAndUserPair containing both the tokens and authenticated user.
      */
-    private Optional<TokenAndUserPair> fetchFullUserAndGenerateTokens(final UserId userId) {
+    private Optional<TokenAndUserPair> generateTokens(final UserId userId) {
         return userRepository.findById(userId)
             .flatMap(user -> tokenService.generateTokens(user)
                 .map(tokens -> new TokenAndUserPair(tokens, user)));
@@ -99,6 +111,14 @@ public final class LoginCommandHandler {
         public TokenAndUserPair {
             Objects.requireNonNull(tokenPair, "TokenPair cannot be null");
             Objects.requireNonNull(user, "User cannot be null");
+        }
+
+        public UserId userId() {
+            return user.userId();
+        }
+
+        public Set<Permission> permissions() {
+            return user.permissions();
         }
     }
 }
