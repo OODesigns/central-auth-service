@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Note: Tests must set up both User (for post-auth) and UserCredential (for auth)
  * separately, as User no longer contains password hash.
  */
-public class InMemoryUserRepository implements Ports.UserCredentialReader, Ports.UserRepository {
+public class InMemoryUserRepository implements Ports.UserCredentialRetriever, Ports.UserRetriever {
     private final Map<UserId, User> usersById = new ConcurrentHashMap<>();
     private final Map<String, User> usersByUsername = new ConcurrentHashMap<>();
     private final Map<String, UserCredential> credentialsByUsername = new ConcurrentHashMap<>();
