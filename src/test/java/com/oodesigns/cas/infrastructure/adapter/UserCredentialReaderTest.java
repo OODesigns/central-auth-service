@@ -19,16 +19,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class JooqUserCredentialReaderTest {
+class UserCredentialReaderTest {
 
     @Mock
     private DSLContext dsl;
 
-    private JooqUserCredentialReader reader;
+    private UserCredentialReader reader;
 
     @BeforeEach
     void setUp() {
-        reader = new JooqUserCredentialReader(dsl);
+        reader = new UserCredentialReader(dsl);
     }
 
     @Test
@@ -69,6 +69,6 @@ class JooqUserCredentialReaderTest {
     
     @Test
     void constructor_Throws_WhenDslIsNull() {
-        assertThrows(NullPointerException.class, () -> new JooqUserCredentialReader(null));
+        assertThrows(NullPointerException.class, () -> new UserCredentialReader(null));
     }
 }

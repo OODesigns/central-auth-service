@@ -37,7 +37,7 @@ class TokenServiceTest {
         
         final UserId userId = UserId.of(UUID.randomUUID());
         final Username username = Username.of("test_user");
-        testUser = new User(userId, username, Set.of());
+        testUser = new User(userId, username, Set.of(), null, null);
     }
 
     private void setupTokenSignerMock() {

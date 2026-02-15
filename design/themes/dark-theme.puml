@@ -1,0 +1,76 @@
+' ===============================
+' Activity start / end nodes (SUPPORTED)
+' ===============================
+skinparam activityStartColor #22c55e
+skinparam activityStartBorderColor #16a34a
+
+skinparam activityEndColor #64748b
+skinparam activityEndBorderColor #94a3b8
+
+' ===============================
+' Canvas & global defaults
+' ===============================
+skinparam backgroundColor #12161c
+skinparam defaultFontColor #e5e7eb
+skinparam shadowing true
+
+skinparam ArrowColor #93c5fd
+skinparam BorderColor #4b5563
+
+' ===============================
+' Activities (normal flow)
+' ===============================
+skinparam Activity {
+  BackgroundColor #1f2937
+  BorderColor #6b7280
+  FontColor #f9fafb
+}
+
+' ===============================
+' Decision diamonds
+' ===============================
+skinparam Diamond {
+  BackgroundColor #020617
+  BorderColor #60a5fa
+  FontColor #60a5fa
+}
+
+' ===============================
+' Semantic activity variants
+' ===============================
+
+skinparam Activity<<failure>> {
+  BackgroundColor #7f1d1d
+  BorderColor #ef4444
+  FontColor #fee2e2
+}
+
+skinparam Activity<<warning>> {
+  BackgroundColor #78350f
+  BorderColor #f59e0b
+  FontColor #fef3c7
+}
+
+skinparam Activity<<success>> {
+  BackgroundColor #064e3b
+  BorderColor #22c55e
+  FontColor #dcfce7
+}
+
+' ===============================
+' Notes (data / DB calls / intent)
+' ===============================
+skinparam Note {
+  BackgroundColor #2a303a
+  BorderColor #9ca3af
+  FontColor #f3f4f6
+}
+
+' ===============================
+' Partitions / security boundaries
+' ===============================
+skinparam Partition {
+  BackgroundColor #0b1220
+  BorderColor #38bdf8
+  FontColor #38bdf8
+}

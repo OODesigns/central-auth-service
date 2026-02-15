@@ -1,5 +1,6 @@
 package com.oodesigns.cas.domain.service;
 
+import com.oodesigns.cas.application.command.LoginCommand;
 import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.value.Credentials;
 import com.oodesigns.cas.domain.value.Payload;
@@ -41,19 +42,19 @@ class PortsTest {
 
     static class TestRateLimiter implements Ports.RateLimiter {
         @Override
-        public Ports.RateLimitResult checkLimit(final String key) {
+        public Ports.RateLimitResult checkLimit(final LoginCommand command) {
             return Ports.RateLimitResult.allowed();
         }
     }
 
-    static class TestUserCredentialReader implements Ports.UserCredentialReader {
+    static class TestUserCredentialReader implements Ports.UserCredentialRetriever {
         @Override
         public Optional<UserCredential> findCredentialsByUsername(final Username username) {
             return Optional.empty();
         }
     }
 
-    static class TestUserRepository implements Ports.UserRepository {
+    static class TestUserRepository implements Ports.UserRetriever {
         @Override
         public Optional<User> findById(final UserId userId) {
             return Optional.empty();
@@ -86,13 +87,13 @@ class PortsTest {
 
     @Test
     void testUserCredentialReaderImplementation() {
-        final Ports.UserCredentialReader reader = new TestUserCredentialReader();
+        final Ports.UserCredentialRetriever reader = new TestUserCredentialReader();
         assertNotNull(reader);
     }
 
     @Test
     void testUserRepositoryImplementation() {
-        final Ports.UserRepository repository = new TestUserRepository();
+        final Ports.UserRetriever repository = new TestUserRepository();
         assertNotNull(repository);
     }
 

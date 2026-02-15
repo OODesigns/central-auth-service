@@ -1,0 +1,76 @@
+@startuml
+!include ../../themes/dark-theme.puml
+title Perform MFA challenge
+
+legend top
+Entry point:
+MFA Challenge Token issued
+(password verified, MFA required)
+
+Policy:
+- TTL: 5 minutes
+- Max attempts: 5
+- Token is single-completion
+end legend
+
+start
+
+:Receive MFA code / assertion;
+
+:Validate MFA challenge token;
+note right
+  Checks:
+  - signature / expiry
+  - typ == mfa_challenge
+  - aud == auth.mfa
+  - sub (user_id) active
+  - sid (login attempt id)
+  - jti present
+end note
+
+:Increment attempt counter (atomic); <<warning>>
+note right
+  Purpose:
+  - Allow multiple attempts
+  - Prevent brute force
+
+  Implementation:
+  - attempts = INCR(sid:jti)
+  - TTL = token exp (set once)
+end note
+
+if (attempts > 5?) then (yes)
+  :Invalidate MFA challenge token;
+  note right
+    Token state:
+    - marked failed
+    - further verification rejected
+  end note
+  :Reject login; <<failure>>
+  end
+endif
+
+:Verify MFA factor;
+note right
+  Examples:
+  - TOTP code validation
+  - WebAuthn assertion verification
+end note
+
+if (MFA verified?) then (yes)
+  :Mark MFA challenge token\nas completed (consume); <<success>>
+  note right
+    Single-completion enforcement:
+    - sid/jti marked completed
+    - any further use rejected
+  end note
+
+  :Continue authentication;
+  end
+
+else (no)
+  :Return MFA_CHALLENGE_FAILED\n(with remaining attempts); <<warning>>
+  end
+endif
+
+@enduml

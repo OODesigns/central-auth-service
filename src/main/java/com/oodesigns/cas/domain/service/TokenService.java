@@ -22,6 +22,7 @@ public final class TokenService {
     private final Ports.TokenSigner tokenSigner;
     private static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
+    private static final Duration TOTP_VERIFICATION_TOKEN_TTL = Duration.ofMinutes(5);
 
     public TokenService(final Ports.Clock clock, final Ports.TokenSigner tokenSigner) {
         this.clock = Objects.requireNonNull(clock);
@@ -87,6 +88,32 @@ public final class TokenService {
                 userId.toString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
     }
 
+
+    /**
+     * Generate a restricted 2FA verification token for 2FA flow.
+     * This token is short-lived (5 minutes) and can only be used to verify 2FA codes.
+     * Cannot be used for normal API access.
+     *
+     * @param userId the user who needs to verify 2FA
+     * @return the 2FA verification token
+     */
+    public String generate2FAVerificationToken(final UserId userId) {
+        final Instant now = clock.now();
+        final Instant expiresAt = now.plus(TOTP_VERIFICATION_TOKEN_TTL);
+        final Jti jti = Jti.generate();
+
+        // Minimal payload: sub (user ID), aud (audience for 2FA flow), iat, exp
+        final String payloadJson = String.format(
+            "{\"sub\":\"%s\",\"aud\":\"2fa_verification\",\"iat\":%d,\"exp\":%d,\"jti\":\"%s\"}",
+            userId.toString(),
+            now.getEpochSecond(),
+            expiresAt.getEpochSecond(),
+            jti.value()
+        );
+
+        return tokenSigner.sign(Payload.of(payloadJson), expiresAt)
+            .orElseThrow(() -> new IllegalStateException("Failed to sign 2FA verification token"));
+    }
 
     /**
      * Token pair (access + refresh).

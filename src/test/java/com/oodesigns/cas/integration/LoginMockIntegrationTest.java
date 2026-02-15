@@ -3,6 +3,7 @@ package com.oodesigns.cas.integration;
 import com.oodesigns.cas.application.command.*;
 import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.service.AuthenticationService;
+import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.*;
 import com.oodesigns.cas.infrastructure.adapter.*;
@@ -48,16 +49,19 @@ class LoginMockIntegrationTest {
         userRepository = new InMemoryUserRepository();
         passwordHasher = new MockPasswordVerifier();
         clock = new MockClock(Instant.now());
-        final Bucket4jRateLimiter rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1)); // Allow 5 attempts per minute per IP
+        final LoginRateLimiter rateLimiter = new LoginRateLimiter(5, java.time.Duration.ofMinutes(1)); // Allow 5 attempts per minute per IP
         final MockTokenSigner tokenSigner = new MockTokenSigner();
 
         // Create domain services with injected ports
         final AuthenticationService authService = new AuthenticationService(passwordHasher);
         final TokenService tokenService = new TokenService(clock, tokenSigner);
 
+        // Create mock TotpStatusReader - 2FA disabled by default
+        final Ports.TotpStatusReader totpStatusReader = userId -> Optional.empty();
+
         // Create command handler with injected dependencies
         // InMemoryUserRepository implements both UserCredentialReader and UserRepository
-        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, totpStatusReader, rateLimiter);
     }
 
     /**
@@ -65,7 +69,7 @@ class LoginMockIntegrationTest {
      * Saves both the User (for post-auth) and UserCredential (for authentication).
      */
     private void setupUserWithCredentials(final UserId userId, final Username username) {
-        final User user = new User(userId, username, Set.of());
+        final User user = new User(userId, username, Set.of(), null, null);
         final PasswordHash passwordHash = passwordHasher.hash(LoginMockIntegrationTest.VALID_PASSWORD.toCharArray());
         userRepository.save(user);
         userRepository.saveCredential(UserCredential.of(userId, passwordHash));
@@ -264,7 +268,7 @@ class LoginMockIntegrationTest {
         final User user = new User(userId, Username.of("super_admin"), Set.of(
             Permission.of("manage_users"),
             Permission.of("delete_accounts")
-        ));
+        ), null, null);
         userRepository.save(user);
 
         // 2. Verify: User has both permissions
@@ -291,7 +295,7 @@ class LoginMockIntegrationTest {
         // 1. Setup: Create and persist user
         final UserId userId = UserId.of(UUID.randomUUID());
         setupUserWithCredentials(userId, Username.of("immutable_test"));
-        final User originalUser = new User(userId, Username.of("immutable_test"), Set.of());
+        final User originalUser = new User(userId, Username.of("immutable_test"), Set.of(), null, null);
         userRepository.save(originalUser);
 
         // 2. Execute: Login (which uses the user from repository)
@@ -343,7 +347,7 @@ class LoginMockIntegrationTest {
         final UserId userId = UserId.of(UUID.randomUUID());
 
         setupUserWithCredentials(userId, username);
-        final User user = new User(userId, username, Set.of());
+        final User user = new User(userId, username, Set.of(), null, null);
         userRepository.save(user);
 
         // 2. Execute: Login with normalized username
@@ -479,7 +483,7 @@ class LoginMockIntegrationTest {
             com.oodesigns.cas.domain.value.Permission.of("manage_users"),
             com.oodesigns.cas.domain.value.Permission.of("view_reports"),
             com.oodesigns.cas.domain.value.Permission.of("delete_accounts")
-        ));
+        ), null, null);
 
         userRepository.save(user);
 

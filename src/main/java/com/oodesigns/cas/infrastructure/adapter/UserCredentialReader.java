@@ -17,11 +17,11 @@ import org.jooq.DSLContext;
  * while remaining compatible with future jOOQ code generation.
  * </p>
  */
-public final class JooqUserCredentialReader implements Ports.UserCredentialReader {
+public final class UserCredentialReader implements Ports.UserCredentialRetriever {
 
     private final DSLContext dsl;
 
-    public JooqUserCredentialReader(final DSLContext dsl) {
+    public UserCredentialReader(final DSLContext dsl) {
         this.dsl = Objects.requireNonNull(dsl, "DSLContext cannot be null");
     }
 
@@ -41,7 +41,7 @@ public final class JooqUserCredentialReader implements Ports.UserCredentialReade
      */
     private static final class Routines {
         static Optional<UserCredentialsRecord> findUserCredentials(final DSLContext ctx, final String username) {
-            return ctx.fetchOptional("SELECT * FROM auth.find_user_credentials(?)", username)
+            return ctx.fetchOptional("SELECT * FROM api_schema.find_user_credentials(?)", username)
                     .map(r -> new UserCredentialsRecord(
                             r.get("user_id", UUID.class),
                             r.get("password_hash", String.class)

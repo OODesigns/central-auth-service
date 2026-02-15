@@ -1,43 +1,34 @@
 #!/bin/bash
 set -e
 
-# This script is automatically executed by the Postgres container during initialization
-# 
+# ============================================================================
+# PostgreSQL Container Initialization Script
+# ============================================================================
+# This script runs automatically when the PostgreSQL container starts for the
+# first time. It only handles database creation. All role and schema management
+# is delegated to Flyway migrations to maintain a single source of truth.
+#
 # ROLE DISTINCTION:
-#   POSTGRES_USER  = PostgreSQL server administrator (superuser)
-#                    Used only for initialization and schema management
-#                    Connection variables: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-#   
-#   APP_USER       = Limited application service role (non-superuser)
-#                    Used by the application at runtime to connect and query
-#                    Has minimal privileges: SELECT, INSERT, UPDATE, DELETE on tables
-#                    Cannot create/drop databases, roles, or schemas
-#                    Connection variables: APP_USER, APP_PASSWORD, APP_DB
+#   ${POSTGRES_USER}  = PostgreSQL superuser (admin)
+#                       • Created by official postgres:15 image
+#                       • Used ONLY for initialization and Flyway execution
+#                       • Never used by the application
+#
+#   ${API_USER}       = Limited API service role (non-superuser)
+#                       • Created by Flyway migration (V1_0_1__create_roles.sql)
+#                       • Used by the application at runtime
+#                       • Has minimal privileges (EXECUTE on api_schema.* only)
+#                       • Cannot create/drop databases, roles, or schemas
+#
+# EXECUTION FLOW:
+#   1. This script creates the application database
+#   2. Flyway migrations handle all roles, schemas, and permissions
+#   3. Application connects using ${API_USER} credentials
+# ============================================================================
+echo "----> Step 1: Creating application database (owned by POSTGRES_USER admin)"
 
-# Step 1: Create the limited APP_USER role (non-admin)
-# The default "postgres" database is used for these initial setup operations
-# since it always exists and we need admin privileges to create roles
-
-echo "----> Step 1: Creating limited application role (if not exists)"
-psql --username="${POSTGRES_USER}" --dbname="${POSTGRES_DB}" <<-EOSQL
-  DO \$\$
-  BEGIN
-    IF NOT EXISTS (
-      SELECT FROM pg_roles WHERE rolname = '${APP_USER}'
-    ) THEN
-      CREATE ROLE ${APP_USER}
-        WITH LOGIN
-             PASSWORD '${APP_PASSWORD}'
-             NOSUPERUSER          -- APP_USER cannot create/drop databases or roles
-             NOCREATEDB           -- Cannot create databases
-             NOCREATEROLE         -- Cannot create other roles
-             NOREPLICATION;       -- Cannot set up replication
-    END IF;
-  END
-  \$\$;
-EOSQL
-
-echo "----> Step 2: Creating application database (owned by POSTGRES_USER admin)"
+# Check if database already exists (idempotent - safe to re-run)
+# Returns "1" if database exists, empty string if not
 DB_EXISTS=$(
   psql \
     --username="${POSTGRES_USER}" \
@@ -46,15 +37,28 @@ DB_EXISTS=$(
     --no-align \
     -c "SELECT 1 FROM pg_database WHERE datname='${APP_DB}';"
 )
+# psql options explained:
+#   --tuples-only:  Suppresses header and footer, returns only data rows
+#   --no-align:     Removes formatting/padding for clean variable assignment
+#   Result:         DB_EXISTS="1" if exists, "" if not
 
-# (2) If it doesn't exist, create it (owned by POSTGRES_USER, not APP_USER)
+# Create database if it doesn't exist
+# Owner: POSTGRES_USER (admin) will manage schema and roles
+# Encoding: UTF-8 with C.utf8 locale for deterministic, portable behavior
 if [[ -z "${DB_EXISTS}" ]]; then
   echo "Creating database \"${APP_DB}\" owned by POSTGRES_USER (admin)…"
   psql --username="${POSTGRES_USER}" --dbname="${POSTGRES_DB}" <<-EOSQL
 CREATE DATABASE ${APP_DB}
   WITH OWNER = '${POSTGRES_USER}'
+       -- ENCODING = 'UTF8': Full Unicode support for all text data
        ENCODING = 'UTF8'
+       -- LC_COLLATE = 'C.utf8': Byte-order collation
+       --   Ensures consistent sorting across all systems (dev, test, prod)
+       --   Critical for cryptographic operations and deterministic queries
        LC_COLLATE = 'C.utf8'
+       -- LC_CTYPE = 'C.utf8': Character classification in UTF-8
+       --   'C' locale ensures consistent character properties across systems
+       --   Not dependent on server locale settings
        LC_CTYPE = 'C.utf8';
 EOSQL
 
@@ -63,42 +67,12 @@ else
   echo "Database \"${APP_DB}\" already exists; skipping creation."
 fi
 
-echo "----> Step 3: Creating auth schema in application database"
-psql --username="${POSTGRES_USER}" --dbname="${APP_DB}" <<-EOSQL
-  CREATE SCHEMA IF NOT EXISTS auth;
-EOSQL
-
-echo "----> Step 4: Granting minimal required privileges to APP_USER"
-echo "      (POSTGRES_USER retains full admin access)"
-psql --username="${POSTGRES_USER}" --dbname="${APP_DB}" <<-EOSQL
-  -- APP_USER privileges: SELECT, INSERT, UPDATE, DELETE only
-  -- (Cannot: CREATE, DROP, ALTER, or manage roles)
-  
-  GRANT CONNECT ON DATABASE ${APP_DB} TO ${APP_USER};
-  GRANT USAGE   ON SCHEMA public TO ${APP_USER};
-  GRANT USAGE   ON SCHEMA auth TO ${APP_USER};
-
-  -- Grant CRUD on all existing tables
-  GRANT SELECT, INSERT, UPDATE, DELETE
-    ON ALL TABLES IN SCHEMA public
-    TO ${APP_USER};
-
-  -- Ensure future tables also inherit these privileges
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT SELECT, INSERT, UPDATE, DELETE
-    ON TABLES TO ${APP_USER};
-
-  -- Grant execute on auth schema functions (read-only operations)
-  GRANT EXECUTE
-    ON ALL FUNCTIONS IN SCHEMA auth
-    TO ${APP_USER};
-
-  -- Ensure future functions in auth schema inherit these privileges
-  ALTER DEFAULT PRIVILEGES IN SCHEMA auth
-    GRANT EXECUTE
-    ON FUNCTIONS TO ${APP_USER};
-EOSQL
-
-echo "----> Database initialization complete"
-echo "      POSTGRES_USER (admin) can manage schema and roles"
-echo "      APP_USER (service) can query and modify data only"
+echo "----> Step 2: Database initialization complete"
+echo "      ✅ Database \"${APP_DB}\" created (owned by POSTGRES_USER admin)"
+echo "      ✅ Awaiting Flyway migrations to configure roles and schemas"
+echo ""
+echo "      Flyway will:"
+echo "      • Create api_role (${API_USER}) with LOGIN and security constraints"
+echo "      • Create private_schema and api_schema"
+echo "      • Create SECURITY DEFINER functions in api_schema"
+echo "      • Grant api_role EXECUTE permissions on api_schema.* functions only"

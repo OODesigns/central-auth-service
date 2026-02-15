@@ -26,7 +26,7 @@ class UserTest {
 
     @Test
     void testCreateNewUser() {
-        final User user = new User(userId, username, Set.of());
+        final User user = new User(userId, username, Set.of(), null, null);
         
         assertEquals(userId, user.userId());
         assertEquals(username, user.username());
@@ -36,13 +36,13 @@ class UserTest {
     @Test
     void testCreateThrowsWithNullUserId() {
         final Set<Permission> permissions = Set.of();
-        assertThrows(NullPointerException.class, () -> new User(null, username, permissions));
+        assertThrows(NullPointerException.class, () -> new User(null, username, permissions, null, null));
     }
 
     @Test
     void testCreateThrowsWithNullUsername() {
         final Set<Permission> permissions = Set.of();
-        assertThrows(NullPointerException.class, () -> new User(userId, null, permissions));
+        assertThrows(NullPointerException.class, () -> new User(userId, null, permissions, null, null));
     }
 
     @Test
@@ -50,7 +50,7 @@ class UserTest {
         final User user = new User(userId, username, Set.of(
             Permission.of("view_users"),
             Permission.of("edit_profile")
-        ));
+        ), null, null);
 
         assertEquals(2, user.permissions().size());
         assertTrue(user.permissions().contains(Permission.of("view_users")));
@@ -59,40 +59,40 @@ class UserTest {
 
     @Test
     void testEqualityBasedOnAllFields() {
-        final User user1 = new User(userId, username, Set.of());
-        final User user2 = new User(userId, username, Set.of());
+        final User user1 = new User(userId, username, Set.of(), null, null);
+        final User user2 = new User(userId, username, Set.of(), null, null);
         
         assertEquals(user1, user2);
     }
 
     @Test
     void testInequalityDifferentUserIds() {
-        final User user1 = new User(userId, username, Set.of());
-        final User user2 = new User(UserId.of(UUID.randomUUID()), username, Set.of());
+        final User user1 = new User(userId, username, Set.of(), null, null);
+        final User user2 = new User(UserId.of(UUID.randomUUID()), username, Set.of(), null, null);
         
         assertNotEquals(user1, user2);
     }
 
     @Test
     void testInequalityDifferentUsernames() {
-        final User user1 = new User(userId, username, Set.of());
-        final User user2 = new User(userId, Username.of("different"), Set.of());
+        final User user1 = new User(userId, username, Set.of(), null, null);
+        final User user2 = new User(userId, Username.of("different"), Set.of(), null, null);
         
         assertNotEquals(user1, user2);
     }
 
     @Test
     void testHashCodeConsistency() {
-        final User user1 = new User(userId, username, Set.of());
-        final User user2 = new User(userId, username, Set.of());
+        final User user1 = new User(userId, username, Set.of(), null, null);
+        final User user2 = new User(userId, username, Set.of(), null, null);
         
         assertEquals(user1.hashCode(), user2.hashCode());
     }
 
     @Test
     void testImmutabilityGetPermissionsReturnsUnmodifiable() {
-        final User user = new User(userId, username, Set.of(Permission.of("view_users")));
-        
+        final User user = new User(userId, username, Set.of(Permission.of("view_users")), null, null);
+
         final Set<Permission> permissions = user.permissions();
         
         // permissions returns unmodifiable set
@@ -105,8 +105,8 @@ class UserTest {
 
     @Test
     void testCanBeUsedInHashBasedCollections() {
-        final User user1 = new User(userId, username, Set.of());
-        final User user2 = new User(UserId.of(UUID.randomUUID()), username, Set.of());
+        final User user1 = new User(userId, username, Set.of(), null, null);
+        final User user2 = new User(UserId.of(UUID.randomUUID()), username, Set.of(), null, null);
 
         final Set<User> users = new HashSet<>();
         users.add(user1);
@@ -119,7 +119,7 @@ class UserTest {
 
     @Test
     void testToStringContainsUserIdAndUsername() {
-        final User user = new User(userId, username, Set.of());
+        final User user = new User(userId, username, Set.of(), null, null);
         
         final String str = user.toString();
         
@@ -130,6 +130,6 @@ class UserTest {
 
     @Test
     void testCreateThrowsWithNullPermissions() {
-        assertThrows(NullPointerException.class, () -> new User(userId, username, null));
+        assertThrows(NullPointerException.class, () -> new User(userId, username, null, null, null));
     }
 }

@@ -30,10 +30,10 @@ class LoginCommandHandlerTest {
     private static final String VALID_PASSWORD = "ValidPassword1234";  // 16 chars
 
     @Mock
-    private Ports.UserCredentialReader credentialReader;
+    private Ports.UserCredentialRetriever credentialReader;
 
     @Mock
-    private Ports.UserRepository userRepository;
+    private Ports.UserRetriever userRepository;
 
     @Mock
     private Ports.PasswordVerifier passwordHasher;
@@ -47,6 +47,9 @@ class LoginCommandHandlerTest {
     @Mock
     private Ports.RateLimiter rateLimiter;
 
+    @Mock
+    private Ports.TotpStatusReader totpStatusReader;
+
     private LoginCommandHandler loginHandler;
     private UserCredential testCredential;
     private User testUser;
@@ -55,21 +58,24 @@ class LoginCommandHandlerTest {
     void setUp() {
         final AuthenticationService authService = new AuthenticationService(passwordHasher);
         final TokenService tokenService = new TokenService(clock, tokenSigner);
-        loginHandler = new LoginCommandHandler(authService, tokenService, credentialReader, userRepository, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, tokenService, credentialReader, userRepository, totpStatusReader, rateLimiter);
 
         // Setup test data
         final UserId userId = UserId.of(UUID.randomUUID());
         final PasswordHash passwordHash = PasswordHash.of("$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
         testCredential = UserCredential.of(userId, passwordHash);
-        testUser = new User(userId, Username.of("john_doe"), Set.of(Permission.of("read")));
+        // Create test user with no password reset required and no 2FA required
+        testUser = new User(userId, Username.of("john_doe"), Set.of(Permission.of("read")), null, null);
     }
 
     private void mockSuccessfulFlow() {
         when(tokenSigner.sign(any(), any()))
             .thenAnswer(ignored -> Optional.of("signed.token"));
-        when(rateLimiter.checkLimit(anyString()))
+        when(rateLimiter.checkLimit(any(LoginCommand.class)))
             .thenReturn(Ports.RateLimitResult.allowed());
         when(clock.now()).thenReturn(Instant.now());
+        // Mock: 2FA is disabled by default
+        when(totpStatusReader.check2FAStatus(any())).thenReturn(Optional.empty());
     }
 
     @Test
@@ -96,7 +102,7 @@ class LoginCommandHandlerTest {
 
     @Test
     void testLoginInvalidCredentials() {
-        when(rateLimiter.checkLimit(anyString()))
+        when(rateLimiter.checkLimit(any(LoginCommand.class)))
             .thenReturn(Ports.RateLimitResult.allowed());
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
         when(passwordHasher.verify(any())).thenReturn(Optional.empty());
@@ -115,7 +121,7 @@ class LoginCommandHandlerTest {
 
     @Test
     void testLoginUnknownUser() {
-        when(rateLimiter.checkLimit(anyString()))
+        when(rateLimiter.checkLimit(any(LoginCommand.class)))
             .thenReturn(Ports.RateLimitResult.allowed());
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.empty());
 
@@ -133,7 +139,7 @@ class LoginCommandHandlerTest {
 
     @Test
     void testLoginRateLimited() {
-        when(rateLimiter.checkLimit(anyString()))
+        when(rateLimiter.checkLimit(any(LoginCommand.class)))
             .thenReturn(Ports.RateLimitResult.blocked("Too many attempts"));
 
         final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
@@ -175,7 +181,7 @@ class LoginCommandHandlerTest {
                 logger.setLevel(originalLevel);
             }
         }) {
-            when(rateLimiter.checkLimit(anyString()))
+            when(rateLimiter.checkLimit(any(LoginCommand.class)))
                 .thenReturn(Ports.RateLimitResult.allowed());
             when(credentialReader.findCredentialsByUsername(any()))
                 .thenThrow(new RuntimeException("Database error"));

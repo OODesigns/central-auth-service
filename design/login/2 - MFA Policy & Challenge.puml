@@ -1,0 +1,47 @@
+@startuml
+!include ../themes/dark-theme.puml
+title MFA Policy & Challenge
+
+:Receive user identity;
+note right
+  Entry point:
+  Identity established
+  (from Credential Verification)
+ end note
+start
+
+:get MFA policy;
+note right
+  <<Authentication Policy Store>>
+  mfa_required
+  mfa_enrolled
+ end note
+
+if (Required but\nnot enrolled?) then (yes)
+  :Return MFA_SETUP_REQUIRED;
+  end
+endif
+
+
+if (MFA enabled?) then (yes)
+  :Issue MFA-scoped token; <<warning>>
+  :Perform MFA challenge;
+  note right
+    Detailed flow:
+    See "Perform MFA challenge.puml"
+  end note
+  if (MFA success?) then (yes)
+    :Continue authentication;
+  else (no)
+    :Reject login; <<failure>>
+    end
+  endif
+else (no)
+  :Continue authentication;
+endif
+
+:Continue authentication\n(Post Authentication);
+
+
+end
+@enduml

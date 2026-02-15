@@ -4,14 +4,15 @@ import com.oodesigns.cas.application.command.LoginCommand;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
 import com.oodesigns.cas.application.command.LoginResult;
 import com.oodesigns.cas.domain.service.AuthenticationService;
+import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.IpAddress;
 import com.oodesigns.cas.domain.value.Password;
 import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.infrastructure.adapter.BcryptPasswordVerifier;
-import com.oodesigns.cas.infrastructure.adapter.Bucket4jRateLimiter;
-import com.oodesigns.cas.infrastructure.adapter.JooqUserCredentialReader;
-import com.oodesigns.cas.infrastructure.adapter.JooqUserRepository;
+import com.oodesigns.cas.infrastructure.adapter.LoginRateLimiter;
+import com.oodesigns.cas.infrastructure.adapter.UserCredentialReader;
+import com.oodesigns.cas.infrastructure.adapter.UserRepository;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
 import com.oodesigns.cas.infrastructure.adapter.SystemClock;
 import com.oodesigns.cas.infrastructure.config.DatabaseConfig;
@@ -77,11 +78,11 @@ class AdminLoginDatabaseIntegrationTest {
         dslContext = DatabaseContextFactory.create(databaseConfig);
         
         // Create real adapters from infrastructure layer
-        final var userCredentialReader = new JooqUserCredentialReader(dslContext);
-        final var userRepository = new JooqUserRepository(dslContext);
+        final var userCredentialReader = new UserCredentialReader(dslContext);
+        final var userRepository = new UserRepository(dslContext);
         final var passwordVerifier = new BcryptPasswordVerifier();
         
-        final Bucket4jRateLimiter rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
+        final LoginRateLimiter rateLimiter = new LoginRateLimiter(5, java.time.Duration.ofMinutes(1));
         
         // Create real JWT token signer with secret from environment
         final String jwtSecret = System.getenv().get("JWT_SECRET");
@@ -97,8 +98,11 @@ class AdminLoginDatabaseIntegrationTest {
             tokenSigner
         );
 
+        // Create mock TotpStatusReader - 2FA disabled by default
+        final Ports.TotpStatusReader totpStatusReader = userId -> java.util.Optional.empty();
+
         // Create command handler with real database repositories
-        loginHandler = new LoginCommandHandler(authService, tokenService, userCredentialReader, userRepository, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, tokenService, userCredentialReader, userRepository, totpStatusReader, rateLimiter);
     }
 
     /**
@@ -230,7 +234,7 @@ class AdminLoginDatabaseIntegrationTest {
     @Test
     void testJooqUserCredentialReaderQueries() {
         // Create fresh reader for this test
-        final var userCredentialReader = new JooqUserCredentialReader(dslContext);
+        final var userCredentialReader = new UserCredentialReader(dslContext);
         
         // Act: Query admin credentials using JOOQ
         final var credentials = userCredentialReader.findCredentialsByUsername(Username.of(ADMIN_USERNAME));
@@ -251,13 +255,13 @@ class AdminLoginDatabaseIntegrationTest {
     @Test
     void testJooqUserRepositoryQueries() {
         // First, get admin ID from credentials
-        final var userCredentialReader = new JooqUserCredentialReader(dslContext);
+        final var userCredentialReader = new UserCredentialReader(dslContext);
         final var credentials = userCredentialReader.findCredentialsByUsername(Username.of(ADMIN_USERNAME));
         
         assertTrue(credentials.isPresent(), "Admin credentials should exist");
         
         // Create fresh repository for this test
-        final var userRepository = new JooqUserRepository(dslContext);
+        final var userRepository = new UserRepository(dslContext);
         
         // Act: Query user by ID using JOOQ
         final var user = userRepository.findById(credentials.get().userId());

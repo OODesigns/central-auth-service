@@ -17,15 +17,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("JooqUserRepository")
-class JooqUserRepositoryTest {
+class UserRepositoryTest {
 
     private DSLContext dslContext;
-    private JooqUserRepository userRepository;
+    private UserRepository userRepository;
 
     @BeforeEach
     void setUp() {
         dslContext = mock(DSLContext.class);
-        userRepository = new JooqUserRepository(dslContext);
+        userRepository = new UserRepository(dslContext);
     }
 
     @Test
@@ -41,7 +41,7 @@ class JooqUserRepositoryTest {
         when(jooqRecord.get("permissions", String[].class)).thenReturn(permissions);
 
         when(dslContext.fetchOptional(
-                "SELECT * FROM auth.get_user(?)", userId
+                "SELECT * FROM api_schema.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
         final Optional<User> result = userRepository.findById(UserId.of(userId));
@@ -67,7 +67,7 @@ class JooqUserRepositoryTest {
         when(jooqRecord.get("permissions", String[].class)).thenReturn(permissions);
 
         when(dslContext.fetchOptional(
-                "SELECT * FROM auth.get_user(?)", userId
+                "SELECT * FROM api_schema.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
         final Optional<User> result = userRepository.findById(UserId.of(userId));
@@ -94,7 +94,7 @@ class JooqUserRepositoryTest {
         when(jooqRecord.get("permissions", String[].class)).thenReturn(null);
 
         when(dslContext.fetchOptional(
-                "SELECT * FROM auth.get_user(?)", userId
+                "SELECT * FROM api_schema.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
         final Optional<User> result = userRepository.findById(UserId.of(userId));
@@ -119,7 +119,7 @@ class JooqUserRepositoryTest {
         when(jooqRecord.get("permissions", String[].class)).thenReturn(permissions);
 
         when(dslContext.fetchOptional(
-                "SELECT * FROM auth.get_user(?)", userId
+                "SELECT * FROM api_schema.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
         final Optional<User> result = userRepository.findById(UserId.of(userId));
@@ -137,7 +137,7 @@ class JooqUserRepositoryTest {
         final UUID userId = UUID.randomUUID();
 
         when(dslContext.fetchOptional(
-                "SELECT * FROM auth.get_user(?)", userId
+                "SELECT * FROM api_schema.get_user(?)", userId
         )).thenReturn(Optional.empty());
 
         final Optional<User> result = userRepository.findById(UserId.of(userId));
@@ -157,7 +157,7 @@ class JooqUserRepositoryTest {
     @DisplayName("constructor throws NullPointerException when DSLContext is null")
     void testConstructorWithNullDslContext() {
         try {
-            new JooqUserRepository(null);
+            new UserRepository(null);
             fail("Expected NullPointerException");
         } catch (final NullPointerException e) {
             assertEquals("DSLContext cannot be null", e.getMessage());
@@ -177,7 +177,7 @@ class JooqUserRepositoryTest {
         when(jooqRecord.get("permissions", String[].class)).thenReturn(permissions);
 
         when(dslContext.fetchOptional(
-                "SELECT * FROM auth.get_user(?)", userId
+                "SELECT * FROM api_schema.get_user(?)", userId
         )).thenReturn(Optional.of(jooqRecord));
 
         final Optional<User> result = userRepository.findById(UserId.of(userId));
@@ -187,11 +187,10 @@ class JooqUserRepositoryTest {
         final Set<Permission> perms = user.permissions();
 
         // Verify immutability by attempting to modify
-        try {
-            perms.add(Permission.of("edit_profile"));
-            fail("Expected UnsupportedOperationException");
-        } catch (final UnsupportedOperationException e) {
-            assertNotNull(e);
-        }
+        final Permission newPermission = Permission.of("edit_profile");
+        assertThrows(
+            UnsupportedOperationException.class,
+            () -> perms.add(newPermission)
+        );
     }
 }

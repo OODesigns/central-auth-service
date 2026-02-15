@@ -3,6 +3,7 @@ package com.oodesigns.cas.integration;
 import com.oodesigns.cas.application.command.*;
 import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.service.AuthenticationService;
+import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.*;
 import com.oodesigns.cas.infrastructure.adapter.*;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -50,15 +52,18 @@ class AdminLoginMockIntegrationTest {
         userRepository = new InMemoryUserRepository();
         passwordVerifier = new MockPasswordVerifier();
         clock = new MockClock(Instant.now());
-        final var rateLimiter = new Bucket4jRateLimiter(5, java.time.Duration.ofMinutes(1));
+        final var rateLimiter = new LoginRateLimiter(5, java.time.Duration.ofMinutes(1));
         final var tokenSigner = new MockTokenSigner();
 
         // Create domain services with injected ports
         final AuthenticationService authService = new AuthenticationService(passwordVerifier);
         final TokenService tokenService = new TokenService(clock, tokenSigner);
 
+        // Create mock TotpStatusReader - 2FA disabled by default
+        final Ports.TotpStatusReader totpStatusReader = userId -> Optional.empty();
+
         // Create command handler
-        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, totpStatusReader, rateLimiter);
 
         // Setup admin user with admin role
         setupAdminUser();
@@ -74,7 +79,7 @@ class AdminLoginMockIntegrationTest {
         final Username adminUsername = Username.of(ADMIN_USERNAME);
         
         // Create user with no permissions (permissions granted at authorization level, not stored with user)
-        final User adminUser = new User(adminId, adminUsername, java.util.Set.of());
+        final User adminUser = new User(adminId, adminUsername, java.util.Set.of(), null, null);
         
         // Hash the admin password
         final PasswordHash passwordHash = passwordVerifier.hash(ADMIN_PASSWORD.toCharArray());

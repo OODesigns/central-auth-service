@@ -28,11 +28,11 @@ import org.jooq.Record;
  * - Array handling: Automatic PostgreSQL text[] to Java Set<Permission> conversion
  * - Single responsibility: Only handles user retrieval, credential reading handled by UserCredentialReader
  */
-public final class JooqUserRepository implements Ports.UserRepository {
+public final class UserRepository implements Ports.UserRetriever {
 
     private final DSLContext dsl;
 
-    public JooqUserRepository(final DSLContext dsl) {
+    public UserRepository(final DSLContext dsl) {
         this.dsl = Objects.requireNonNull(dsl, "DSLContext cannot be null");
     }
 
@@ -40,7 +40,7 @@ public final class JooqUserRepository implements Ports.UserRepository {
     public Optional<User> findById(final UserId userId) {
         return Optional.ofNullable(userId)
                 .flatMap(id -> dsl.fetchOptional(
-                        "SELECT * FROM auth.get_user(?)", id.value()
+                        "SELECT * FROM api_schema.get_user(?)", id.value()
                 )
                 .map(this::mapToUser));
     }
@@ -56,6 +56,8 @@ public final class JooqUserRepository implements Ports.UserRepository {
         final UUID userId = rec.get("user_id", UUID.class);
         final String username = rec.get("username", String.class);
         final String[] permissionsArray = rec.get("permissions", String[].class);
+        final java.time.Instant passwordResetRequiredAt = rec.get("password_reset_required_at", java.time.Instant.class);
+        final java.time.Instant mfaRequiredAt = rec.get("mfa_required_at", java.time.Instant.class);
 
         final Set<Permission> permissions = permissionsArray != null && permissionsArray.length > 0
                 ? Set.of(permissionsArray).stream()
@@ -63,6 +65,7 @@ public final class JooqUserRepository implements Ports.UserRepository {
                         .collect(Collectors.toUnmodifiableSet())
                 : Set.of();
 
-        return new User(UserId.of(userId), Username.of(username), permissions);
+        return new User(UserId.of(userId), Username.of(username), permissions,
+                        passwordResetRequiredAt, mfaRequiredAt);
     }
 }

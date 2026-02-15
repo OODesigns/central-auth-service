@@ -2,7 +2,5 @@
 <project version="4">
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/.devcontainer/db/init/01_init_database.sh" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/.devcontainer/flyway/sql/V1_1__seed_auth_data.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/.devcontainer/flyway/sql/V1__init_schema.sql" dialect="PostgreSQL" />
   </component>
 </project>
