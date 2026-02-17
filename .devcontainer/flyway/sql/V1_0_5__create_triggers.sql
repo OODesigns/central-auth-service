@@ -1,7 +1,7 @@
 -- Flyway migration: V1_0_5__create_triggers.sql
 -- Attach triggers to tables for Central Auth Service (CAS)
 --
--- TRIGGERS CREATED (12 total):
+-- TRIGGERS CREATED (11 total):
 --  - trg_set_users_updated_at: Auto-update users.updated_at
 --  - trg_set_trusted_clients_updated_at: Auto-update trusted_clients.updated_at
 --  - trg_audit_users: Log user lifecycle and MFA policy events
@@ -9,7 +9,6 @@
 --  - trg_audit_refresh_tokens: Log refresh token lifecycle
 --  - trg_audit_trusted_clients: Log client changes
 --  - trg_audit_role_permissions: Log permission changes
---  - trg_audit_user_roles: Log role assignments
 --  - trg_audit_totp_enabled: Log 2FA enablement
 --  - trg_audit_totp_disabled: Log 2FA disablement
 --  - trg_audit_totp_last_used: Log 2FA usage
@@ -60,10 +59,6 @@ CREATE TRIGGER trg_audit_role_permissions
   FOR EACH ROW
   EXECUTE FUNCTION private_schema.audit_role_permissions();
 
-CREATE TRIGGER trg_audit_user_roles
-  AFTER INSERT OR DELETE ON private_schema.user_roles
-  FOR EACH ROW
-  EXECUTE FUNCTION private_schema.audit_user_roles();
 
 -- ============================================================================
 -- TOTP AUDIT TRIGGERS

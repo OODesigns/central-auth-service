@@ -1,14 +1,13 @@
 -- Flyway migration: V1_0_4__create_trigger_functions.sql
 -- Create trigger functions for Central Auth Service (CAS)
 --
--- FUNCTIONS CREATED (11 total):
+-- FUNCTIONS CREATED (10 total):
 --  - set_updated_at_timestamp(): Auto-update timestamp
 --  - audit_users(): Log user lifecycle and MFA policy events
 --  - audit_invalidated_jwts(): Log token invalidations
 --  - audit_refresh_tokens(): Log refresh token events
 --  - audit_trusted_clients(): Log client certificate events
 --  - audit_role_permissions(): Log role permission changes
---  - audit_user_roles(): Log user role assignments
 --  - audit_totp_enabled(): Log 2FA enablement
 --  - audit_totp_disabled(): Log 2FA disablement
 --  - audit_totp_last_used(): Log 2FA usage
@@ -276,48 +275,6 @@ BEGIN
     )
   );
 
-  RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
-END;
-$$;
-
--- ============================================================================
--- USER ROLES AUDIT FUNCTION
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION private_schema.audit_user_roles()
-  RETURNS TRIGGER
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path = pg_catalog, private_schema
-AS $$
-DECLARE
-  target_record RECORD;
-  composite_id UUID;
-BEGIN
-  target_record := CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
-  composite_id := md5(target_record.user_id::text || ':' || target_record.role_id::text)::uuid;
-
-  INSERT INTO private_schema.audit_logs (
-    actor_id,
-    actor_type,
-    action,
-    target_type,
-    target_id,
-    metadata
-  ) VALUES (
-    NULLIF(current_setting('app.actor_id', true), '')::UUID,
-    COALESCE(NULLIF(current_setting('app.actor_type', true), ''), 'MIGRATION'),
-    CASE TG_OP
-      WHEN 'INSERT' THEN 'USER_ROLE_ASSIGNED'
-      WHEN 'DELETE' THEN 'USER_ROLE_REMOVED'
-    END,
-    'user_roles',
-    composite_id,
-    jsonb_build_object(
-      'user_id', target_record.user_id,
-      'role_id', target_record.role_id
-    )
-  );
 
   RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
 END;

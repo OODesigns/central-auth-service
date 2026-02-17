@@ -5,8 +5,7 @@
 --  - static roles (admin, user, kiosk)
 --  - static permissions (user/cert/audit management)
 --  - role → permission mappings
---  - bootstrap admin user (forced password rotation on first login)
---  - admin user → admin role assignment
+--  - bootstrap admin user with admin role (forced password rotation on first login)
 --
 -- IMPORTANT REQUIREMENTS:
 --
@@ -84,19 +83,10 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 -- NOTE:
 --  - password_hash must be injected via Flyway placeholder or environment
 --  - admin must rotate password on first login (password_reset_required_at is set to now())
+--  - role_id is set directly to the admin role (one-to-one relationship)
 
-INSERT INTO private_schema.users (username, password_hash, password_reset_required_at, created_at, updated_at)
-VALUES ('admin', '${ADMIN_PASSWORD_HASH}', NOW(), NOW(), NOW())
+INSERT INTO private_schema.users (username, password_hash, role_id, password_reset_required_at, created_at, updated_at)
+SELECT 'admin', '${ADMIN_PASSWORD_HASH}', r.role_id, NOW(), NOW(), NOW()
+FROM private_schema.roles r
+WHERE r.name = 'admin'
 ON CONFLICT (username) DO NOTHING;
-
--- ============================================================================
--- ASSIGN ADMIN ROLE TO ADMIN USER
--- ============================================================================
-
-INSERT INTO private_schema.user_roles (user_id, role_id)
-SELECT u.user_id, r.role_id
-FROM private_schema.users u
-  CROSS JOIN private_schema.roles r
-WHERE u.username = 'admin'
-  AND r.name = 'admin'
-ON CONFLICT (user_id, role_id) DO NOTHING;

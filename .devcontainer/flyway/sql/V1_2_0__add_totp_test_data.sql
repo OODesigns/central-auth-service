@@ -15,7 +15,7 @@
 -- Test User 1: 2FA-enabled user (credentials provided below)
 -- This secret generates 6-digit codes and can be used with any TOTP app
 -- WARNING: These are test credentials - regenerate for any non-test environment
-INSERT INTO totp_secrets (
+INSERT INTO private_schema.totp_secrets (
   id,
   user_id,
   secret_key_encrypted,
@@ -41,46 +41,49 @@ INSERT INTO totp_secrets (
   now(),
   now(),
   now()
-FROM users
+FROM private_schema.users
 WHERE username = 'admin'
 AND NOT EXISTS (
-  SELECT 1 FROM totp_secrets WHERE user_id = users.user_id
+  SELECT 1 FROM private_schema.totp_secrets WHERE user_id = private_schema.users.user_id
 );
 
 -- Generate test backup codes for admin user
 -- In production, codes should be single-use and hashed
 -- These test codes use a simple pattern for ease of testing
-INSERT INTO backup_codes (
+INSERT INTO private_schema.backup_codes (
   id,
   user_id,
+  generation_batch_id,
   code_hash,
   used_at,
   created_at
 )
 SELECT
   gen_random_uuid(),
-  ts.user_id,
+  u.user_id,
+  gen_random_uuid(),  -- All codes in this batch share the same ID
   '$2a$10$' || substring(md5(random()::text), 1, 53),  -- Simulated bcrypt hash
   NULL,  -- Not yet used
   now()
-FROM totp_secrets ts
-WHERE ts.secret_key = 'JBSWY3DPEBLW64TMMQ======'
-AND NOT EXISTS (
-  SELECT 1 FROM backup_codes WHERE user_id = ts.user_id
+FROM private_schema.users u
+WHERE u.username = 'admin'
+AND EXISTS (
+  SELECT 1 FROM private_schema.totp_secrets ts WHERE ts.user_id = u.user_id
 )
--- Generate 10 backup codes
-LIMIT 10;
+AND NOT EXISTS (
+  SELECT 1 FROM private_schema.backup_codes bc WHERE bc.user_id = u.user_id
+)
+-- Generate 10 backup codes (cross join to duplicate rows)
+CROSS JOIN generate_series(1, 10);
 
--- Update admin user to reflect TOTP enablement
-UPDATE users
-SET totp_enabled = TRUE, totp_verified_at = now()
-WHERE username = 'admin' AND NOT totp_enabled;
+-- Note: users table no longer has totp_enabled or totp_verified_at columns
+-- TOTP status is tracked in totp_secrets.verified_at
 
 -- ============================================================================
 -- AUDIT LOG: Log the test data initialization
 -- ============================================================================
 
-INSERT INTO audit_logs (
+INSERT INTO private_schema.audit_logs (
   id,
   actor_id,
   actor_type,
@@ -92,19 +95,19 @@ INSERT INTO audit_logs (
 )
 SELECT
   gen_random_uuid(),
-  user_id,
+  u.user_id,
   'MIGRATION',
   'TOTP_ENABLED',
   'totp_secrets',
-  (SELECT id FROM totp_secrets WHERE secret_key = 'JBSWY3DPEBLW64TMMQ======'),
-  to_jsonb(jsonb_build_object(
+  ts.id,
+  jsonb_build_object(
     'test_secret', 'JBSWY3DPEBLW64TMMQ======',
     'note', 'Test data for 2FA development/testing only'
-  )),
+  ),
   now()
-FROM users
-WHERE username = 'admin'
-AND EXISTS (SELECT 1 FROM totp_secrets WHERE secret_key = 'JBSWY3DPEBLW64TMMQ======')
+FROM private_schema.users u
+JOIN private_schema.totp_secrets ts ON u.user_id = ts.user_id
+WHERE u.username = 'admin'
 LIMIT 1;
 
 -- ============================================================================
@@ -131,7 +134,7 @@ LIMIT 1;
 --
 -- Backup Codes:
 -- - 10 single-use backup codes are generated automatically
--- - Query: SELECT code_hash FROM backup_codes WHERE user_id = <admin_user_id>
+-- - Query: SELECT code_hash FROM private_schema.backup_codes WHERE user_id = <admin_user_id>
 --
 -- WARNING: This is FOR TESTING ONLY - never use in production
 --
@@ -141,9 +144,8 @@ LIMIT 1;
 -- ============================================================================
 --
 -- To remove test 2FA data:
--- DELETE FROM backup_codes WHERE user_id = (SELECT user_id FROM users WHERE username = 'admin');
--- DELETE FROM totp_secrets WHERE user_id = (SELECT user_id FROM users WHERE username = 'admin');
--- UPDATE users SET totp_enabled = FALSE, totp_verified_at = NULL WHERE username = 'admin';
--- DELETE FROM audit_logs WHERE action IN ('TOTP_ENABLED', 'BACKUP_CODES_GENERATED') AND actor_type = 'MIGRATION';
+-- DELETE FROM private_schema.backup_codes WHERE user_id = (SELECT user_id FROM private_schema.users WHERE username = 'admin');
+-- DELETE FROM private_schema.totp_secrets WHERE user_id = (SELECT user_id FROM private_schema.users WHERE username = 'admin');
+-- DELETE FROM private_schema.audit_logs WHERE action IN ('TOTP_ENABLED', 'BACKUP_CODES_GENERATED') AND actor_type = 'MIGRATION';
 --
 

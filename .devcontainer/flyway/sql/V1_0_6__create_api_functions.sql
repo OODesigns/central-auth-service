@@ -50,7 +50,9 @@ CREATE OR REPLACE FUNCTION api_schema.get_user(p_user_id uuid)
 RETURNS TABLE (
   user_id uuid,
   username text,
-  permissions text[]
+  permissions text[],
+  password_reset_required_at timestamptz,
+  mfa_required_at timestamptz
 )
 LANGUAGE sql
 STABLE
@@ -60,14 +62,15 @@ AS $$
   SELECT
     u.user_id,
     u.username,
-    COALESCE(array_agg(DISTINCT p.name ORDER BY p.name), ARRAY[]::text[]) AS permissions
+    COALESCE(array_agg(DISTINCT p.name ORDER BY p.name), ARRAY[]::text[]) AS permissions,
+    u.password_reset_required_at,
+    u.mfa_required_at
   FROM private_schema.users u
-  LEFT JOIN private_schema.user_roles ur ON u.user_id = ur.user_id
-  LEFT JOIN private_schema.roles r ON ur.role_id = r.role_id
+  LEFT JOIN private_schema.roles r ON u.role_id = r.role_id
   LEFT JOIN private_schema.role_permissions rp ON r.role_id = rp.role_id
   LEFT JOIN private_schema.permissions p ON rp.permission_id = p.permission_id
   WHERE u.user_id = p_user_id
-  GROUP BY u.user_id, u.username;
+  GROUP BY u.user_id, u.username, u.password_reset_required_at, u.mfa_required_at;
 $$;
 
 COMMENT ON FUNCTION api_schema.get_user(uuid) IS

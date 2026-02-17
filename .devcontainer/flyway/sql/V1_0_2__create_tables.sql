@@ -1,11 +1,10 @@
 -- Flyway migration: V1_0_2__create_tables.sql
 -- Create all data tables for Central Auth Service (CAS)
 --
--- TABLES CREATED (11 total):
---  - users: User accounts and credentials
+-- TABLES CREATED (10 total):
 --  - roles: Role definitions
+--  - users: User accounts and credentials (each user has exactly one role)
 --  - permissions: Permission definitions
---  - user_roles: User-to-role mappings
 --  - role_permissions: Role-to-permission mappings
 --  - invalidated_jwts: Revoked access tokens
 --  - refresh_tokens: Session refresh tokens
@@ -17,38 +16,8 @@
 -- DEPENDENCIES: Schemas (V1_0_0), Roles (V1_0_1)
 -- ============================================================================
 
-CREATE TABLE private_schema.users (
-  user_id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  username                   VARCHAR(50) UNIQUE NOT NULL,
-  password_hash              VARCHAR(255) NOT NULL,
-  password_reset_required_at TIMESTAMPTZ DEFAULT now(),
-  mfa_required_at            TIMESTAMPTZ,
-  created_at                 TIMESTAMPTZ DEFAULT now(),
-  updated_at                 TIMESTAMPTZ DEFAULT now()
-);
-
-COMMENT ON TABLE private_schema.users IS
-  'Application users and authentication credentials';
-COMMENT ON COLUMN private_schema.users.user_id IS
-  'Unique user identifier (UUID primary key)';
-COMMENT ON COLUMN private_schema.users.username IS
-  'Unique login name';
-COMMENT ON COLUMN private_schema.users.password_hash IS
-  'Hashed user password (never store plaintext)';
-COMMENT ON COLUMN private_schema.users.password_reset_required_at IS
-  'Timestamp when password reset was required; NULL if password reset is not required';
-COMMENT ON COLUMN private_schema.users.mfa_required_at IS
-  'Timestamp when 2FA became mandatory for this user. Used to enforce role/org-level 2FA policies. ' ||
-  'If NOT NULL and totp_secrets.verified_at IS NULL, user is BLOCKED until 2FA is enrolled. Allows: ' ||
-  '"User hasn''t enrolled yet" (NULL), "User is blocked until they enroll" (NOT NULL), "User has enrolled" (verified_at NOT NULL). ' ||
-  'Enforcement logic: if mfa_required_at IS NOT NULL AND totp_secrets.verified_at IS NULL, reject login with "MFA_REQUIRED_SETUP".';
-COMMENT ON COLUMN private_schema.users.created_at IS
-  'Timestamp when the user record was created';
-COMMENT ON COLUMN private_schema.users.updated_at IS
-  'Timestamp of last update (auto-managed by trigger)';
-
 -- ============================================================================
--- ROLES TABLE
+-- ROLES TABLE (must be created before users due to FK constraint)
 -- ============================================================================
 
 CREATE TABLE private_schema.roles (
@@ -67,26 +36,44 @@ COMMENT ON COLUMN private_schema.roles.description IS
   'Human-readable role description';
 
 -- ============================================================================
--- USER_ROLES TABLE
+-- USERS TABLE
 -- ============================================================================
 
-CREATE TABLE private_schema.user_roles (
-  user_id UUID NOT NULL,
-  role_id UUID NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  PRIMARY KEY (user_id, role_id),
-  FOREIGN KEY (user_id) REFERENCES private_schema.users(user_id) ON DELETE CASCADE,
-  FOREIGN KEY (role_id) REFERENCES private_schema.roles(role_id) ON DELETE CASCADE
+CREATE TABLE private_schema.users (
+  user_id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  username                   VARCHAR(50) UNIQUE NOT NULL,
+  password_hash              VARCHAR(255) NOT NULL,
+  role_id                    UUID NOT NULL,
+  password_reset_required_at TIMESTAMPTZ DEFAULT now(),
+  mfa_required_at            TIMESTAMPTZ,
+  created_at                 TIMESTAMPTZ DEFAULT now(),
+  updated_at                 TIMESTAMPTZ DEFAULT now(),
+  -- Foreign key constraint: Enforces referential integrity - users are children of roles
+  -- ON DELETE RESTRICT enforces proper deletion order: delete all users first, then delete role
+  FOREIGN KEY (role_id) REFERENCES private_schema.roles(role_id) ON DELETE RESTRICT
 );
 
-COMMENT ON TABLE private_schema.user_roles IS
-  'Join table mapping users to roles (many-to-many)';
-COMMENT ON COLUMN private_schema.user_roles.user_id IS
-  'References users.user_id. ON DELETE CASCADE removes all role assignments when a user is deleted';
-COMMENT ON COLUMN private_schema.user_roles.role_id IS
-  'References roles.role_id. ON DELETE CASCADE removes mappings when a role is deleted';
-COMMENT ON COLUMN private_schema.user_roles.created_at IS
-  'Timestamp when the role assignment was created';
+COMMENT ON TABLE private_schema.users IS
+  'Application users and authentication credentials';
+COMMENT ON COLUMN private_schema.users.user_id IS
+  'Unique user identifier (UUID primary key)';
+COMMENT ON COLUMN private_schema.users.username IS
+  'Unique login name';
+COMMENT ON COLUMN private_schema.users.password_hash IS
+  'Hashed user password (never store plaintext)';
+COMMENT ON COLUMN private_schema.users.role_id IS
+  'User role assignment. Each user has exactly one role. ON DELETE RESTRICT prevents role deletion while users exist.';
+COMMENT ON COLUMN private_schema.users.password_reset_required_at IS
+  'Timestamp when password reset was required; NULL if password reset is not required';
+COMMENT ON COLUMN private_schema.users.mfa_required_at IS
+  'Timestamp when 2FA became mandatory for this user. NULL = 2FA optional. NOT NULL = 2FA enrollment required. ' ||
+  'Enforcement: If this timestamp is <= NOW() and totp_secrets.verified_at IS NULL, login is blocked until 2FA setup completes. ' ||
+  'Supports future-dated 2FA mandates (e.g., grace periods) and role/org-level enforcement policies.';
+COMMENT ON COLUMN private_schema.users.created_at IS
+  'Timestamp when the user record was created';
+COMMENT ON COLUMN private_schema.users.updated_at IS
+  'Timestamp of last update (auto-managed by trigger)';
+
 
 -- ============================================================================
 -- PERMISSIONS TABLE
@@ -113,16 +100,20 @@ CREATE TABLE private_schema.role_permissions (
   permission_id UUID NOT NULL,
   created_at    TIMESTAMPTZ DEFAULT now(),
   PRIMARY KEY (role_id, permission_id),
-  FOREIGN KEY (role_id) REFERENCES private_schema.roles(role_id) ON DELETE CASCADE,
-  FOREIGN KEY (permission_id) REFERENCES private_schema.permissions(permission_id) ON DELETE CASCADE
+  -- Foreign key constraint: Enforces referential integrity - role_permissions are children of roles
+  -- ON DELETE RESTRICT enforces proper deletion order: delete all role_permissions first, then delete role
+  FOREIGN KEY (role_id) REFERENCES private_schema.roles(role_id) ON DELETE RESTRICT,
+  -- Foreign key constraint: Enforces referential integrity - role_permissions are children of permissions
+  -- ON DELETE RESTRICT enforces proper deletion order: delete all role_permissions first, then delete permission
+  FOREIGN KEY (permission_id) REFERENCES private_schema.permissions(permission_id) ON DELETE RESTRICT
 );
 
 COMMENT ON TABLE private_schema.role_permissions IS
   'Join table mapping roles to permissions (many-to-many)';
 COMMENT ON COLUMN private_schema.role_permissions.role_id IS
-  'References roles.role_id. ON DELETE CASCADE removes permission mappings when a role is deleted';
+  'References roles.role_id. ON DELETE RESTRICT prevents role deletion while permission mappings exist (enforces proper deletion order)';
 COMMENT ON COLUMN private_schema.role_permissions.permission_id IS
-  'References permissions.permission_id. ON DELETE CASCADE removes mappings when a permission is deleted';
+  'References permissions.permission_id. ON DELETE RESTRICT prevents permission deletion while role mappings exist (enforces proper deletion order)';
 COMMENT ON COLUMN private_schema.role_permissions.created_at IS
   'Timestamp when the permission was assigned to the role';
 
@@ -160,7 +151,7 @@ COMMENT ON COLUMN private_schema.invalidated_jwts.created_at IS
 
 CREATE TABLE private_schema.refresh_tokens (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id               UUID NOT NULL REFERENCES private_schema.users(user_id) ON DELETE CASCADE,
+  user_id               UUID NOT NULL,
   client_id             TEXT,
   token_hash            TEXT NOT NULL UNIQUE,
   family_id             UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -173,7 +164,10 @@ CREATE TABLE private_schema.refresh_tokens (
   issued_ip             INET,
   issued_user_agent     TEXT,
   last_used_at          TIMESTAMPTZ,
-  created_at            TIMESTAMPTZ DEFAULT now()
+  created_at            TIMESTAMPTZ DEFAULT now(),
+  -- Foreign key constraint: Enforces referential integrity - refresh_tokens are children of users
+  -- ON DELETE CASCADE enables automatic cleanup: when user is deleted, all their refresh tokens are automatically deleted
+  FOREIGN KEY (user_id) REFERENCES private_schema.users(user_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE private_schema.refresh_tokens IS
@@ -261,38 +255,65 @@ COMMENT ON COLUMN private_schema.trusted_clients.updated_at IS
 
 CREATE TABLE private_schema.totp_secrets (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id               UUID NOT NULL UNIQUE REFERENCES private_schema.users(user_id) ON DELETE CASCADE,
+  user_id               UUID NOT NULL UNIQUE,
   secret_key_encrypted  BYTEA NOT NULL,
-  algorithm             VARCHAR(10) NOT NULL DEFAULT 'SHA1' CHECK (algorithm IN ('SHA1', 'SHA256', 'SHA512')),
-  period_seconds        INTEGER NOT NULL DEFAULT 30 CHECK (period_seconds IN (30, 60)),
-  digits                INTEGER NOT NULL DEFAULT 6 CHECK (digits >= 6 AND digits <= 8),
+  algorithm             VARCHAR(10) NOT NULL DEFAULT 'SHA1',
+  period_seconds        INTEGER NOT NULL DEFAULT 30,
+  digits                INTEGER NOT NULL DEFAULT 6,
   verified_at           TIMESTAMPTZ,
   last_used_at          TIMESTAMPTZ,
   backup_codes_generated_at TIMESTAMPTZ,
   created_at            TIMESTAMPTZ DEFAULT now(),
-  updated_at            TIMESTAMPTZ DEFAULT now()
+  updated_at            TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT chk_totp_algorithm CHECK (
+    algorithm IN (
+      'SHA1',
+      'SHA256',
+      'SHA512'
+    )
+  ),
+  CONSTRAINT chk_totp_period CHECK (
+    period_seconds IN (
+      30,
+      60
+    )
+  ),
+  CONSTRAINT chk_totp_digits CHECK (
+    digits >= 6 AND digits <= 8
+  ),
+  -- Foreign key constraint: Enforces referential integrity - totp_secrets are children of users
+  -- UNIQUE ensures one TOTP secret per user. ON DELETE CASCADE enables automatic cleanup: when user is deleted, their TOTP secret is automatically deleted
+  FOREIGN KEY (user_id) REFERENCES private_schema.users(user_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE private_schema.totp_secrets IS
-  'Time-based One-Time Password (TOTP) secrets for authenticator app-based 2FA. Secret key is encrypted at rest using AES-CBC (semantic security, random IVs - NOT ECB). 2FA status determined by verified_at: NULL = disabled, NOT NULL = enabled. Encryption uses external master key for key separation principle.';
+  'Time-based One-Time Password (TOTP) secrets for authenticator app-based 2FA. ' ||
+  '2FA status: verified_at IS NULL = disabled/not verified, verified_at IS NOT NULL = enabled. ' ||
+  'Secret key encrypted at rest using AES-CBC via pgcrypto (semantic security with random IVs). ' ||
+  'Encryption key must be stored separately from database (key separation principle).';
 COMMENT ON COLUMN private_schema.totp_secrets.id IS
   'Unique identifier for the TOTP secret record (UUID)';
 COMMENT ON COLUMN private_schema.totp_secrets.user_id IS
   'References users.user_id. UNIQUE ensures one TOTP secret per user. ON DELETE CASCADE removes secret when user is deleted';
 COMMENT ON COLUMN private_schema.totp_secrets.secret_key_encrypted IS
-  'ENCRYPTED Base32-encoded TOTP secret using AES-CBC encryption with PKCS7 padding via pgcrypto (NOT ECB - semantic security required). Never stored in plaintext - encryption key must be a 256-bit server-side master key stored separately, NOT in database. Each encryption generates a random IV (included in ciphertext). Decrypted only during TOTP verification, then immediately discarded. If database is compromised, plaintext secrets remain cryptographically protected.';
+  'ENCRYPTED Base32-encoded TOTP secret. Encrypted using AES-CBC (pgcrypto) with 256-bit master key stored separately from database. ' ||
+  'Each encryption generates a random IV (included in ciphertext). NEVER stored in plaintext. ' ||
+  'Decrypted only during TOTP verification, then immediately discarded. ' ||
+  'Database compromise does not expose plaintext secrets (cryptographically protected).';
 COMMENT ON COLUMN private_schema.totp_secrets.algorithm IS
-  'HMAC algorithm used for TOTP generation. Allowed: SHA1, SHA256, SHA512. Default is SHA1 for compatibility with most authenticator apps. Enforced by CHECK constraint to prevent invalid algorithms.';
+  'HMAC algorithm for TOTP generation (SHA1, SHA256, SHA512). Default: SHA1 for compatibility with most authenticator apps.';
 COMMENT ON COLUMN private_schema.totp_secrets.period_seconds IS
-  'Time window in seconds for TOTP validity. Allowed: 30 (default, standard), 60 (less common). Enforced by CHECK constraint.';
+  'Time window in seconds for TOTP validity (30 or 60). Default: 30 (standard).';
 COMMENT ON COLUMN private_schema.totp_secrets.digits IS
-  'Number of digits in generated OTP. Allowed: 6-8 digits. Default 6 (standard). Enforced by CHECK constraint.';
+  'Number of digits in generated OTP (6-8). Default: 6 (standard).';
 COMMENT ON COLUMN private_schema.totp_secrets.verified_at IS
   'Single source of truth for 2FA status. NULL = 2FA disabled (secret created but not verified). NOT NULL = 2FA enabled (timestamp when user verified the secret during setup).';
 COMMENT ON COLUMN private_schema.totp_secrets.last_used_at IS
-  'Timestamp when TOTP was last successfully used for authentication. NULL until first use. Useful for security analytics: detect dormant 2FA, investigate account activity, validate "was 2FA actually used?" scenarios.';
+  'Timestamp when TOTP was last successfully used for authentication. NULL until first use. ' ||
+  'Useful for security analytics: detect dormant 2FA, investigate account activity, validate "was 2FA actually used?" scenarios.';
 COMMENT ON COLUMN private_schema.totp_secrets.backup_codes_generated_at IS
-  'Timestamp when backup codes were last generated for account recovery. NULL if not yet generated. When new codes are generated, old codes should be invalidated (see backup_codes.generation_batch_id).';
+  'Timestamp when backup codes were last generated for account recovery. NULL if not yet generated. ' ||
+  'When new codes are generated, old codes should be invalidated (see backup_codes.generation_batch_id).';
 COMMENT ON COLUMN private_schema.totp_secrets.created_at IS
   'Timestamp when the TOTP secret was created';
 COMMENT ON COLUMN private_schema.totp_secrets.updated_at IS
@@ -304,25 +325,33 @@ COMMENT ON COLUMN private_schema.totp_secrets.updated_at IS
 
 CREATE TABLE private_schema.backup_codes (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id               UUID NOT NULL REFERENCES private_schema.users(user_id) ON DELETE CASCADE,
+  user_id               UUID NOT NULL,
   generation_batch_id   UUID NOT NULL,
   code_hash             TEXT NOT NULL,
   used_at               TIMESTAMPTZ,
-  created_at            TIMESTAMPTZ DEFAULT now()
+  created_at            TIMESTAMPTZ DEFAULT now(),
+  -- Foreign key constraint: Enforces referential integrity - backup_codes are children of users
+  -- ON DELETE CASCADE enables automatic cleanup: when user is deleted, all their backup codes are automatically deleted
+  FOREIGN KEY (user_id) REFERENCES private_schema.users(user_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE private_schema.backup_codes IS
-  'Single-use backup codes for account recovery when authenticator device is lost. Generated and stored hashed. Supports batch invalidation when new codes are generated via generation_batch_id.';
+  'Single-use backup codes for account recovery when authenticator device is lost. ' ||
+  'Generated and stored hashed. Supports batch invalidation when new codes are generated via generation_batch_id.';
 COMMENT ON COLUMN private_schema.backup_codes.id IS
   'Unique identifier for the backup code record (UUID)';
 COMMENT ON COLUMN private_schema.backup_codes.user_id IS
   'References users.user_id. ON DELETE CASCADE removes backup codes when user is deleted';
 COMMENT ON COLUMN private_schema.backup_codes.generation_batch_id IS
-  'Groups codes by generation batch (UUID). Allows invalidating old codes when new ones are generated. All codes in a batch are created at the same time (see totp_secrets.backup_codes_generated_at). App can invalidate old batches: DELETE FROM backup_codes WHERE user_id = ? AND generation_batch_id != current_batch_id.';
+  'Groups codes by generation batch (UUID). Allows invalidating old codes when new ones are generated. ' ||
+  'All codes in a batch are created at the same time (see totp_secrets.backup_codes_generated_at). ' ||
+  'App can invalidate old batches: DELETE FROM backup_codes WHERE user_id = ? AND generation_batch_id != current_batch_id.';
 COMMENT ON COLUMN private_schema.backup_codes.code_hash IS
-  'Hash of the backup code (never store plaintext). User receives plaintext codes only during setup. Hashed with bcrypt or similar (20+ rounds minimum). Cannot be recovered even if database is compromised.';
+  'Hash of the backup code (never store plaintext). User receives plaintext codes only during setup. ' ||
+  'Hashed with bcrypt or similar (20+ rounds minimum). Cannot be recovered even if database is compromised.';
 COMMENT ON COLUMN private_schema.backup_codes.used_at IS
-  'Timestamp when the backup code was used for account recovery. NULL until first use. After use, code cannot be reused (enforced by app logic: reject if used_at IS NOT NULL).';
+  'Timestamp when the backup code was used for account recovery. NULL until first use. ' ||
+  'After use, code cannot be reused (enforced by app logic: reject if used_at IS NOT NULL).';
 COMMENT ON COLUMN private_schema.backup_codes.created_at IS
   'Timestamp when the backup code was generated';
 
@@ -333,12 +362,21 @@ COMMENT ON COLUMN private_schema.backup_codes.created_at IS
 CREATE TABLE private_schema.audit_logs (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_id    UUID,
-  actor_type  VARCHAR(20) NOT NULL CHECK (actor_type IN ('USER', 'SERVICE', 'CERT', 'SYSTEM', 'MIGRATION')),
+  actor_type  VARCHAR(20) NOT NULL,
   action      VARCHAR(50) NOT NULL,
   target_type VARCHAR(50),
   target_id   UUID,
   metadata    JSONB,
   created_at  TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT chk_audit_actor_type CHECK (
+    actor_type IN (
+      'USER',
+      'SERVICE',
+      'CERT',
+      'SYSTEM',
+      'MIGRATION'
+    )
+  ),
   CONSTRAINT chk_audit_action CHECK (
     action IN (
       'USER_CREATED',
@@ -347,8 +385,6 @@ CREATE TABLE private_schema.audit_logs (
       'USER_PASSWORD_ROTATED',
       'USER_MFA_REQUIRED',
       'USER_MFA_REQUIRED_REMOVED',
-      'USER_ROLE_ASSIGNED',
-      'USER_ROLE_REMOVED',
       'TOKEN_ISSUED',
       'TOKEN_INVALIDATED',
       'REFRESH_TOKEN_ISSUED',

@@ -1,7 +1,7 @@
 -- Flyway migration: V1_0_3__create_indexes.sql
 -- Create performance indexes for Central Auth Service (CAS)
 --
--- INDEXES CREATED (19 total):
+-- INDEXES CREATED (17 total):
 --  - Username lookup
 --  - Token lookups (invalidated_jwts)
 --  - Refresh token lookups and filtering
@@ -18,6 +18,7 @@
 -- ============================================================================
 
 CREATE INDEX idx_users_username ON private_schema.users(username);
+CREATE INDEX idx_users_role_id ON private_schema.users(role_id);
 
 -- ============================================================================
 -- INVALIDATED JWT INDEXES
@@ -37,12 +38,6 @@ CREATE INDEX idx_refresh_tokens_expires_at ON private_schema.refresh_tokens(expi
 CREATE INDEX idx_refresh_tokens_token_hash ON private_schema.refresh_tokens(token_hash);
 CREATE INDEX idx_refresh_tokens_active ON private_schema.refresh_tokens(user_id) WHERE revoked_at IS NULL;
 
--- ============================================================================
--- USER ROLES INDEXES
--- ============================================================================
-
-CREATE INDEX idx_user_roles_user_id ON private_schema.user_roles(user_id);
-CREATE INDEX idx_user_roles_role_id ON private_schema.user_roles(role_id);
 
 -- ============================================================================
 -- TRUSTED CLIENTS INDEXES

@@ -99,7 +99,7 @@ class AdminLoginDatabaseIntegrationTest {
         );
 
         // Create mock TotpStatusReader - 2FA disabled by default
-        final Ports.TotpStatusReader totpStatusReader = userId -> java.util.Optional.empty();
+        final Ports.TotpStatusReader totpStatusReader = _ -> java.util.Optional.empty();
 
         // Create command handler with real database repositories
         loginHandler = new LoginCommandHandler(authService, tokenService, userCredentialReader, userRepository, totpStatusReader, rateLimiter);
@@ -278,7 +278,7 @@ class AdminLoginDatabaseIntegrationTest {
     /**
      * Test: Database schema was properly created.
      * Verifies:
-     * - All required tables exist (users, roles, permissions, user_roles)
+     * - All required tables exist (users, roles, permissions, role_permissions)
      * - PostgreSQL functions exist (auth.find_user_credentials, auth.get_user)
      * - Schema is in correct state
      */
@@ -290,7 +290,7 @@ class AdminLoginDatabaseIntegrationTest {
             final Statement stmt = conn.createStatement();
             
             // Check required tables
-            final var tables = new String[]{"users", "roles", "permissions", "user_roles"};
+            final var tables = new String[]{"users", "roles", "permissions", "role_permissions"};
             for (final String table : tables) {
                 final var rs = stmt.executeQuery(
                     "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '%s')"
@@ -384,9 +384,9 @@ stmt.close();
             
             // Check admin role assignment
             rs = stmt.executeQuery("""
-                SELECT COUNT(*) as role_count FROM user_roles ur
-                JOIN roles r ON ur.role_id = r.role_id
-                WHERE ur.user_id = '%s' AND r.name = 'admin'
+                SELECT COUNT(*) as role_count FROM private_schema.users u
+                JOIN private_schema.roles r ON u.role_id = r.role_id
+                WHERE u.user_id = '%s' AND r.name = 'admin'
                 """.formatted(userId));
             assertTrue(rs.next(), "Query should return results");
             assertEquals(1, rs.getInt("role_count"),
