@@ -1,0 +1,56 @@
+@startuml system-overview
+!theme plain
+skinparam componentStyle rectangle
+
+package "Home Network" {
+  component [Wall Controller\n(local UI)] as WALL
+  component [Home Control Service\n(Java)] as HCS
+  component [Central Auth Service\n(Java / Docker)] as CAS
+
+  package "MODBUS Layer" {
+    component [RS485<->Ethernet\nSerial Server] as SRV
+    component [8-ch Analog Output\n(DA 12-bit)] as AO
+    component [8-ch Analog Input\n(AD 12-bit)] as AI
+    component [30-ch Ethernet Relay] as RELAY
+    component [USB<->RS485 Adapter] as USB
+  }
+
+  package "HVAC Hardware" {
+    component [Blauberg MVHR] as MVHR
+    component [Evaporative Cooler\n(standalone)] as EVAP
+    component [Night Purge Fan] as PURGE
+    component [Duct Actuators] as ACT
+  }
+}
+
+package "AWS Cloud" {
+  component [AWS IoT / API Gateway] as AWS
+  component [Auth Relay] as RELAY_AWS
+}
+
+package "Client Apps" {
+  component [Android App] as AND
+  component [iOS App] as IOS
+  component [Web Browser] as WEB
+}
+
+WALL --> HCS
+HCS --> CAS : authenticate
+HCS --> SRV : MODBUS TCP
+SRV --> AO
+SRV --> AI
+SRV --> RELAY
+HCS --> USB : MODBUS RTU (direct)
+AO --> EVAP : 0-10V analog
+AO --> MVHR : speed setpoint
+AI --> HCS : sensor feedback
+RELAY --> PURGE
+RELAY --> ACT
+
+HCS --> AWS : outbound HTTPS/MQTT\n(no inbound port)
+AWS --> RELAY_AWS
+CAS --> RELAY_AWS : token validation
+AND --> AWS
+IOS --> AWS
+WEB --> AWS
+@enduml

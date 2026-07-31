@@ -1,0 +1,34 @@
+@startuml roadmap
+!theme plain
+skinparam defaultFontSize 12
+
+robust "Central Auth Service" as CAS
+robust "MODBUS Library (Java/C++/Python)" as MLIB
+robust "Home Control Service (Java)" as HCS
+robust "EVAP Cooler Control" as EVAP
+robust "MVHR MODBUS Control" as MVHR
+robust "Night Purge System" as PURGE
+robust "AWS Bridge & Apps" as CLOUD
+
+@0
+CAS is Active
+MLIB is Idle
+HCS is Idle
+EVAP is Idle
+MVHR is Idle
+PURGE is Idle
+CLOUD is Idle
+
+@1
+CAS is Active
+MLIB is Active
+
+@2
+HCS is Active
+EVAP is Active
+MVHR is Active
+
+@3
+PURGE is Active
+CLOUD is Active
+@enduml
