@@ -1,0 +1,160 @@
+@startuml purge-mode
+!include theme.puml
+
+title Purge Mode - State Machine with Relay/Damper Sequences
+
+[*] --> Idle
+
+state "Idle" as Idle {
+    Idle : All purge relays OFF
+    Idle : Normal HVAC operation
+    Idle : Monitoring CO2, humidity, schedule
+}
+
+state "Purge Requested" as Requested {
+    Requested : Trigger: CO2 > 1200ppm for 5min
+    Requested : OR: Schedule (e.g., 06:00 daily)
+    Requested : OR: Manual request (wall controller)
+    Requested : OR: Post-cooking mode (humidity spike)
+    Requested : Validate safety interlocks
+}
+
+state "Pre-Purge Safety Check" as SafetyCheck {
+    SafetyCheck : Check R3.6 (Fire interlock) = OK
+    SafetyCheck : Check R3.7 (Smoke interlock) = OK
+    SafetyCheck : Check outside temp > -5°C
+    SafetyCheck : Check wind speed < 50 km/h
+    SafetyCheck : Timeout: 5 seconds
+}
+
+state "Stage 1: Dampers Opening" as Stage1 {
+    Stage1 : **Actions:**
+    Stage1 : R3.0 = ON (Purge supply damper OPEN)
+    Stage1 : R3.1 = ON (Purge exhaust damper OPEN)
+    Stage1 : R2.4 = ON (Fresh air intake OPEN)
+    Stage1 : R2.5 = ON (Exhaust damper OPEN)
+    Stage1 : R3.4 = ON (Purge indicator LED)
+    Stage1 : 
+    Stage1 : **Wait:** 60 seconds (damper travel time)
+    Stage1 : **Verify:** Position feedback (AO 6,7 > 90%)
+}
+
+state "Stage 2: Fan Ramp Up" as Stage2 {
+    Stage2 : **Actions:**
+    Stage2 : R3.2 = ON (Fan high speed override)
+    Stage2 : AO 0 = 10V (Supply fan 100%)
+    Stage2 : AO 1 = 10V (Return fan 100%)
+    Stage2 : AO 2 = 10V (Fresh air fan 100%)
+    Stage2 : AO 3 = 10V (Exhaust fan 100%)
+    Stage2 : 
+    Stage2 : **Ramp:** 5%/sec to full speed
+    Stage2 : **Wait:** 15 seconds (stabilize)
+}
+
+state "Stage 3: Purge Active" as Stage3 {
+    Stage3 : **All fans at 100%, all dampers open**
+    Stage3 : R3.3 = ON (Bypass valve open)
+    Stage3 : Heating/Cooling DISABLED
+    Stage3 : 
+    Stage3 : **Duration:** Calculated by air changes
+    Stage3 : Volume: 450m³ (house)
+    Stage3 : Flow: 1200 m³/h at full speed
+    Stage3 : Air changes needed: 3
+    Stage3 : **Time: ~68 minutes** (3 × 450/1200 × 60)
+    Stage3 : 
+    Stage3 : **Monitoring:**
+    Stage3 : CO2 trending toward outdoor baseline
+    Stage3 : Supply/return ΔT acceptable
+    Stage3 : No safety interlock triggers
+}
+
+state "Stage 4: Fan Ramp Down" as Stage4 {
+    Stage4 : **Actions (reverse of Stage 2):**
+    Stage4 : R3.2 = OFF (Remove high speed override)
+    Stage4 : AO 0-3 ramp from 100% → normal setpoint
+    Stage4 : **Ramp:** 10%/sec down
+    Stage4 : **Wait:** 15 seconds (stabilize)
+}
+
+state "Stage 5: Dampers Closing" as Stage5 {
+    Stage5 : **Actions (reverse of Stage 1):**
+    Stage5 : R3.0 = OFF (Purge supply damper CLOSE)
+    Stage5 : R3.1 = OFF (Purge exhaust damper CLOSE)
+    Stage5 : R3.3 = OFF (Bypass valve CLOSE)
+    Stage5 : R2.4/R2.5 return to normal position
+    Stage5 : 
+    Stage5 : **Wait:** 60 seconds (damper travel time)
+    Stage5 : **Verify:** Position feedback (AO 6,7 < 10%)
+}
+
+state "Purge Complete" as Complete {
+    Complete : R3.5 = ON (Purge complete signal, 5sec pulse)
+    Complete : R3.4 = OFF (Purge indicator OFF)
+    Complete : Log event to SQLite + MQTT publish
+    Complete : Resume normal HVAC control
+    Complete : **Cooldown:** 30 min before next purge allowed
+}
+
+state "Purge Aborted" as Aborted {
+    Aborted : **Emergency stop sequence:**
+    Aborted : All purge relays → OFF immediately
+    Aborted : Fans ramp to 0% (emergency: immediate stop)
+    Aborted : All dampers → fail-safe position
+    Aborted : R3.4 = BLINK (fault indicator)
+    Aborted : Alarm published via MQTT
+    Aborted : Manual reset required
+}
+
+' ===== TRANSITIONS =====
+Idle --> Requested : CO2 > 1200ppm (5min)\nOR schedule trigger\nOR manual request
+Requested --> SafetyCheck : Request accepted
+Requested --> Idle : Request denied\n(already in cooldown)
+
+SafetyCheck --> Stage1 : All interlocks OK
+SafetyCheck --> Aborted : Interlock FAIL\n(fire/smoke/temp)
+
+Stage1 --> Stage2 : Dampers confirmed open\n(60s timeout or feedback)
+Stage1 --> Aborted : Damper stuck\n(feedback timeout 90s)
+
+Stage2 --> Stage3 : Fans at target speed\n(15s stabilization)
+Stage2 --> Aborted : Fan fault\n(no speed feedback)
+
+Stage3 --> Stage4 : Duration complete\nOR CO2 < 500ppm\nOR manual stop
+Stage3 --> Aborted : Safety interlock\nOR equipment fault
+
+Stage4 --> Stage5 : Fans at normal speed\n(15s stabilization)
+Stage4 --> Aborted : Fan fault
+
+Stage5 --> Complete : Dampers confirmed closed\n(60s or feedback)
+Stage5 --> Complete : Timeout (90s, proceed anyway)
+
+Complete --> Idle : After 5s complete pulse\nEnter 30min cooldown
+
+Aborted --> Idle : Manual reset\n(admin PIN required)
+
+' ===== NOTES =====
+note right of Stage3
+  **Air Change Calculation:**
+  House volume: 450 m³
+  Max airflow: 1200 m³/h
+  Air changes/hour: 2.67
+  Time for 3 changes: 67.5 min
+  
+  **Early termination:**
+  If CO2 drops to outdoor level
+  (typically ~420 ppm) before timer,
+  advance to Stage 4.
+end note
+
+note left of Aborted
+  **Safety Priority (highest first):**
+  1. Fire interlock (R3.6 break)
+  2. Smoke interlock (R3.7 break)
+  3. Equipment fault (no feedback)
+  4. Temperature limit exceeded
+  5. Manual emergency stop
+  
+  **All cause immediate abort.**
+end note
+
+@enduml

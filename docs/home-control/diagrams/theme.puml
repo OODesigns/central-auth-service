@@ -1,0 +1,98 @@
+'' Home Control System - Shared PlantUML Dark Theme
+'' Usage: !include theme.puml (at top of each diagram)
+
+!define DARK_BG   #1a1a2e
+!define PANEL_BG  #16213e
+!define ACCENT    #0f3460
+!define HIGHLIGHT #e94560
+!define TEXT      #eaeaea
+!define BORDER    #533483
+!define SUCCESS   #4ecca3
+!define WARNING   #ffc107
+!define DANGER    #e94560
+
+skinparam backgroundColor DARK_BG
+skinparam defaultFontColor TEXT
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+
+skinparam component {
+    BackgroundColor PANEL_BG
+    BorderColor BORDER
+    FontColor TEXT
+    ArrowColor TEXT
+}
+
+skinparam node {
+    BackgroundColor PANEL_BG
+    BorderColor BORDER
+    FontColor TEXT
+}
+
+skinparam rectangle {
+    BackgroundColor PANEL_BG
+    BorderColor BORDER
+    FontColor TEXT
+    RoundCorner 8
+}
+
+skinparam database {
+    BackgroundColor ACCENT
+    BorderColor BORDER
+    FontColor TEXT
+}
+
+skinparam queue {
+    BackgroundColor ACCENT
+    BorderColor BORDER
+    FontColor TEXT
+}
+
+skinparam cloud {
+    BackgroundColor ACCENT
+    BorderColor BORDER
+    FontColor TEXT
+}
+
+skinparam actor {
+    BackgroundColor PANEL_BG
+    BorderColor BORDER
+    FontColor TEXT
+}
+
+skinparam arrow {
+    Color TEXT
+    FontColor TEXT
+}
+
+skinparam note {
+    BackgroundColor ACCENT
+    BorderColor BORDER
+    FontColor TEXT
+}
+
+skinparam state {
+    BackgroundColor PANEL_BG
+    BorderColor BORDER
+    FontColor TEXT
+    StartColor SUCCESS
+    EndColor DANGER
+}
+
+skinparam sequence {
+    ArrowColor TEXT
+    LifeLineBorderColor BORDER
+    LifeLineBackgroundColor PANEL_BG
+    ParticipantBackgroundColor PANEL_BG
+    ParticipantBorderColor BORDER
+    ParticipantFontColor TEXT
+}
+
+skinparam activity {
+    BackgroundColor PANEL_BG
+    BorderColor BORDER
+    FontColor TEXT
+    DiamondBackgroundColor ACCENT
+    DiamondBorderColor BORDER
+    DiamondFontColor TEXT
+}
