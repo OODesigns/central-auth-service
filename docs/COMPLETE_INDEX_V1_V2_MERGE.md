@@ -244,7 +244,7 @@ app_auth (LOGIN)
 ## 📁 Directory Structure
 
 ```
-/mnt/data/projects/central-auth-service/
+/mnt/data/projects/home-control-system/
 
 .devcontainer/flyway/sql/
 ├── V1__init_schema.sql          ✅ Updated (with V2 merged)

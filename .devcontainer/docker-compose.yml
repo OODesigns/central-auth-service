@@ -9,7 +9,7 @@ volumes:
 networks:
   # Compose’s own default network for app<->db
   default:
-    name: central-auth-service_default
+    name: home-control-system_default
 
   # Your pre-existing pg-network (external, already created)
   pg-network:

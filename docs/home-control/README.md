@@ -203,7 +203,7 @@ Paste content into [plantuml.com](https://www.plantuml.com/plantuml/uml)
 
 ## Related Documentation
 
-- [`/docs/README.md`](../README.md) — Central Auth Service documentation index
+- [`/docs/README.md`](../README.md) — Home Control System documentation index
 - [`/.github/copilot-instructions.md`](../../.github/copilot-instructions.md) — Architecture patterns
 
 ---

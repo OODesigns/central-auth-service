@@ -5,7 +5,7 @@ date: 2026-01-12
 
 # Login Flow Diagrams - Complete Architecture
 
-This directory contains PlantUML diagrams documenting the Central Auth Service login flows and permission model.
+This directory contains PlantUML diagrams documenting the Home Control System login flows and permission model.
 
 ## Diagrams Overview
 

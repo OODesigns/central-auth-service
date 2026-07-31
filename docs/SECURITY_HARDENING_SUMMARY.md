@@ -2,7 +2,7 @@
 
 ## What Was Done
 
-This implementation adds enterprise-grade security hardening to the Central Auth Service database following PostgreSQL best practices and CIS benchmarks.
+This implementation adds enterprise-grade security hardening to the Home Control System database following PostgreSQL best practices and CIS benchmarks.
 
 ## Files Created
 
@@ -338,7 +338,7 @@ WHERE query LIKE '%ERROR%' AND query_start > NOW() - INTERVAL '1 day';
 ## Files Reference
 
 ```
-central-auth-service/
+home-control-system/
 ├─ .devcontainer/flyway/sql/
 │  └─ V2__harden_security_schema_roles.sql    ← Main migration (1200+ lines)
 ├─ docs/

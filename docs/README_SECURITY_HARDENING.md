@@ -2,7 +2,7 @@
 
 ## 📋 Overview
 
-This directory contains a complete PostgreSQL security hardening implementation for the Central Auth Service. The changes transform the database from a basic setup to an enterprise-grade security architecture following PostgreSQL best practices and compliance standards.
+This directory contains a complete PostgreSQL security hardening implementation for the Home Control System. The changes transform the database from a basic setup to an enterprise-grade security architecture following PostgreSQL best practices and compliance standards.
 
 ## 🎯 What This Achieves
 
@@ -307,7 +307,7 @@ See full troubleshooting guide: `MIGRATION_IMPLEMENTATION_V1_TO_V2.md` (Phase 4)
 
 ## 📝 License & Attribution
 
-This security hardening implementation follows PostgreSQL best practices and is provided as part of the Central Auth Service project.
+This security hardening implementation follows PostgreSQL best practices and is provided as part of the Home Control System project.
 
 ---
 
