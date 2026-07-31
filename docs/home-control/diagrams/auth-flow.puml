@@ -1,0 +1,135 @@
+@startuml auth-flow
+!include theme.puml
+
+title Authentication Flow - Local LAN & Remote AWS
+
+' ===== ACTORS =====
+actor "User\n(Wall Controller /\nMobile App)" as user
+actor "Admin\n(Laptop/Desktop)" as admin
+
+' ===== LOCAL =====
+rectangle "**Local LAN Authentication**\n(Works offline, no internet required)" as local_auth {
+
+    node "Wall Controller\n(ESP32-S3)" as wall {
+        component "mDNS Discover\ncontroller.local" as mdns
+        component "HTTP Client\n(TLS 1.3)" as http_client
+    }
+
+    node "Raspberry Pi 4\n(Home Controller)" as rpi {
+        component "Auth Endpoint\n/api/v1/auth/login" as login_ep
+        component "JWT Issuer\n(Ed25519 local key)" as jwt_issuer
+        component "User Store\n(SQLite)" as user_db
+        component "Rate Limiter\n(Bucket4j)" as rate_limit
+        component "Token Validator\n(Offline)" as token_val
+        component "Protected APIs\n/api/v1/control/*" as protected_api
+    }
+}
+
+' ===== REMOTE =====
+rectangle "**Remote AWS Authentication**\n(Internet required, full features)" as remote_auth {
+
+    cloud "AWS" as aws {
+        component "Cognito\nUser Pool" as cognito
+        component "API Gateway\n+ Authorizer" as apigw
+        component "Lambda\n(Control Proxy)" as lambda
+        component "IoT Core\n(MQTT)" as iot
+    }
+
+    node "Mobile App /\nWeb Dashboard" as mobile {
+        component "Cognito SDK\n(SRP Auth)" as cognito_sdk
+        component "JWT Storage\n(Secure Keychain)" as jwt_store
+    }
+}
+
+' ===== LOCAL FLOW =====
+user --> wall : "1. Touch screen\n   login"
+wall --> mdns : "2. Resolve\n   controller.local"
+mdns --> login_ep : "3. POST /auth/login\n   {pin: 4-6 digits}\n   TLS mutual auth"
+login_ep --> rate_limit : "4. Check rate\n   (5 attempts/min)"
+rate_limit --> user_db : "5. Validate PIN\n   (bcrypt hash)"
+user_db --> jwt_issuer : "6. Issue JWT\n   (Ed25519, 15min TTL)"
+jwt_issuer --> wall : "7. Return token\n   {access_token, expires_in}"
+wall --> protected_api : "8. GET /api/v1/control/zones\n   Authorization: ******"
+protected_api --> token_val : "9. Validate signature\n   (Ed25519 public key)"
+
+note right of jwt_issuer
+  **Local JWT Claims:**
+  {
+    "sub": "user-123",
+    "iss": "home-controller",
+    "aud": "local-api",
+    "exp": 1706000000,
+    "scope": "control:read control:write",
+    "zone_access": [1,2,3,4]
+  }
+  **Key:** Ed25519 (256-bit)
+  **TTL:** 15 minutes
+  **Refresh:** Not used (re-auth with PIN)
+end note
+
+' ===== REMOTE FLOW =====
+admin --> mobile : "1. Open app"
+mobile --> cognito_sdk : "2. Enter email +\n   password"
+cognito_sdk --> cognito : "3. SRP Auth\n   (challenge/response)"
+cognito --> cognito_sdk : "4. Return tokens\n   (ID + Access + Refresh)"
+cognito_sdk --> jwt_store : "5. Store tokens\n   securely"
+mobile --> apigw : "6. API call\n   Authorization: ******"
+apigw --> lambda : "7. Validated request\n   (Cognito authorizer)"
+lambda --> iot : "8. Publish command\n   MQTT topic:\n   home/control/command"
+iot --> rpi : "9. Command received\n   via MQTT subscription"
+
+note right of cognito
+  **Cognito JWT Claims:**
+  {
+    "sub": "admin-uuid",
+    "iss": "cognito-userpool-id",
+    "token_use": "access",
+    "scope": "openid profile",
+    "cognito:groups": ["admin"],
+    "exp": 1706003600
+  }
+  **Key:** RS256 (Cognito managed)
+  **Access TTL:** 1 hour
+  **Refresh TTL:** 30 days
+end note
+
+' ===== BRIDGE =====
+rectangle "**Token Bridge**\n(Connects local ↔ remote)" as bridge {
+    component "AWS Token → Local Scope\nMapper" as mapper
+    note bottom of mapper
+        When admin authenticates via AWS
+        and is on local LAN, the bridge
+        maps Cognito groups to local
+        zone_access permissions.
+        
+        cognito:groups["admin"] →
+          zone_access: [1..12],
+          scope: "control:admin"
+    end note
+}
+
+cognito --> mapper : "Remote admin\non LAN"
+mapper --> protected_api : "Mapped local\nJWT issued"
+
+' ===== SECURITY NOTES =====
+note bottom of local_auth
+  **Local Security:**
+  ✅ TLS 1.3 (self-signed CA, pre-provisioned)
+  ✅ Ed25519 signatures (fast, secure)
+  ✅ Rate limiting (lockout after 5 failures)
+  ✅ PIN hashed with bcrypt (cost=12)
+  ✅ No internet dependency
+  ✅ mDNS for zero-config discovery
+end note
+
+note bottom of remote_auth
+  **Remote Security:**
+  ✅ Cognito SRP (no password over wire)
+  ✅ MFA enforced for admin group
+  ✅ API Gateway authorizer validates JWT
+  ✅ IoT Core uses X.509 mutual TLS
+  ✅ Lambda least-privilege IAM role
+  ✅ All traffic over TLS 1.2+
+end note
+
+@enduml

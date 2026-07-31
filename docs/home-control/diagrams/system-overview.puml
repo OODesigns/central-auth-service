@@ -1,0 +1,119 @@
+@startuml system-overview
+!include theme.puml
+
+title Home Control System - Complete Component Overview
+
+' ===== EXTERNAL =====
+cloud "AWS Cloud" as aws {
+    component "IoT Core\n(MQTT Broker)" as iot_core
+    component "Lambda\n(Auth + Logic)" as lambda
+    component "DynamoDB\n(State Store)" as dynamo
+    component "Cognito\n(User Auth)" as cognito
+    component "API Gateway\n(REST)" as apigw
+}
+
+' ===== LOCAL NETWORK =====
+rectangle "Local LAN (192.168.1.x)" as lan {
+
+    node "Raspberry Pi 4\n(Home Controller)" as rpi {
+        component "Control Service\n(Java 22)" as control_svc
+        component "MQTT Client\n(Local + AWS)" as mqtt_client
+        component "Modbus Master\n(RS485)" as modbus_master
+        component "SQLite\n(Local State)" as sqlite
+        component "JWT Auth\n(Offline-capable)" as jwt_local
+    }
+
+    node "Wall Controller\n(ESP32-S3 + 7\" TFT)" as wall {
+        component "LVGL UI\n(Touch Interface)" as lvgl
+        component "WiFi Client" as wifi
+        component "mDNS Discovery" as mdns
+    }
+
+    node "Mosquitto\n(Local MQTT Broker)" as mosquitto
+}
+
+' ===== MODBUS RS485 BUS =====
+rectangle "RS485 Bus (9600 baud)" as rs485_bus {
+
+    node "Waveshare Modbus RTU Relay\n16ch (Addr: 0x01)" as relay_16ch {
+        component "Relay 1-8: Zone Dampers" as damper_relays
+        component "Relay 9-16: Equipment" as equip_relays
+    }
+
+    node "Waveshare Modbus RTU Relay\n8ch (Addr: 0x02)" as relay_8ch {
+        component "Relay 1-4: Aux Dampers" as aux_dampers
+        component "Relay 5-8: Indicators/Spare" as spare_relays
+    }
+
+    node "Waveshare Modbus RTU Relay\n8ch (Addr: 0x03)" as relay_8ch_2 {
+        component "Relay 1-6: Purge Sequence" as purge_relays
+        component "Relay 7-8: Safety Interlocks" as safety_relays
+    }
+
+    node "Waveshare 8AI/8AO\nAnalog Module (Addr: 0x04)" as analog {
+        component "AI 0-3: Temperature\n(NTC 10k)" as temp_sensors
+        component "AI 4-5: Humidity\n(4-20mA)" as humidity_sensors
+        component "AI 6: CO2\n(0-10V)" as co2_sensor
+        component "AI 7: Pressure\n(4-20mA)" as pressure_sensor
+        component "AO 0-3: Fan Speed\n(0-10V)" as fan_outputs
+        component "AO 4-5: Valve Position\n(0-10V)" as valve_outputs
+        component "AO 6-7: Damper Position\n(0-10V)" as damper_outputs
+    }
+}
+
+' ===== SENSORS (Labels) =====
+rectangle "Physical Sensors" as sensors {
+    component "T1: Supply Air Temp" as t1
+    component "T2: Return Air Temp" as t2
+    component "T3: Outside Air Temp" as t3
+    component "T4: Room Temp (Avg)" as t4
+    component "H1: Supply Humidity" as h1
+    component "H2: Room Humidity" as h2
+    component "CO2: Room Level" as co2
+    component "DP: Filter Pressure" as dp
+}
+
+' ===== CONNECTIONS =====
+rpi -down-> rs485_bus : "USB-RS485\nAdapter"
+modbus_master --> relay_16ch
+modbus_master --> relay_8ch
+modbus_master --> relay_8ch_2
+modbus_master --> analog
+
+control_svc --> modbus_master
+control_svc --> mqtt_client
+control_svc --> sqlite
+control_svc --> jwt_local
+
+mqtt_client --> mosquitto : "Local MQTT\n(port 1883)"
+mqtt_client --> iot_core : "AWS IoT\n(TLS, port 8883)"
+
+wall --> mosquitto : "WiFi/MQTT"
+lvgl --> wifi
+
+mosquitto --> rpi
+
+iot_core --> lambda
+lambda --> dynamo
+apigw --> lambda
+cognito --> apigw
+
+' Sensor connections
+t1 --> temp_sensors
+t2 --> temp_sensors
+t3 --> temp_sensors
+t4 --> temp_sensors
+h1 --> humidity_sensors
+h2 --> humidity_sensors
+co2 --> co2_sensor
+dp --> pressure_sensor
+
+legend right
+  |= Symbol |= Meaning |
+  | RS485 Bus | Modbus RTU @ 9600 baud |
+  | Local MQTT | Mosquitto @ port 1883 |
+  | AWS IoT | TLS mutual auth @ 8883 |
+  | WiFi | 802.11n (2.4GHz) |
+endlegend
+
+@enduml
