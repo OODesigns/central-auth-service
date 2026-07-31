@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Home Control System has been successfully updated to support Time-based One-Time Password (TOTP) 2FA using authenticator apps (Google Authenticator, Microsoft Authenticator, Authy, etc.).
+The Central Auth Service has been successfully updated to support Time-based One-Time Password (TOTP) 2FA using authenticator apps (Google Authenticator, Microsoft Authenticator, Authy, etc.).
 
 ## What Was Added
 

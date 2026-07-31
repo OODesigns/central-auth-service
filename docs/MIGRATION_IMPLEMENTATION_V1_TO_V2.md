@@ -50,7 +50,7 @@ docker exec cas-staging-db \
   psql -U postgres -f /backups/cas-v1-full.sql.gz -d cas
 
 # Run Flyway migration (just V2)
-cd /mnt/data/projects/home-control-system
+cd /mnt/data/projects/central-auth-service
 ./gradlew flywayMigrate \
   -Dflyway.url=jdbc:postgresql://localhost:5432/cas \
   -Dflyway.user=postgres \
@@ -118,7 +118,7 @@ grep -r "SELECT \*" src/main/java/ --include="*.java"  # May be direct access
 
 ```bash
 # Option A: Run Flyway from Gradle
-cd /mnt/data/projects/home-control-system
+cd /mnt/data/projects/central-auth-service
 ./gradlew flywayMigrate \
   -Dflyway.url=jdbc:postgresql://localhost:5432/cas \
   -Dflyway.user=postgres \

@@ -1,8 +1,8 @@
-# Home Control System
+# Central Auth Service
 
 ## Environment Parameters
 
-The following environment variables are required to run the Home Control System:
+The following environment variables are required to run the Central Auth Service:
 
 ### Database Configuration
 - `POSTGRES_USER` - PostgreSQL database user

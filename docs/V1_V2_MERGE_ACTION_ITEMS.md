@@ -22,7 +22,7 @@
 
 - [ ] **Run the migration:**
   ```bash
-  cd /mnt/data/projects/home-control-system
+  cd /mnt/data/projects/central-auth-service
   ./gradlew flywayMigrate
   ```
 

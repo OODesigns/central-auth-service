@@ -1,4 +1,4 @@
-# Home Control System - Documentation Index
+# Central Auth Service - Documentation Index
 
 > **Purpose:** This is the single source of truth for all project documentation. Everything is stored locally in this repository so nothing is lost regardless of external service availability.
 
@@ -7,7 +7,7 @@
 ## 📁 Documentation Structure
 
 ```
-home-control-system/
+central-auth-service/
 ├── README.md                          # Project overview, env vars, Flyway setup
 ├── docs/                              # All written documentation (this directory)
 │   ├── README.md                      # ← YOU ARE HERE (master index)

@@ -1,4 +1,4 @@
-# Copilot Instructions for Home Control System
+# Copilot Instructions for Central Auth Service
 
 ## Architecture Overview
 
