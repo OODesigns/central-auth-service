@@ -134,8 +134,12 @@ Implications for the plan:
       URI (RFC 3986 percent-encoding, spaces as `%20`). Issuer name is injected through the
       constructor. Null command → `INVALID_REQUEST`; provider exception → `INTERNAL_ERROR`.
       `SetupTotpResult` sealed interface + `SetupTotpCommand` record added.
-- [ ] 1.5 `EnableTotpCommandHandler` — verify first code, set `totp_verified_at`, return
-      one-time-visible backup codes.
+- [x] 1.5 `EnableTotpCommandHandler` — security-ordered: (1) verify OTP code via
+      `Ports.TotpVerifier.verifyCode` before touching any state, (2) activate via
+      `Ports.TotpSetupProvider.enableTotp` (→ `TOTP_ALREADY_ENABLED` if false), (3) generate
+      + return one-time-visible plaintext backup codes via `generateBackupCodes`. Wrong OTP →
+      `INVALID_TOTP_CODE` (no state change). `EnableTotpResult` sealed interface +
+      `EnableTotpCommand` record (6-digit code validated in compact constructor) added.
 - [ ] 1.6 `VerifyTotpCommandHandler` — validate the 2FA verification token
       (`aud: 2fa_verification`, unexpired), accept OTP **or** backup code (consume it),
       issue full access + refresh tokens.
