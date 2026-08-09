@@ -369,7 +369,7 @@ docs/
 ## Version Information
 
 - **Created:** January 9, 2026
-- **Java Version:** Java 22
+- **Java Version:** Java 26
 - **Architecture:** Hexagonal (Ports & Adapters)
 - **Test Framework:** JUnit 5
 - **Coverage Required:** 100% (JaCoCo)

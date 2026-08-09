@@ -201,4 +201,28 @@ class LoginCommandHandlerTest {
             throw new AssertionError(e);
         }
     }
+
+    @Test
+    void testLoginRequires2FAWhenEnabled() {
+        // Set up only the stubs we need for this test to avoid unnecessary stubbing
+        when(tokenSigner.sign(any(), any())).thenReturn(Optional.of("signed.token"));
+        when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
+        when(clock.now()).thenReturn(java.time.Instant.now());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
+        // Simulate 2FA enabled for the user
+        when(totpStatusReader.check2FAStatus(testCredential.userId())).thenReturn(Optional.of(testCredential.userId()));
+
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginResult result = loginHandler.handle(cmd);
+
+        result.mapTo(success -> {
+            fail("Expected 2FA required result");
+            return null;
+        }).orElse(failure -> {
+            // Required2FAResult maps to MFA_SETUP_REQUIRED in orElse path per LoginResult implementation
+            assertEquals("MFA_SETUP_REQUIRED", failure.errorCode());
+            return null;
+        });
+    }
 }

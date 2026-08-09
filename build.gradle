@@ -10,7 +10,7 @@ version = '1.0-SNAPSHOT'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(22)
+        languageVersion = JavaLanguageVersion.of(26)
     }
 }
 
@@ -96,7 +96,10 @@ tasks.register('databaseIntegrationTest', Test) {
 }
 
 jacocoTestReport {
-    dependsOn test
+    // Aggregate coverage across all test tiers (unit + integration). The database
+    // tier is included automatically if it has been run (its .exec file will exist).
+    dependsOn test, tasks.named('integrationTest')
+    executionData fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec')
     afterEvaluate {
         classDirectories.setFrom(files(classDirectories.files.collect { directory ->
             fileTree(dir: directory, exclude: [
@@ -139,6 +142,11 @@ jacocoTestReport {
 }
 
 jacocoTestCoverageVerification {
+    // Verify against aggregated coverage from all executed test tiers so that
+    // classes exercised only by integration tests (e.g. LoginRateLimiter,
+    // TokenService) count toward the 100% line-coverage requirement.
+    dependsOn test, tasks.named('integrationTest')
+    executionData fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec')
     violationRules {
         rule {
             element = 'CLASS'

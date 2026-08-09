@@ -57,7 +57,7 @@ class UserCredentialReaderTest {
         when(jooqRecord.get("user_id", UUID.class)).thenReturn(userId);
         when(jooqRecord.get("password_hash", String.class)).thenReturn(hash);
 
-        when(dsl.fetchOptional("SELECT * FROM auth.find_user_credentials(?)", "user"))
+        when(dsl.fetchOptional("SELECT * FROM api_schema.find_user_credentials(?)", "user"))
                 .thenReturn(Optional.of(jooqRecord));
 
         final Optional<UserCredential> result = reader.findCredentialsByUsername(username);

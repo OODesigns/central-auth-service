@@ -246,4 +246,29 @@ class LoginResultTest {
                 return null;
             });
     }
+
+    @Test
+    void testRequired2FAResultValidationAndMapper() {
+        final java.util.UUID uuid = java.util.UUID.randomUUID();
+        final com.oodesigns.cas.domain.value.UserId userId = com.oodesigns.cas.domain.value.UserId.of(uuid);
+        final LoginResult.Required2FAResult r = LoginResult.required2FA("verif-token", userId);
+        assertNotNull(r);
+        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult("", userId));
+        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult("token", null));
+
+        final String mapped = r.mapTo(success -> "OK").orElse(failure -> failure.errorCode());
+        // For Required2FAResult the mapTo should return failure mapping (MFA_SETUP_REQUIRED)
+        assertEquals("MFA_SETUP_REQUIRED", mapped);
+    }
+
+    @Test
+    void testPasswordResetRequiredResultValidationAndMapper() {
+        final com.oodesigns.cas.domain.value.UserId userId = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
+        final LoginResult.PasswordResetRequiredResult pr = LoginResult.passwordResetRequired(userId);
+        assertNotNull(pr);
+        assertThrows(NullPointerException.class, () -> new LoginResult.PasswordResetRequiredResult(null));
+
+        final String mapped = pr.mapTo(success -> "OK").orElse(failure -> failure.errorCode());
+        assertEquals("PASSWORD_RESET_REQUIRED", mapped);
+    }
 }

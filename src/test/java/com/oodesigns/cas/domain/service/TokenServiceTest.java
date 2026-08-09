@@ -92,4 +92,42 @@ class TokenServiceTest {
         assertFalse(tokens.accessToken().isEmpty());
         assertFalse(tokens.refreshToken().isEmpty());
     }
+
+    @Test
+    void testGenerate2FAVerificationToken() {
+        when(clock.now()).thenReturn(Instant.ofEpochSecond(1_700_000_000L));
+        // capture the payload passed to signer
+        final java.util.concurrent.atomic.AtomicReference<com.oodesigns.cas.domain.value.Payload> captured = new java.util.concurrent.atomic.AtomicReference<>();
+        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(com.oodesigns.cas.domain.value.Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
+            .thenAnswer(invocation -> {
+                final com.oodesigns.cas.domain.value.Payload p = invocation.getArgument(0);
+                captured.set(p);
+                return java.util.Optional.of("signed-token");
+            });
+
+        final com.oodesigns.cas.domain.value.UserId uid = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
+        final String token = tokenService.generate2FAVerificationToken(uid);
+        assertNotNull(token);
+        assertEquals("signed-token", token);
+
+        final com.oodesigns.cas.domain.value.Payload payload = captured.get();
+        assertNotNull(payload);
+        final String json = payload.value();
+        assertTrue(json.contains("\"aud\":\"2fa_verification\""));
+        assertTrue(json.contains("\"sub\":\"" + uid.toString() + "\""));
+        // exp should be iat + 300 seconds (5 minutes)
+        // iat was 1_700_000_000
+        assertTrue(json.contains("\"iat\":1700000000"));
+        assertTrue(json.contains("\"exp\":1700000300"));
+    }
+
+    @Test
+    void testGenerate2FAVerificationTokenSignerFailureThrows() {
+        when(clock.now()).thenReturn(Instant.now());
+        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+            .thenReturn(java.util.Optional.empty());
+
+        final com.oodesigns.cas.domain.value.UserId uid = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
+        assertThrows(IllegalStateException.class, () -> tokenService.generate2FAVerificationToken(uid));
+    }
 }

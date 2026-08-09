@@ -174,6 +174,44 @@ class LoginRateLimiterTest {
     void testImplementsRateLimiterPort() {
         assertInstanceOf(Ports.RateLimiter.class, rateLimiter);
     }
+
+    @Test
+    void testIpBucketBlocksEarly() {
+        final LoginRateLimiter limiter = new LoginRateLimiter(1, java.time.Duration.ofMinutes(1));
+        final var cmdA = new LoginCommand(Username.of("a12"), Password.of("ValidPassword12345".toCharArray()), IpAddress.of("10.0.0.1"));
+        final var cmdB = new LoginCommand(Username.of("b12"), Password.of("ValidPassword12345".toCharArray()), IpAddress.of("10.0.0.1"));
+
+        // First attempt consumes IP bucket
+        assertTrue(limiter.checkLimit(cmdA).mapTo(_ -> true).orElse(b -> false));
+        // Second attempt from different username but same IP should be blocked at IP level
+        assertFalse(limiter.checkLimit(cmdB).mapTo(_ -> true).orElse(b -> false));
+    }
+
+    @Test
+    void testUsernameBucketBlocksEarly() {
+        final LoginRateLimiter limiter = new LoginRateLimiter(1, java.time.Duration.ofMinutes(1));
+        final var cmdA = new LoginCommand(Username.of("same"), Password.of("ValidPassword12345".toCharArray()), IpAddress.of("10.0.0.1"));
+        final var cmdB = new LoginCommand(Username.of("same"), Password.of("ValidPassword12345".toCharArray()), IpAddress.of("10.0.0.2"));
+
+        // First attempt consumes username bucket
+        assertTrue(limiter.checkLimit(cmdA).mapTo(_ -> true).orElse(b -> false));
+        // Second attempt from different IP but same username should be blocked at username level
+        assertFalse(limiter.checkLimit(cmdB).mapTo(_ -> true).orElse(b -> false));
+    }
+
+    @Test
+    void testCheckLimitForKeyRejectsEmptyKeyViaReflection() throws Exception {
+        final java.lang.reflect.Method m = LoginRateLimiter.class.getDeclaredMethod("checkLimitForKey", String.class);
+        m.setAccessible(true);
+        final LoginRateLimiter limiter = new LoginRateLimiter();
+        assertThrows(IllegalArgumentException.class, () -> {
+            try {
+                m.invoke(limiter, "");
+            } catch (final java.lang.reflect.InvocationTargetException e) {
+                throw e.getCause();
+            }
+        });
+    }
 }
 
 

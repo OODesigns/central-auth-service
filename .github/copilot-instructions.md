@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-This is a **Hexagonal Architecture (Ports & Adapters)** authentication service in Java 22 with strict separation:
+This is a **Hexagonal Architecture (Ports & Adapters)** authentication service in Java 26 with strict separation:
 
 - **domain/** - Pure business logic, no framework dependencies. Contains `Ports.java` interface definitions
 - **application/** - Command handlers orchestrating domain services (e.g., `LoginCommandHandler`)
