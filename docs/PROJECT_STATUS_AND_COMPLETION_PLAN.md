@@ -128,7 +128,12 @@ Implications for the plan:
       Appendix B test vectors**; and `BackupCodeGenerator` (`SecureRandom`,
       `XXXX-XXXX-XXXX-XXXX`, 32-symbol unambiguous alphabet = 80 bits/code, de-duplicated
       batches; BCrypt hashing happens in the adapter per `Ports.TotpSetupProvider`).
-- [ ] 1.4 `SetupTotpCommandHandler` — generate secret + `otpauth://` URI, persist pending secret.
+- [x] 1.4 `SetupTotpCommandHandler` — generates a TOTP secret via
+      `Ports.TotpSetupProvider.generateSecret(userId)` and builds a standard
+      `otpauth://totp/{issuer}:{account}?secret=...&issuer=...&algorithm=SHA1&digits=6&period=30`
+      URI (RFC 3986 percent-encoding, spaces as `%20`). Issuer name is injected through the
+      constructor. Null command → `INVALID_REQUEST`; provider exception → `INTERNAL_ERROR`.
+      `SetupTotpResult` sealed interface + `SetupTotpCommand` record added.
 - [ ] 1.5 `EnableTotpCommandHandler` — verify first code, set `totp_verified_at`, return
       one-time-visible backup codes.
 - [ ] 1.6 `VerifyTotpCommandHandler` — validate the 2FA verification token
