@@ -77,8 +77,9 @@ Implications for the plan:
 1. **No 2FA infrastructure adapters.** `TotpStatusReader`, `TotpVerifier`, `TotpSetupProvider`
    have no production implementations — only test lambdas. The login 2FA branch cannot run
    against a real database.
-2. **No TOTP/backup-code generation.** No RFC 6238 code generator, no backup code generator,
-   no library dependency for either.
+2. **No TOTP/backup-code generation.** ✅ RESOLVED (Phase 1.3): `TotpCodeGenerator` (RFC 6238,
+   JDK `javax.crypto.Mac`) and `BackupCodeGenerator` (`SecureRandom`) added to `domain/service/`.
+   No third-party crypto dependency was needed.
 3. **Incomplete database API.** Migrations only cover *reading* TOTP status. No functions to
    store/enable/disable secrets or create/consume backup codes.
 4. **Missing handlers.** Nothing consumes the `Required2FAResult` verification token (no
@@ -120,9 +121,13 @@ Implications for the plan:
       usernames) and reused `AuthenticationService`/`BcryptPasswordVerifier` for the hash
       comparison. Also promoted `DisableTotpCommand.password` from `String` to `Password`.
       ⚠ Phase 2 must add the JOOQ adapter + `api_schema.find_user_credentials_by_id` function.
-- [ ] 1.3 TOTP primitives (domain, JDK-only per hexagonal rule):
-      RFC 6238 `TotpCodeGenerator` (HMAC-SHA1, 30s step, ±1 step skew) and
-      `BackupCodeGenerator` (`SecureRandom`, `XXXX-XXXX-XXXX-XXXX`, bcrypt-hashed via port).
+- [x] 1.3 TOTP primitives (domain, JDK-only per hexagonal rule):
+      RFC 6238 `TotpCodeGenerator` (HMAC-SHA1 via `javax.crypto.Mac`, 30s step, 6 digits,
+      ±1 step skew, constant-time non-short-circuiting compare, hand-rolled RFC 4648 Base32
+      decode, key material zeroed after each HMAC) — verified against all six **RFC 6238
+      Appendix B test vectors**; and `BackupCodeGenerator` (`SecureRandom`,
+      `XXXX-XXXX-XXXX-XXXX`, 32-symbol unambiguous alphabet = 80 bits/code, de-duplicated
+      batches; BCrypt hashing happens in the adapter per `Ports.TotpSetupProvider`).
 - [ ] 1.4 `SetupTotpCommandHandler` — generate secret + `otpauth://` URI, persist pending secret.
 - [ ] 1.5 `EnableTotpCommandHandler` — verify first code, set `totp_verified_at`, return
       one-time-visible backup codes.
