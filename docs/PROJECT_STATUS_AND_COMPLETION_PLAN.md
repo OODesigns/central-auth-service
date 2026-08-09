@@ -62,9 +62,11 @@ Implications for the plan:
     `LoginResult.PasswordResetRequiredResult` (+ `MapperPasswordResetRequired`)
   - Partial: `LoginResult` (50%), `TokenService` (75%), `LoginRateLimiter` (88%),
     `LoginCommandHandler` (96%)
-- **Security gap (acknowledged in code):** `DisableTotpCommandHandler.verifyPasswordForDisable()`
-  is a stub that accepts any non-blank password. Root cause: it has a `userId` but
-  `UserCredentialRetriever` requires a `username`.
+- **Security gap (RESOLVED — Phase 1.2, 2026-08-09):** `DisableTotpCommandHandler` now
+  re-authenticates properly via the new `Ports.UserCredentialByIdRetriever` port (keyed by
+  `UserId`, never by a client-supplied username), reusing `AuthenticationService` +
+  `BcryptPasswordVerifier`. `DisableTotpCommand.password` is now a `Password` value object
+  (char[]-backed, zeroed after verification) instead of a `String`.
 - **Documented-but-unimplemented enforcement:** `LoginCommandHandler`'s javadoc promises
   MFA-enrollment enforcement and password-reset routing (`User` carries `mfaRequiredAt` /
   `passwordResetRequiredAt`), but the code never checks either field —
@@ -110,12 +112,14 @@ Implications for the plan:
 
 ### Phase 1 — Finish the application-layer 2FA flow
 
-- [ ] 1.1 Implement documented enforcement in `LoginCommandHandler`:
+- [x] 1.1 Implement documented enforcement in `LoginCommandHandler`:
       `MFA_SETUP_REQUIRED` failure when `mfaRequiredAt` set but user not enrolled;
       `PasswordResetRequiredResult` when `passwordResetRequiredAt` set. Update tests.
-- [ ] 1.2 Fix the `DisableTotpCommandHandler` re-authentication gap: add username to the
-      command **or** add a `UserPasswordVerifier` port keyed by `userId` (preferred — avoids
-      trusting client-supplied usernames).
+- [x] 1.2 Fix the `DisableTotpCommandHandler` re-authentication gap: **decided** — added
+      `Ports.UserCredentialByIdRetriever` keyed by `userId` (avoids trusting client-supplied
+      usernames) and reused `AuthenticationService`/`BcryptPasswordVerifier` for the hash
+      comparison. Also promoted `DisableTotpCommand.password` from `String` to `Password`.
+      ⚠ Phase 2 must add the JOOQ adapter + `api_schema.find_user_credentials_by_id` function.
 - [ ] 1.3 TOTP primitives (domain, JDK-only per hexagonal rule):
       RFC 6238 `TotpCodeGenerator` (HMAC-SHA1, 30s step, ±1 step skew) and
       `BackupCodeGenerator` (`SecureRandom`, `XXXX-XXXX-XXXX-XXXX`, bcrypt-hashed via port).
@@ -135,6 +139,9 @@ Implications for the plan:
       `consume_backup_code` — idempotent, `REVOKE ALL … FROM PUBLIC` + `GRANT EXECUTE … TO
       app_user`, `${VARIABLE}` placeholders for secrets.
 - [ ] 2.2 `JooqTotpStatusReader` (wraps existing `api_schema.get_totp_status`).
+- [ ] 2.2b `JooqUserCredentialByIdReader` implementing `Ports.UserCredentialByIdRetriever`
+      (needs a new `api_schema.find_user_credentials_by_id(uuid)` function — required by the
+      Phase 1.2 disable-2FA re-authentication).
 - [ ] 2.3 `JooqTotpVerifier`, `JooqTotpSetupProvider` (hand-written JOOQ `Routines` pattern,
       as in `UserCredentialReader`).
 - [ ] 2.4 In-memory mock adapters for the integration tier

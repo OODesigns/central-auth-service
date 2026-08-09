@@ -136,6 +136,29 @@ public class Ports {
     }
 
     /**
+     * Port for retrieving user credentials by user ID.
+     * <p>
+     * Used for <b>re-authentication</b> of an already-identified user (e.g. disabling 2FA,
+     * changing a password), where the {@link UserId} originates from a verified session or
+     * token rather than from client input.
+     * <p>
+     * SECURITY: This port is deliberately keyed by {@code UserId} instead of {@code Username}.
+     * Re-authentication must never trust a client-supplied username, otherwise a caller could
+     * present someone else's username together with a password they know and pass the check.
+     * Callers must additionally confirm that the verified {@code UserId} equals the requested
+     * one (defence in depth).
+     */
+    public interface UserCredentialByIdRetriever {
+        /**
+         * Look up the stored credential (user ID + password hash) for a user.
+         *
+         * @param userId the ID of the user being re-authenticated
+         * @return Optional containing the credential, empty if the user does not exist
+         */
+        Optional<UserCredential> findCredentialsByUserId(final UserId userId);
+    }
+
+    /**
      * Port for retrieving full user data by ID.
      * Used after authentication succeeds to retrieve permissions and other user metadata.
      */

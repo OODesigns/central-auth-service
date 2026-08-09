@@ -2,6 +2,7 @@ package com.oodesigns.cas.application.command;
 
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.Ports;
+import com.oodesigns.cas.domain.value.Credentials;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,17 +23,23 @@ import java.util.logging.Logger;
  * 3. User wants to disable 2FA entirely → allowed if admin hasn't enforced it
  * 4. User with mfa_required_at set tries to disable → call succeeds, but
  *    they'll be blocked at login until they re-enroll
+ * <p>
+ * SECURITY: Re-authentication is keyed by {@link com.oodesigns.cas.domain.value.UserId}
+ * via {@link Ports.UserCredentialByIdRetriever}, never by a client-supplied username.
+ * Disabling 2FA is a security-downgrading operation, so an attacker holding a stolen
+ * session must still prove knowledge of the account password before it is permitted.
  */
 public final class DisableTotpCommandHandler {
     private static final Logger LOGGER = Logger.getLogger(DisableTotpCommandHandler.class.getName());
     private static final String INTERNAL_ERROR = "INTERNAL_ERROR";
+    private static final String INVALID_PASSWORD = "INVALID_PASSWORD";
 
     private final AuthenticationService authService;
-    private final Ports.UserCredentialRetriever credentialReader;
+    private final Ports.UserCredentialByIdRetriever credentialReader;
     private final Ports.TotpSetupProvider totpSetupProvider;
 
     public DisableTotpCommandHandler(final AuthenticationService authService,
-                                     final Ports.UserCredentialRetriever credentialReader,
+                                     final Ports.UserCredentialByIdRetriever credentialReader,
                                      final Ports.TotpSetupProvider totpSetupProvider) {
         this.authService = Objects.requireNonNull(authService);
         this.credentialReader = Objects.requireNonNull(credentialReader);
@@ -62,10 +69,10 @@ public final class DisableTotpCommandHandler {
     }
 
     private DisableTotpResult disableTotpForUser(final DisableTotpCommand command) {
-        // Step 1: Verify password (re-authentication required for security)
-        final DisableTotpResult passwordVerification = verifyPasswordForDisable(command);
-        if (passwordVerification instanceof DisableTotpResult.FailureResult) {
-            return passwordVerification;
+        // Step 1: Re-authenticate (mandatory — disabling 2FA weakens the account)
+        if (!isReAuthenticated(command)) {
+            return DisableTotpResult.failure(INVALID_PASSWORD,
+                "Password verification failed. Re-authentication is required to disable 2FA.");
         }
 
         // Step 2: Disable TOTP (calls totpSetupProvider which:
@@ -89,33 +96,25 @@ public final class DisableTotpCommandHandler {
     }
 
     /**
-     * Verify user's password before allowing TOTP disable.
-     * This is a security measure: prevents unauthorized 2FA removal if account is compromised.
-     *
-     * Implementation note: This currently accepts any password due to port limitation.
-     * In production, add Ports.UserPasswordVerifier that takes userId + password directly,
-     * or have the endpoint provide username + password together.
+     * Verify the user's password before allowing TOTP disable.
+     * <p>
+     * Looks up the stored credential by {@code userId} (never by a client-supplied username),
+     * then delegates the actual hash comparison to {@link AuthenticationService}, reusing the
+     * same constant-time BCrypt path as login. The plaintext password is zeroed by
+     * {@link Credentials#close()} inside the authentication service.
+     * <p>
+     * Defence in depth: the verified {@code UserId} returned by the verifier must match the
+     * user being modified, so a credential-lookup mismatch can never authorise a disable.
      *
      * @param command the disable command containing user ID and password
-     * @return success if password is valid, failure otherwise
+     * @return true when the password is valid for that exact user, false otherwise
      */
-    private DisableTotpResult verifyPasswordForDisable(final DisableTotpCommand command) {
-        // LIMITATION: credentialReader requires username, but we only have userId
-        // In a real implementation, add:
-        //   - Ports.UserPasswordVerifier.verifyPassword(userId, password)
-        //   - Or require username in DisableTotpCommand
-        //   - Or look up user by ID first in userRepository
-
-        // For now, accept the disable request with password placeholder
-        // Production implementation must add proper re-authentication
-        if (command.password() == null || command.password().isBlank()) {
-            return DisableTotpResult.failure("INVALID_PASSWORD",
-                "Password cannot be blank.");
-        }
-
-        // TODO: Implement proper password verification with userId
-        // This is a security gap that must be addressed
-        return DisableTotpResult.success();
+    private boolean isReAuthenticated(final DisableTotpCommand command) {
+        return credentialReader.findCredentialsByUserId(command.userId())
+            .map(credential -> Credentials.of(credential, command.password()))
+            .flatMap(authService::getAuthenticatedUser)
+            .filter(verifiedUserId -> verifiedUserId.equals(command.userId()))
+            .isPresent();
     }
 }
 

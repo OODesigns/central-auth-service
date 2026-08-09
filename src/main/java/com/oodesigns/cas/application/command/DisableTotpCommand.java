@@ -1,5 +1,6 @@
 package com.oodesigns.cas.application.command;
 
+import com.oodesigns.cas.domain.value.Password;
 import com.oodesigns.cas.domain.value.UserId;
 import java.util.Objects;
 
@@ -22,20 +23,23 @@ import java.util.Objects;
  * - Was it an admin action? (ADMIN_FORCED)
  * - Was it a security response? (SECURITY_INCIDENT)
  * - Was it a device recovery? (RECOVERY_FLOW)
+ * <p>
+ * SECURITY: {@code userId} must originate from a verified session/token, never from
+ * client-supplied input. The password is carried as a {@link Password} value object
+ * (char[] backed, zeroed after verification) rather than a String, so the plaintext
+ * can be wiped from memory once re-authentication completes.
  */
-public record DisableTotpCommand(UserId userId, String password, DisableReason reason) {
+public record DisableTotpCommand(UserId userId, Password password, DisableReason reason) {
     /**
      * Compact constructor validates all required fields.
+     * Password content rules (length, non-blank) are enforced by {@link Password#of}.
+     *
      * @throws NullPointerException if any field is null
-     * @throws IllegalArgumentException if password is blank
      */
     public DisableTotpCommand {
         Objects.requireNonNull(userId, "User ID is required");
         Objects.requireNonNull(password, "Password is required for re-authentication");
         Objects.requireNonNull(reason, "Disable reason is required for audit trail");
-        if (password.isBlank()) {
-            throw new IllegalArgumentException("Password cannot be blank");
-        }
     }
 }
 

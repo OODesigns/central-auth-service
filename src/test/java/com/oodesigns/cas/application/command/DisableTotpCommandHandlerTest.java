@@ -2,54 +2,84 @@ package com.oodesigns.cas.application.command;
 
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.Ports;
+import com.oodesigns.cas.domain.value.Password;
+import com.oodesigns.cas.domain.value.PasswordHash;
+import com.oodesigns.cas.domain.value.UserCredential;
+import com.oodesigns.cas.domain.value.UserId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for DisableTotpCommandHandler.
+ * <p>
+ * Focus: the re-authentication gate. Disabling 2FA is a security-downgrading operation,
+ * so every path that could bypass password verification is covered explicitly.
+ */
 @ExtendWith(MockitoExtension.class)
 class DisableTotpCommandHandlerTest {
 
+    private static final String VALID_PASSWORD = "ValidPassword1234";
+    private static final String BCRYPT_HASH = "$2a$12$R9h/cIPz0gi.URNNW3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW";
+
     @Mock
-    private Ports.UserCredentialRetriever credentialReader;
+    private Ports.UserCredentialByIdRetriever credentialReader;
 
     @Mock
     private Ports.TotpSetupProvider totpSetupProvider;
 
+    @Mock
+    private Ports.PasswordVerifier passwordVerifier;
+
     private AuthenticationService authService;
     private DisableTotpCommandHandler handler;
+    private UserId userId;
+    private UserCredential credential;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthenticationService(cmd -> null);
+        authService = new AuthenticationService(passwordVerifier);
         handler = new DisableTotpCommandHandler(authService, credentialReader, totpSetupProvider);
+        userId = UserId.of(UUID.randomUUID());
+        credential = UserCredential.of(userId, PasswordHash.of(BCRYPT_HASH));
+    }
+
+    private DisableTotpCommand command() {
+        return new DisableTotpCommand(userId, Password.of(VALID_PASSWORD), DisableReason.USER_REQUESTED);
     }
 
     @Test
     void constructorRejectsNulls() {
-        assertThrows(NullPointerException.class, () -> new DisableTotpCommandHandler(null, credentialReader, totpSetupProvider));
-        assertThrows(NullPointerException.class, () -> new DisableTotpCommandHandler(authService, null, totpSetupProvider));
-        assertThrows(NullPointerException.class, () -> new DisableTotpCommandHandler(authService, credentialReader, null));
+        assertThrows(NullPointerException.class,
+            () -> new DisableTotpCommandHandler(null, credentialReader, totpSetupProvider));
+        assertThrows(NullPointerException.class,
+            () -> new DisableTotpCommandHandler(authService, null, totpSetupProvider));
+        assertThrows(NullPointerException.class,
+            () -> new DisableTotpCommandHandler(authService, credentialReader, null));
     }
 
     @Test
-    void handleReturnsSuccessWhenDisabled() {
-        final var userId = com.oodesigns.cas.domain.value.UserId.of(UUID.randomUUID());
-        final DisableTotpCommand cmd = new DisableTotpCommand(userId, "password123", DisableReason.USER_REQUESTED);
+    void handleReturnsSuccessWhenPasswordVerifiedAndTotpDisabled() {
+        when(credentialReader.findCredentialsByUserId(userId)).thenReturn(Optional.of(credential));
+        when(passwordVerifier.verify(any())).thenReturn(Optional.of(userId));
         when(totpSetupProvider.disableTotp(eq(userId), any())).thenReturn(true);
 
         // ensure INFO logging branch is exercised
-        final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(DisableTotpCommandHandler.class.getName());
-        final java.util.logging.Level old = logger.getLevel();
+        final Logger logger = Logger.getLogger(DisableTotpCommandHandler.class.getName());
+        final Level old = logger.getLevel();
         try {
-            logger.setLevel(java.util.logging.Level.INFO);
-            final DisableTotpResult res = handler.handle(cmd);
+            logger.setLevel(Level.INFO);
+            final DisableTotpResult res = handler.handle(command());
             res.mapTo(s -> {
                 assertNotNull(s);
                 return null;
@@ -60,13 +90,12 @@ class DisableTotpCommandHandlerTest {
     }
 
     @Test
-    void handleReturnsFailureWhenNotEnabled() {
-        final var userId = com.oodesigns.cas.domain.value.UserId.of(UUID.randomUUID());
-        final DisableTotpCommand cmd = new DisableTotpCommand(userId, "password123", DisableReason.USER_REQUESTED);
-
+    void handleReturnsFailureWhenTotpNotEnabled() {
+        when(credentialReader.findCredentialsByUserId(userId)).thenReturn(Optional.of(credential));
+        when(passwordVerifier.verify(any())).thenReturn(Optional.of(userId));
         when(totpSetupProvider.disableTotp(eq(userId), any())).thenReturn(false);
 
-        final DisableTotpResult res = handler.handle(cmd);
+        final DisableTotpResult res = handler.handle(command());
         res.mapTo(s -> {
             fail("Expected failure");
             return null;
@@ -77,63 +106,82 @@ class DisableTotpCommandHandlerTest {
     }
 
     @Test
-    void handleReturnsInternalOnException() {
-        final var userId = com.oodesigns.cas.domain.value.UserId.of(UUID.randomUUID());
-        final DisableTotpCommand cmd = new DisableTotpCommand(userId, "password123", DisableReason.USER_REQUESTED);
+    void handleRejectsWhenCredentialNotFound() {
+        // User ID does not resolve to a stored credential → cannot re-authenticate
+        when(credentialReader.findCredentialsByUserId(userId)).thenReturn(Optional.empty());
 
+        final DisableTotpResult res = handler.handle(command());
+        res.mapTo(s -> {
+            fail("Expected INVALID_PASSWORD when credential is missing");
+            return null;
+        }).orElse(f -> {
+            assertEquals("INVALID_PASSWORD", f.errorCode());
+            return null;
+        });
+
+        // Critically: 2FA must NOT be disabled without successful re-authentication
+        verify(totpSetupProvider, never()).disableTotp(any(), any());
+    }
+
+    @Test
+    void handleRejectsWhenPasswordIsWrong() {
+        when(credentialReader.findCredentialsByUserId(userId)).thenReturn(Optional.of(credential));
+        // Password verifier rejects the password
+        when(passwordVerifier.verify(any())).thenReturn(Optional.empty());
+
+        final DisableTotpResult res = handler.handle(command());
+        res.mapTo(s -> {
+            fail("Expected INVALID_PASSWORD for wrong password");
+            return null;
+        }).orElse(f -> {
+            assertEquals("INVALID_PASSWORD", f.errorCode());
+            return null;
+        });
+
+        verify(totpSetupProvider, never()).disableTotp(any(), any());
+    }
+
+    @Test
+    void handleRejectsWhenVerifiedUserIdDoesNotMatchCommandUserId() {
+        // Defence in depth: even if the verifier authenticates *someone*, it must be
+        // the same user whose 2FA is being disabled.
+        final UserId otherUserId = UserId.of(UUID.randomUUID());
+        when(credentialReader.findCredentialsByUserId(userId)).thenReturn(Optional.of(credential));
+        when(passwordVerifier.verify(any())).thenReturn(Optional.of(otherUserId));
+
+        final DisableTotpResult res = handler.handle(command());
+        res.mapTo(s -> {
+            fail("Expected INVALID_PASSWORD on user ID mismatch");
+            return null;
+        }).orElse(f -> {
+            assertEquals("INVALID_PASSWORD", f.errorCode());
+            return null;
+        });
+
+        verify(totpSetupProvider, never()).disableTotp(any(), any());
+    }
+
+    @Test
+    void handleReturnsInternalErrorOnException() {
+        when(credentialReader.findCredentialsByUserId(userId)).thenReturn(Optional.of(credential));
+        when(passwordVerifier.verify(any())).thenReturn(Optional.of(userId));
         when(totpSetupProvider.disableTotp(eq(userId), any())).thenThrow(new RuntimeException("boom"));
 
-        final DisableTotpResult res = handler.handle(cmd);
-        res.mapTo(s -> {
-            fail("Expected failure");
-            return null;
-        }).orElse(f -> {
-            assertEquals("INTERNAL_ERROR", f.errorCode());
-            return null;
-        });
-    }
-
-    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
-    @Test
-    void verifyPasswordForDisableRejectsBlankPasswordViaReflection() throws Exception {
-        // Create a mock DisableTotpCommand that returns a blank password
-        final DisableTotpCommand mockCmd = org.mockito.Mockito.mock(DisableTotpCommand.class);
-        final var userId = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
-        org.mockito.Mockito.when(mockCmd.userId()).thenReturn(userId);
-        org.mockito.Mockito.when(mockCmd.password()).thenReturn("");
-        org.mockito.Mockito.when(mockCmd.reason()).thenReturn(DisableReason.USER_REQUESTED);
-
-        final java.lang.reflect.Method m = DisableTotpCommandHandler.class.getDeclaredMethod("verifyPasswordForDisable", DisableTotpCommand.class);
-        m.setAccessible(true);
-        final DisableTotpResult res = (DisableTotpResult) m.invoke(handler, mockCmd);
-        res.mapTo(s -> {
-            fail("Expected failure for blank password");
-            return null;
-        }).orElse(f -> {
-            assertEquals("INVALID_PASSWORD", f.errorCode());
-            return null;
-        });
-    }
-
-    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
-    @Test
-    void disableTotpForUserReturnsFailureWhenPasswordInvalidViaReflection() throws Exception {
-        final DisableTotpCommand mockCmd = org.mockito.Mockito.mock(DisableTotpCommand.class);
-        final var userId = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
-        org.mockito.Mockito.when(mockCmd.userId()).thenReturn(userId);
-        org.mockito.Mockito.when(mockCmd.password()).thenReturn("");
-        org.mockito.Mockito.when(mockCmd.reason()).thenReturn(DisableReason.USER_REQUESTED);
-
-        final java.lang.reflect.Method m = DisableTotpCommandHandler.class.getDeclaredMethod("disableTotpForUser", DisableTotpCommand.class);
-        m.setAccessible(true);
-        final DisableTotpResult res = (DisableTotpResult) m.invoke(handler, mockCmd);
-        res.mapTo(s -> {
-            fail("Expected failure due to invalid password");
-            return null;
-        }).orElse(f -> {
-            assertEquals("INVALID_PASSWORD", f.errorCode());
-            return null;
-        });
+        final Logger logger = Logger.getLogger(DisableTotpCommandHandler.class.getName());
+        final Level old = logger.getLevel();
+        try {
+            logger.setLevel(Level.OFF);
+            final DisableTotpResult res = handler.handle(command());
+            res.mapTo(s -> {
+                fail("Expected failure");
+                return null;
+            }).orElse(f -> {
+                assertEquals("INTERNAL_ERROR", f.errorCode());
+                return null;
+            });
+        } finally {
+            logger.setLevel(old);
+        }
     }
 }
 
