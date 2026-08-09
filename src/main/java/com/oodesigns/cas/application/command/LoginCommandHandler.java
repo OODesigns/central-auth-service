@@ -4,12 +4,10 @@ import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Credentials;
-import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
 
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -132,68 +130,53 @@ public final class LoginCommandHandler {
     }
 
     /**
-     * Route to appropriate response based on 2FA status.
-     * If 2FA is enabled, return a verification token.
-     * If 2FA is disabled, proceed to generate full tokens.
+     * Load the authenticated user then apply login policy checks in security order.
      *
      * @param userId the authenticated user ID
-     * @return LoginResult with 2FA challenge or success with tokens, or empty if user not found
+     * @return Optional containing the LoginResult, or empty if user not found
      */
     private Optional<LoginResult> getResponse(final UserId userId) {
-        final Optional<LoginResult> twoFAResult = totpStatusReader.check2FAStatus(userId)
-            .map(tokenService::generate2FAVerificationToken)
-            .map(token -> LoginResult.required2FA(token, userId));
-
-        if (twoFAResult.isPresent()) {
-            return twoFAResult;
-        }
-
-        return generateTokens(userId)
-            .map(pair -> LoginResult.success(pair.tokenPair(), pair.userId(), pair.permissions()));
-    }
-
-    /**
-     * Fetch full User object and generate access/refresh tokens.
-     * This executes after password has been verified and 2FA checked.
-     * Returns a TokenAndUserPair containing both the tokens and authenticated user.
-     *
-     * @param userId the authenticated user ID
-     * @return Optional containing TokenAndUserPair with tokens and user data, or empty if user not found
-     */
-    private Optional<TokenAndUserPair> generateTokens(final UserId userId) {
         return userRepository.findById(userId)
-            .flatMap(user -> tokenService.generateTokens(user)
-                .map(tokens -> new TokenAndUserPair(tokens, user)));
+            .map(this::buildLoginResponse);
     }
 
     /**
-     * Immutable utility record for carrying both TokenPair and User through the Optional chain.
-     * Used to transport both the generated TokenPair and the authenticated User object
-     * from token generation back to the login handler without losing the User data.
-     * This is necessary because TokenService.generateTokens() returns only the TokenPair,
-     * but we need both the tokens AND the User's permissions/userId for the response.
+     * Apply login policy checks in security order and return the appropriate result.
+     * <p>
+     * Step 3: Enforce MFA enrollment — block if MFA is required but the user has not enrolled.
+     * Step 4: Enforce MFA challenge  — if 2FA is enrolled, return a short-lived verification token.
+     * Step 5: Enforce password reset — if a reset is pending, return PasswordResetRequiredResult.
+     * Step 6: Issue full tokens      — authentication is complete.
      *
-     * @param tokenPair the generated access and refresh tokens (must not be null)
-     * @param user the authenticated user with permissions (must not be null)
+     * @param user the fully loaded authenticated user
+     * @return LoginResult for the appropriate policy branch
      */
-    private record TokenAndUserPair(TokenService.TokenPair tokenPair, User user) {
-        /**
-         * Compact constructor validates both values are non-null.
-         *
-         * @throws NullPointerException if either tokenPair or user is null
-         */
-        public TokenAndUserPair {
-            Objects.requireNonNull(tokenPair, "TokenPair cannot be null");
-            Objects.requireNonNull(user, "User cannot be null");
+    private LoginResult buildLoginResponse(final User user) {
+        final boolean totpEnabled = totpStatusReader.check2FAStatus(user.userId()).isPresent();
+
+        // Step 3: MFA enrollment enforcement
+        if (user.mfaRequiredAt() != null && !totpEnabled) {
+            return LoginResult.failure("MFA_SETUP_REQUIRED",
+                "MFA enrollment is required. Use /auth/2fa/setup to enroll.");
         }
 
-        public UserId userId() {
-            return user.userId();
+        // Step 4: MFA challenge (enrolled users)
+        if (totpEnabled) {
+            final String verificationToken = tokenService.generate2FAVerificationToken(user.userId());
+            return LoginResult.required2FA(verificationToken, user.userId());
         }
 
-        public Set<Permission> permissions() {
-            return user.permissions();
+        // Step 5: Password reset enforcement
+        if (user.passwordResetRequiredAt() != null) {
+            return LoginResult.passwordResetRequired(user.userId());
         }
+
+        // Step 6: Full token issuance
+        final Optional<TokenService.TokenPair> tokens = tokenService.generateTokens(user);
+        if (tokens.isPresent()) {
+            return LoginResult.success(tokens.get(), user.userId(), user.permissions());
+        }
+        return LoginResult.failure(INTERNAL_ERROR, "Failed to generate tokens");
     }
 }
 

@@ -207,10 +207,12 @@ class LoginCommandHandlerTest {
         // Set up only the stubs we need for this test to avoid unnecessary stubbing
         when(tokenSigner.sign(any(), any())).thenReturn(Optional.of("signed.token"));
         when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
-        when(clock.now()).thenReturn(java.time.Instant.now());
+        when(clock.now()).thenReturn(Instant.now());
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
         when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
-        // Simulate 2FA enabled for the user
+        // User is loaded before 2FA check now
+        when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
+        // Simulate 2FA enabled for the user (mfaRequiredAt is null so no enrollment enforcement)
         when(totpStatusReader.check2FAStatus(testCredential.userId())).thenReturn(Optional.of(testCredential.userId()));
 
         final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
@@ -222,6 +224,110 @@ class LoginCommandHandlerTest {
         }).orElse(failure -> {
             // Required2FAResult maps to MFA_SETUP_REQUIRED in orElse path per LoginResult implementation
             assertEquals("MFA_SETUP_REQUIRED", failure.errorCode());
+            return null;
+        });
+    }
+
+    @Test
+    void testLoginMfaRequiredButNotEnrolled() {
+        // User has mfaRequiredAt set but has NOT enrolled in 2FA
+        final UserId userId = testCredential.userId();
+        final User userWithMfaRequired = new User(userId, Username.of("john_doe"),
+            Set.of(Permission.of("read")), null, Instant.now());
+
+        when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(userId));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(userWithMfaRequired));
+        // 2FA not enrolled → empty
+        when(totpStatusReader.check2FAStatus(userId)).thenReturn(Optional.empty());
+
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginResult result = loginHandler.handle(cmd);
+
+        result.mapTo(success -> {
+            fail("Login should be blocked — MFA enrollment required");
+            return null;
+        }).orElse(failure -> {
+            assertEquals("MFA_SETUP_REQUIRED", failure.errorCode());
+            return null;
+        });
+    }
+
+    @Test
+    void testLoginMfaRequiredAndEnrolledProceedsto2FAChallenge() {
+        // User has mfaRequiredAt set AND has enrolled in 2FA → skip enrollment block, go to 2FA challenge
+        final UserId userId = testCredential.userId();
+        final User userWithMfaRequiredAndEnrolled = new User(userId, Username.of("john_doe"),
+            Set.of(Permission.of("read")), null, Instant.now());
+
+        when(tokenSigner.sign(any(), any())).thenReturn(Optional.of("signed.2fa.token"));
+        when(clock.now()).thenReturn(Instant.now());
+        when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(userId));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(userWithMfaRequiredAndEnrolled));
+        // 2FA IS enrolled
+        when(totpStatusReader.check2FAStatus(userId)).thenReturn(Optional.of(userId));
+
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginResult result = loginHandler.handle(cmd);
+
+        result.mapTo(success -> {
+            fail("Expected 2FA challenge, not full success");
+            return null;
+        }).orElse(failure -> {
+            assertEquals("MFA_SETUP_REQUIRED", failure.errorCode());
+            return null;
+        });
+    }
+
+    @Test
+    void testLoginPasswordResetRequired() {
+        // User has passwordResetRequiredAt set, no 2FA, no MFA enforcement
+        final UserId userId = testCredential.userId();
+        final User userWithPasswordReset = new User(userId, Username.of("john_doe"),
+            Set.of(Permission.of("read")), Instant.now(), null);
+
+        when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(userId));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(userWithPasswordReset));
+        // 2FA not enrolled
+        when(totpStatusReader.check2FAStatus(userId)).thenReturn(Optional.empty());
+
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginResult result = loginHandler.handle(cmd);
+
+        result.mapTo(success -> {
+            fail("Login should route to password reset");
+            return null;
+        }).orElse(failure -> {
+            assertEquals("PASSWORD_RESET_REQUIRED", failure.errorCode());
+            return null;
+        });
+    }
+
+    @Test
+    void testLoginTokenGenerationFailureReturnsInternalError() {
+        // Simulate tokenSigner returning empty → generateTokens() returns empty → INTERNAL_ERROR
+        when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
+        when(clock.now()).thenReturn(Instant.now());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
+        when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
+        when(totpStatusReader.check2FAStatus(any())).thenReturn(Optional.empty());
+        // Token signing fails → generateTokens returns empty
+        when(tokenSigner.sign(any(), any())).thenReturn(Optional.empty());
+
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
+        final LoginResult result = loginHandler.handle(cmd);
+
+        result.mapTo(ignored -> {
+            fail("Should fail with INTERNAL_ERROR");
+            return null;
+        }).orElse(failure -> {
+            assertEquals("INTERNAL_ERROR", failure.errorCode());
             return null;
         });
     }
