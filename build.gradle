@@ -3,6 +3,7 @@ import java.awt.Desktop
 plugins {
     id 'java'
     id 'jacoco'
+    id 'com.google.protobuf' version '0.9.4'
 }
 
 group = 'com.oodesigns'
@@ -30,14 +31,22 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers:2.0.3'
     testImplementation 'org.testcontainers:testcontainers-postgresql:2.0.3'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.3'
-    
+    testImplementation 'io.grpc:grpc-testing:1.68.0'
+
     // Logging - SLF4J with Logback implementation for tests
     testImplementation 'ch.qos.logback:logback-classic:1.5.23'
 
     // Database
     implementation 'org.jooq:jooq:3.20.10'
     implementation 'org.postgresql:postgresql:42.7.8'
-    
+
+    // gRPC / Protobuf
+    implementation 'io.grpc:grpc-netty-shaded:1.68.0'
+    implementation 'io.grpc:grpc-protobuf:1.68.0'
+    implementation 'io.grpc:grpc-stub:1.68.0'
+    implementation 'com.google.protobuf:protobuf-java:3.25.5'
+    implementation 'javax.annotation:javax.annotation-api:1.3.2'
+
     // Main dependencies
     implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.0'
@@ -56,6 +65,22 @@ configurations {
 
 dependencies {
     mockitoAgent('org.mockito:mockito-core:5.14.1') { transitive = false }
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.25.5'
+    }
+    plugins {
+        grpc {
+            artifact = 'io.grpc:protoc-gen-grpc-java:1.68.0'
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
 }
 
 // Standard test task excludes integration tests - they require environment setup
@@ -104,7 +129,9 @@ jacocoTestReport {
         classDirectories.setFrom(files(classDirectories.files.collect { directory ->
             fileTree(dir: directory, exclude: [
                 'com/oodesigns/cas/domain/service/Ports.class',
-                'com/oodesigns/cas/infrastructure/config/DatabaseContextFactory.class'
+                'com/oodesigns/cas/infrastructure/config/DatabaseContextFactory.class',
+                'com/oodesigns/cas/Main.class',
+                'com/oodesigns/cas/infrastructure/grpc/proto/**'
             ])
         }))
     }
@@ -147,13 +174,25 @@ jacocoTestCoverageVerification {
     // TokenService) count toward the 100% line-coverage requirement.
     dependsOn test, tasks.named('integrationTest')
     executionData fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec')
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect { directory ->
+            fileTree(dir: directory, exclude: [
+                'com/oodesigns/cas/domain/service/Ports.class',
+                'com/oodesigns/cas/infrastructure/config/DatabaseContextFactory.class',
+                'com/oodesigns/cas/Main.class',
+                'com/oodesigns/cas/infrastructure/grpc/proto/**'
+            ])
+        }))
+    }
     violationRules {
         rule {
             element = 'CLASS'
             includes = ['com.oodesigns.*']
             excludes = [
                 'com.oodesigns.cas.domain.service.Ports',
-                'com.oodesigns.cas.infrastructure.config.DatabaseContextFactory'
+                'com.oodesigns.cas.infrastructure.config.DatabaseContextFactory',
+                'com.oodesigns.cas.Main',
+                'com.oodesigns.cas.infrastructure.grpc.proto.*'
             ]
 
             limit {

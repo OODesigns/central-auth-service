@@ -1,0 +1,163 @@
+syntax = "proto3";
+
+package cas;
+
+option java_package = "com.oodesigns.cas.infrastructure.grpc.proto";
+option java_outer_classname = "AuthProto";
+option java_multiple_files = true;
+
+// Central Authentication Service — gRPC API
+// Maps 1-to-1 to application command handlers.
+service AuthService {
+    // Authenticate with username + password. Returns tokens, 2FA challenge, or error.
+    rpc Login(LoginRequest) returns (LoginResponse);
+
+    // Initiate TOTP 2FA setup — generates a secret and otpauth:// URI for QR code display.
+    rpc SetupTotp(SetupTotpRequest) returns (SetupTotpResponse);
+
+    // Complete TOTP 2FA enrolment — verifies the first OTP code and returns backup codes.
+    rpc EnableTotp(EnableTotpRequest) returns (EnableTotpResponse);
+
+    // Exchange a 2FA verification token + OTP/backup code for full access tokens.
+    rpc VerifyTotp(VerifyTotpRequest) returns (VerifyTotpResponse);
+
+    // Disable TOTP 2FA after password re-authentication.
+    rpc DisableTotp(DisableTotpRequest) returns (DisableTotpResponse);
+}
+
+// ============================================================================
+// Login
+// ============================================================================
+
+message LoginRequest {
+    string username   = 1;
+    string password   = 2;
+    string ip_address = 3;
+}
+
+message LoginResponse {
+    oneof result {
+        LoginSuccess              success                = 1;
+        Login2FARequired          totp_required          = 2;
+        LoginPasswordResetRequired password_reset_required = 3;
+        Error                     error                  = 4;
+    }
+}
+
+message LoginSuccess {
+    string          access_token  = 1;
+    string          refresh_token = 2;
+    string          user_id       = 3;
+    repeated string permissions   = 4;
+}
+
+message Login2FARequired {
+    string verification_token = 1;
+    string user_id            = 2;
+}
+
+message LoginPasswordResetRequired {
+    string user_id = 1;
+}
+
+// ============================================================================
+// Setup TOTP
+// ============================================================================
+
+message SetupTotpRequest {
+    string user_id  = 1;
+    string username = 2;
+}
+
+message SetupTotpResponse {
+    oneof result {
+        SetupTotpSuccess success = 1;
+        Error            error   = 2;
+    }
+}
+
+message SetupTotpSuccess {
+    string secret      = 1;
+    string otpauth_uri = 2;
+}
+
+// ============================================================================
+// Enable TOTP
+// ============================================================================
+
+message EnableTotpRequest {
+    string user_id   = 1;
+    string totp_code = 2;
+}
+
+message EnableTotpResponse {
+    oneof result {
+        EnableTotpSuccess success = 1;
+        Error             error   = 2;
+    }
+}
+
+message EnableTotpSuccess {
+    repeated string backup_codes = 1;
+}
+
+// ============================================================================
+// Verify TOTP (2FA login challenge)
+// ============================================================================
+
+message VerifyTotpRequest {
+    string verification_token = 1;
+    // Either a 6-digit OTP (e.g. "123456") or a backup code (e.g. "ABCD-EFGH-IJKL-MNOP")
+    string code = 2;
+}
+
+message VerifyTotpResponse {
+    oneof result {
+        VerifyTotpSuccess success = 1;
+        Error             error   = 2;
+    }
+}
+
+message VerifyTotpSuccess {
+    string          access_token  = 1;
+    string          refresh_token = 2;
+    string          user_id       = 3;
+    repeated string permissions   = 4;
+}
+
+// ============================================================================
+// Disable TOTP
+// ============================================================================
+
+message DisableTotpRequest {
+    string        user_id  = 1;
+    string        password = 2;
+    DisableReason reason   = 3;
+}
+
+enum DisableReason {
+    DISABLE_REASON_UNSPECIFIED = 0;
+    USER_REQUESTED             = 1;
+    ADMIN_FORCED               = 2;
+    SECURITY_INCIDENT          = 3;
+    RECOVERY_FLOW              = 4;
+}
+
+message DisableTotpResponse {
+    oneof result {
+        DisableTotpSuccess success = 1;
+        Error              error   = 2;
+    }
+}
+
+message DisableTotpSuccess {}
+
+// ============================================================================
+// Common types
+// ============================================================================
+
+message Error {
+    string error_code    = 1;
+    string error_message = 2;
+}
+
