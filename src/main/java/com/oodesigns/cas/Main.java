@@ -22,11 +22,13 @@ import com.oodesigns.cas.infrastructure.adapter.UserRepository;
 import com.oodesigns.cas.infrastructure.config.DatabaseConfig;
 import com.oodesigns.cas.infrastructure.config.DatabaseContextFactory;
 import com.oodesigns.cas.infrastructure.grpc.AuthGrpcService;
+import com.oodesigns.cas.infrastructure.grpc.GrpcTlsConfigurer;
 import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
 import com.oodesigns.cas.util.properties.PropertiesReader;
 import com.oodesigns.cas.util.properties.PropertiesReaderFactoryProvider;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
 import org.jooq.DSLContext;
 
 import java.util.logging.Level;
@@ -39,9 +41,10 @@ import java.util.logging.Logger;
  * then starts the gRPC server. All configuration is sourced from {@code application.properties}
  * (with {@code ${ENV_VAR:default}} expansion) so no secrets are hardcoded.
  * <p>
- * TLS: Phase 3.3 will add TLS via KEYSTORE_PASSWORD / TRUSTSTORE_PASSWORD env vars.
- * The server currently starts without TLS; suitable for local development behind a
- * TLS-terminating reverse proxy.
+ * TLS: Configured via {@code grpc.tls.keystore.path} / {@code grpc.tls.truststore.path}
+ * properties and the {@code KEYSTORE_PASSWORD} / {@code TRUSTSTORE_PASSWORD} env vars.
+ * When {@code grpc.tls.keystore.path} is blank the server starts in plaintext mode,
+ * suitable for local development or when TLS is terminated by a reverse proxy / sidecar.
  */
 public final class Main {
 
@@ -101,13 +104,24 @@ public final class Main {
                 loginHandler, setupTotpHandler, enableTotpHandler,
                 verifyTotpHandler, disableTotpHandler);
 
-        // --- Server ---
-        final Server server = NettyServerBuilder.forPort(grpcPort)
-                .addService(grpcService)
-                .build()
-                .start();
+        // --- TLS (optional) ---
+        final String keystorePath = props.get("grpc.tls.keystore.path");
+        final String truststorePath = props.get("grpc.tls.truststore.path");
+        final GrpcTlsConfigurer tlsConfigurer = new GrpcTlsConfigurer(keySupplier);
+        final java.util.Optional<SslContext> tlsContext =
+                tlsConfigurer.buildServerSslContext(keystorePath, truststorePath);
 
-        LOGGER.log(Level.INFO, "CAS gRPC server started on port {0}", grpcPort);
+        // --- Server ---
+        final NettyServerBuilder serverBuilder = NettyServerBuilder.forPort(grpcPort)
+                .addService(grpcService);
+        tlsContext.ifPresent(serverBuilder::sslContext);
+        final Server server = serverBuilder.build().start();
+
+        if (tlsContext.isPresent()) {
+            LOGGER.log(Level.INFO, "CAS gRPC server started with TLS on port {0}", grpcPort);
+        } else {
+            LOGGER.log(Level.INFO, "CAS gRPC server started (plaintext) on port {0}", grpcPort);
+        }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             LOGGER.info("Shutting down CAS gRPC server...");
