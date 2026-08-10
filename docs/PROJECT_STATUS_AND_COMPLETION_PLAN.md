@@ -189,8 +189,11 @@ Implications for the plan:
 - [ ] 2.2b `JooqUserCredentialByIdReader` implementing `Ports.UserCredentialByIdRetriever`
       (needs a new `api_schema.find_user_credentials_by_id(uuid)` function — required by the
       Phase 1.2 disable-2FA re-authentication).
-- [ ] 2.3 `JooqTotpVerifier`, `JooqTotpSetupProvider` (hand-written JOOQ `Routines` pattern,
-      as in `UserCredentialReader`).
+- [x] 2.3 `JooqTotpVerifier`, `JooqTotpSetupProvider` (hand-written JOOQ `Routines` pattern,
+      as in `UserCredentialReader`) — added `V1_4_1__add_totp_read_api_functions.sql` with
+      `get_totp_secret(uuid)`, `find_unused_backup_code_hashes(uuid)`, and
+      `mark_totp_last_used(uuid)`, plus adapter tests covering setup, enable, verify,
+      backup-code consumption, and TOTP status lookup.
 - [ ] 2.4 In-memory mock adapters for the integration tier
       (`MockTotpStatusReader` etc., alongside existing `MockRateLimiter`/`MockTokenSigner`).
 - [ ] 2.5 `@Tag("database")` tests for each new adapter + migration
