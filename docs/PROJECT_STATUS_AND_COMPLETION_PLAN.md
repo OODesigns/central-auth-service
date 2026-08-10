@@ -165,13 +165,15 @@ Implications for the plan:
 
 ### Phase 3 — Make it runnable (⚠ needs a transport decision)
 
-- [ ] 3.1 **Decide transport.** Recommended: JDK `com.sun.net.httpserver.HttpServer`
-      (framework-free, fits the zero-framework rule). Alternatives: reintroduce gRPC, or a
-      lightweight framework. Docs and `LoginResult` messages already assume REST paths
-      (`/auth/login`, `/auth/2fa/setup`, `/auth/reset-password`, …).
-- [ ] 3.2 Delivery layer in `infrastructure/http/` + `Main` wiring `DatabaseConfig` and all
-      adapters; endpoints: `POST /auth/login`, `POST /auth/2fa/verify`, `POST /auth/2fa/setup`,
-      `POST /auth/2fa/enable`, `POST /auth/2fa/disable`, `GET /health`.
+- [x] 3.1 **Transport: gRPC** (decided 2026-08-10). Reinstate the gRPC server that was
+      removed in commit `fd2dadb`. Add `grpc-stub`, `grpc-netty-shaded`, and
+      `protobuf-java` to `build.gradle`. Define `.proto` files for each operation
+      (`Login`, `Setup2FA`, `Enable2FA`, `Verify2FA`, `Disable2FA`). Protobuf-generated
+      code lives in `infrastructure/grpc/` (adapter layer only — domain/application stay
+      framework-free).
+- [ ] 3.2 Delivery layer in `infrastructure/grpc/` + `Main` wiring `DatabaseConfig` and all
+      adapters; gRPC service methods map 1-to-1 to command handlers. TLS configured via
+      existing `KEYSTORE_PASSWORD` / `TRUSTSTORE_PASSWORD` env vars and `KeySupplier`.
 - [ ] 3.3 TLS wiring using existing `KEYSTORE_PASSWORD` / `TRUSTSTORE_PASSWORD` env vars and
       `KeySupplier` infrastructure.
 - [ ] 3.4 End-to-end smoke test tier against docker-compose.
@@ -215,8 +217,8 @@ test can verify, use the cheap model and let the build catch mistakes.
 | **Phase 2.1** — Flyway migrations | 🟡 Mid | SQL security (REVOKE/GRANT, idempotency) — mistakes are cheap to make, annoying to fix in prod |
 | **Phase 2.2–2.4** — JOOQ adapters + mocks | 🟢 Cheap | Direct clone of `UserCredentialReader` pattern |
 | **Phase 2.5** — `@Tag("database")` tests | 🟢 Cheap | Pattern-following, verifiable against compose DB |
-| **Phase 3.1** — transport decision | 🔴 Premium, single discussion | Architecture decision with long-term consequences — worth one expensive conversation, then it's settled |
-| **Phase 3.2–3.3** — HTTP layer + TLS wiring | 🟡 Mid | New code, no existing pattern to clone; TLS config errors are subtle |
+| **Phase 3.1** — transport decision | ✅ **DECIDED**: gRPC | Decision recorded 2026-08-10 |
+| **Phase 3.2–3.3** — gRPC layer + TLS wiring | 🟡 Mid | Proto definitions + service wiring + TLS; no existing pattern to clone |
 | **Phase 3.4** — smoke tests | 🟢 Cheap | Mechanical |
 | **Phase 4.1–4.2** — refresh/logout | 🟡 Mid | Token rotation semantics need care |
 | **Phase 4.3–4.5** — 2FA rate limit, docs, CI | 🟢 Cheap | Rate limiter clones `LoginRateLimiter`; docs/CI are boilerplate |
