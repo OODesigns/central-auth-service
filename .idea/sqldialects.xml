@@ -2,5 +2,6 @@
 <project version="4">
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/.devcontainer/db/init/01_init_database.sh" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/.devcontainer/flyway/sql/V1_4_0__add_totp_write_api_functions.sql" dialect="PostgreSQL" />
   </component>
 </project>
