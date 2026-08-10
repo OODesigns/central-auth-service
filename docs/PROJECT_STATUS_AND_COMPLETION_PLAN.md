@@ -149,8 +149,20 @@ Implications for the plan:
       `USER_NOT_FOUND`, `INTERNAL_ERROR`, `INVALID_REQUEST`. `VerifyTotpResult` sealed
       interface + `VerifyTotpCommand` record (validates format: `^\d{6}$` or
       `XXXX-XXXX-XXXX-XXXX`) added. `Ports.TokenVerifier` interface added.
-- [ ] 1.7 All new commands/results follow existing patterns: records, sealed result interfaces
-      with `mapTo`/`orElse`, `ValidatedValue` for new value types, 100% coverage.
+- [x] 1.7 Pattern consistency audit and fixes:
+      — `TotpCode` value object added (`domain/value/`, extends `ValidatedValue<String>`,
+      validates `^\d{6}$`, masks via `getDisplayValue()` → `"***"`).
+      — `Ports.TotpVerifier.verifyCode` signature changed to `(UserId, TotpCode)`.
+      — `Ports.TotpVerifier.verifyBackupCode` signature changed to `(UserId, BackupCode)`.
+      — `Ports.TotpVerifier.generateBackupCode` (generation misplaced in verifier) removed.
+      — `Ports.TotpSetupProvider.generateBackupCodes` return type changed to `List<BackupCode>`.
+      — `EnableTotpCommand.totpCode` changed from raw `String` to `TotpCode` (validation
+      delegated to the value object, eliminating duplicated regex).
+      — `EnableTotpResult.SuccessResult.backupCodes` changed from `List<String>` to
+      `List<BackupCode>`.
+      — `VerifyTotpCommandHandler` converts `command.code()` to `TotpCode.of()` or
+      `BackupCode.of()` before calling ports.
+      All tests updated; `TotpCodeTest` added (13 tests). 100% coverage maintained.
 
 ### Phase 2 — Database + adapters
 

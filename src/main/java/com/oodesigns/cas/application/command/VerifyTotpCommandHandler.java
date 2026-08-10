@@ -2,6 +2,8 @@ package com.oodesigns.cas.application.command;
 
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.service.TokenService;
+import com.oodesigns.cas.domain.value.BackupCode;
+import com.oodesigns.cas.domain.value.TotpCode;
 import com.oodesigns.cas.domain.value.UserId;
 
 import java.util.Objects;
@@ -96,8 +98,8 @@ public final class VerifyTotpCommandHandler {
 
         // Step 2: Verify OTP code or (single-use) backup code
         final boolean codeValid = command.isOtpCode()
-            ? totpVerifier.verifyCode(userId, command.code())
-            : totpVerifier.verifyBackupCode(userId, command.code());
+            ? totpVerifier.verifyCode(userId, TotpCode.of(command.code()))
+            : totpVerifier.verifyBackupCode(userId, BackupCode.of(command.code()));
         if (!codeValid) {
             return VerifyTotpResult.failure("INVALID_TOTP_CODE",
                 "The submitted code is invalid. Please try again.");

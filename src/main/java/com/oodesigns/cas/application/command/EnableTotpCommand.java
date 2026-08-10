@@ -1,5 +1,6 @@
 package com.oodesigns.cas.application.command;
 
+import com.oodesigns.cas.domain.value.TotpCode;
 import com.oodesigns.cas.domain.value.UserId;
 import java.util.Objects;
 
@@ -13,25 +14,20 @@ import java.util.Objects;
  *       The handler verifies it against the stored secret, marks TOTP as active, and
  *       returns one-time-visible backup codes.</li>
  * </ol>
- * <p>
- * The {@code totpCode} must be the 6-digit code currently displayed by the authenticator
- * app. It is validated to match {@code ^\d{6}$} in the compact constructor so that an
- * obviously malformed value never reaches the infrastructure port.
+ *
+ * @param userId   the user for whom TOTP is being enabled
+ * @param totpCode the first 6-digit TOTP code from the authenticator app, validated by
+ *                 the {@link TotpCode} value object
  */
-public record EnableTotpCommand(UserId userId, String totpCode) {
+public record EnableTotpCommand(UserId userId, TotpCode totpCode) {
     /**
      * Compact constructor validates all required fields.
      *
-     * @throws NullPointerException     if any field is null
-     * @throws IllegalArgumentException if {@code totpCode} is not exactly 6 digits
+     * @throws NullPointerException if any field is null
      */
     public EnableTotpCommand {
         Objects.requireNonNull(userId, "User ID is required");
         Objects.requireNonNull(totpCode, "TOTP code is required");
-        if (!totpCode.matches("^\\d{6}$")) {
-            throw new IllegalArgumentException(
-                "TOTP code must be exactly 6 digits (received: '" + totpCode + "')");
-        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.oodesigns.cas.application.command;
 
+import com.oodesigns.cas.domain.value.BackupCode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -8,7 +9,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class EnableTotpResultTest {
 
-    private static final List<String> CODES = List.of("ABCD-EFGH-IJKL-MNOP", "QRST-UVWX-YZ23-4567");
+    private static final List<BackupCode> CODES = List.of(
+        BackupCode.of("ABCD-EFGH-IJKL-MNOP"),
+        BackupCode.of("QRST-UVWX-YZ23-4567")
+    );
 
     // ---------------------------------------------------------------- SuccessResult
 
@@ -16,7 +20,8 @@ class EnableTotpResultTest {
     void successResultStoresImmutableBackupCodes() {
         final EnableTotpResult.SuccessResult result = EnableTotpResult.success(CODES);
         assertEquals(CODES, result.backupCodes());
-        assertThrows(UnsupportedOperationException.class, () -> result.backupCodes().add("extra"));
+        assertThrows(UnsupportedOperationException.class,
+            () -> result.backupCodes().add(BackupCode.of("AAAA-BBBB-CCCC-DDDD")));
     }
 
     @Test

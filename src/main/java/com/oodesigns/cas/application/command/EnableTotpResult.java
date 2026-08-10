@@ -1,5 +1,7 @@
 package com.oodesigns.cas.application.command;
 
+import com.oodesigns.cas.domain.value.BackupCode;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -27,7 +29,7 @@ public sealed interface EnableTotpResult
 
     <T> Mapper<T> mapTo(Function<SuccessResult, T> successMapper);
 
-    static SuccessResult success(final List<String> backupCodes) {
+    static SuccessResult success(final List<BackupCode> backupCodes) {
         return new SuccessResult(backupCodes);
     }
 
@@ -37,9 +39,9 @@ public sealed interface EnableTotpResult
 
     /**
      * TOTP is now enabled. Backup codes are one-time visible — the delivery layer must
-     * display them immediately and never re-expose them.
+     * display them (via {@link BackupCode#getCode()}) immediately and never re-expose them.
      */
-    record SuccessResult(List<String> backupCodes) implements EnableTotpResult {
+    record SuccessResult(List<BackupCode> backupCodes) implements EnableTotpResult {
         public SuccessResult {
             Objects.requireNonNull(backupCodes, "Backup codes list is required");
             if (backupCodes.isEmpty()) {

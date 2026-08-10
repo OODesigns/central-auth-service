@@ -65,7 +65,7 @@ class VerifyTotpCommandHandlerTest {
     void handleReturnsSuccessForValidOtpCode() {
         when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
             .thenReturn(Optional.of(userId));
-        when(totpVerifier.verifyCode(userId, VALID_OTP)).thenReturn(true);
+        when(totpVerifier.verifyCode(userId, TotpCode.of(VALID_OTP))).thenReturn(true);
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         mockSuccessfulTokenGeneration();
 
@@ -86,7 +86,7 @@ class VerifyTotpCommandHandlerTest {
     void handleReturnsSuccessForValidBackupCode() {
         when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
             .thenReturn(Optional.of(userId));
-        when(totpVerifier.verifyBackupCode(userId, VALID_BACKUP)).thenReturn(true);
+        when(totpVerifier.verifyBackupCode(userId, BackupCode.of(VALID_BACKUP))).thenReturn(true);
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         mockSuccessfulTokenGeneration();
 
@@ -101,13 +101,13 @@ class VerifyTotpCommandHandlerTest {
     void handleRoutesBackupCodeToVerifyBackupCode_notVerifyCode() {
         when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
             .thenReturn(Optional.of(userId));
-        when(totpVerifier.verifyBackupCode(userId, VALID_BACKUP)).thenReturn(true);
+        when(totpVerifier.verifyBackupCode(userId, BackupCode.of(VALID_BACKUP))).thenReturn(true);
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         mockSuccessfulTokenGeneration();
 
         handler.handle(new VerifyTotpCommand(VERIFICATION_TOKEN, VALID_BACKUP));
 
-        verify(totpVerifier).verifyBackupCode(userId, VALID_BACKUP);
+        verify(totpVerifier).verifyBackupCode(userId, BackupCode.of(VALID_BACKUP));
         verify(totpVerifier, never()).verifyCode(any(), any());
     }
 
@@ -115,13 +115,13 @@ class VerifyTotpCommandHandlerTest {
     void handleRoutesOtpToVerifyCode_notVerifyBackupCode() {
         when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
             .thenReturn(Optional.of(userId));
-        when(totpVerifier.verifyCode(userId, VALID_OTP)).thenReturn(true);
+        when(totpVerifier.verifyCode(userId, TotpCode.of(VALID_OTP))).thenReturn(true);
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         mockSuccessfulTokenGeneration();
 
         handler.handle(new VerifyTotpCommand(VERIFICATION_TOKEN, VALID_OTP));
 
-        verify(totpVerifier).verifyCode(userId, VALID_OTP);
+        verify(totpVerifier).verifyCode(userId, TotpCode.of(VALID_OTP));
         verify(totpVerifier, never()).verifyBackupCode(any(), any());
     }
 
@@ -131,7 +131,7 @@ class VerifyTotpCommandHandlerTest {
     void handleCallsPortsInSecurityOrder() {
         when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
             .thenReturn(Optional.of(userId));
-        when(totpVerifier.verifyCode(userId, VALID_OTP)).thenReturn(true);
+        when(totpVerifier.verifyCode(userId, TotpCode.of(VALID_OTP))).thenReturn(true);
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         mockSuccessfulTokenGeneration();
 
@@ -139,7 +139,7 @@ class VerifyTotpCommandHandlerTest {
 
         final var inOrder = inOrder(tokenVerifier, totpVerifier, userRetriever);
         inOrder.verify(tokenVerifier).verify2FAVerificationToken(VERIFICATION_TOKEN);
-        inOrder.verify(totpVerifier).verifyCode(userId, VALID_OTP);
+        inOrder.verify(totpVerifier).verifyCode(userId, TotpCode.of(VALID_OTP));
         inOrder.verify(userRetriever).findById(userId);
     }
 
@@ -165,7 +165,7 @@ class VerifyTotpCommandHandlerTest {
     void handleReturnsInvalidTotpCodeWhenOtpFails() {
         when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
             .thenReturn(Optional.of(userId));
-        when(totpVerifier.verifyCode(userId, VALID_OTP)).thenReturn(false);
+        when(totpVerifier.verifyCode(userId, TotpCode.of(VALID_OTP))).thenReturn(false);
 
         final VerifyTotpResult result =
             handler.handle(new VerifyTotpCommand(VERIFICATION_TOKEN, VALID_OTP));
@@ -180,7 +180,7 @@ class VerifyTotpCommandHandlerTest {
     void handleReturnsInvalidTotpCodeWhenBackupCodeFails() {
         when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
             .thenReturn(Optional.of(userId));
-        when(totpVerifier.verifyBackupCode(userId, VALID_BACKUP)).thenReturn(false);
+        when(totpVerifier.verifyBackupCode(userId, BackupCode.of(VALID_BACKUP))).thenReturn(false);
 
         final VerifyTotpResult result =
             handler.handle(new VerifyTotpCommand(VERIFICATION_TOKEN, VALID_BACKUP));
@@ -197,7 +197,7 @@ class VerifyTotpCommandHandlerTest {
     void handleReturnsUserNotFoundWhenUserRepositoryReturnsEmpty() {
         when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
             .thenReturn(Optional.of(userId));
-        when(totpVerifier.verifyCode(userId, VALID_OTP)).thenReturn(true);
+        when(totpVerifier.verifyCode(userId, TotpCode.of(VALID_OTP))).thenReturn(true);
         when(userRetriever.findById(userId)).thenReturn(Optional.empty());
 
         final VerifyTotpResult result =
@@ -213,7 +213,7 @@ class VerifyTotpCommandHandlerTest {
     void handleReturnsInternalErrorWhenTokenSigningFails() {
         when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
             .thenReturn(Optional.of(userId));
-        when(totpVerifier.verifyCode(userId, VALID_OTP)).thenReturn(true);
+        when(totpVerifier.verifyCode(userId, TotpCode.of(VALID_OTP))).thenReturn(true);
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         when(clock.now()).thenReturn(Instant.now());
         when(tokenSigner.sign(any(), any())).thenReturn(Optional.empty());

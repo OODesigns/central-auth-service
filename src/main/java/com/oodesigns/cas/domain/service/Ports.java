@@ -1,12 +1,16 @@
 package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.entity.User;
+import com.oodesigns.cas.domain.service.TokenService;
+import com.oodesigns.cas.domain.value.BackupCode;
 import com.oodesigns.cas.domain.value.Credentials;
 import com.oodesigns.cas.domain.value.Payload;
+import com.oodesigns.cas.domain.value.TotpCode;
 import com.oodesigns.cas.domain.value.UserCredential;
 import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.domain.value.UserId;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -208,35 +212,27 @@ public class Ports {
 
     /**
      * Port for TOTP (Time-based One-Time Password) verification.
-     * Handles verification of 6-digit codes from authenticator apps.
+     * Handles verification of codes from authenticator apps and single-use backup codes.
      */
     public interface TotpVerifier {
         /**
          * Verify a TOTP code against the user's registered secret.
          *
-         * @param userId the user ID
+         * @param userId   the user ID
          * @param totpCode the 6-digit code entered by the user
          * @return true if code is valid and matches current time window, false otherwise
          */
-        boolean verifyCode(final UserId userId, final String totpCode);
-
-        /**
-         * Generate a backup code for account recovery.
-         * Codes are returned plaintext to user; implementation stores hashed versions.
-         *
-         * @param userId the user ID
-         * @return plaintext backup code in format XXXX-XXXX-XXXX-XXXX
-         */
-        String generateBackupCode(final UserId userId);
+        boolean verifyCode(final UserId userId, final TotpCode totpCode);
 
         /**
          * Verify and consume a backup code for account recovery.
+         * A successfully verified code is immediately invalidated (single-use).
          *
-         * @param userId the user ID
-         * @param backupCode the plaintext backup code
+         * @param userId     the user ID
+         * @param backupCode the backup code to verify
          * @return true if valid and unused, false if invalid or already used
          */
-        boolean verifyBackupCode(final UserId userId, final String backupCode);
+        boolean verifyBackupCode(final UserId userId, final BackupCode backupCode);
 
         /**
          * Check if TOTP is enabled for the user.
@@ -287,12 +283,13 @@ public class Ports {
 
         /**
          * Generate and return all backup codes for a user.
-         * Codes should be displayed to user exactly once and then discarded from memory.
-         * Implementation stores hashed versions.
+         * Codes are returned as {@link BackupCode} value objects for one-time display.
+         * The implementation stores BCrypt-hashed versions — plaintexts must not be
+         * logged or re-transmitted by the delivery layer.
          *
          * @param userId the user ID
-         * @return list of 10-16 plaintext backup codes
+         * @return list of 10-16 backup codes
          */
-        java.util.List<String> generateBackupCodes(final UserId userId);
+        List<BackupCode> generateBackupCodes(final UserId userId);
     }
 }
