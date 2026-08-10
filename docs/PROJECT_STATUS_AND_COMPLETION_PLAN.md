@@ -194,8 +194,10 @@ Implications for the plan:
       `get_totp_secret(uuid)`, `find_unused_backup_code_hashes(uuid)`, and
       `mark_totp_last_used(uuid)`, plus adapter tests covering setup, enable, verify,
       backup-code consumption, and TOTP status lookup.
-- [ ] 2.4 In-memory mock adapters for the integration tier
-      (`MockTotpStatusReader` etc., alongside existing `MockRateLimiter`/`MockTokenSigner`).
+- [x] 2.4 In-memory mock adapters for the integration tier
+      (`MockTotpStatusReader`, `MockTotpVerifier`, `MockTotpSetupProvider`, alongside
+      existing `MockRateLimiter`/`MockTokenSigner`) — added deterministic in-memory state
+      and helper methods for integration-style tests without a database.
 - [ ] 2.5 `@Tag("database")` tests for each new adapter + migration
       (`databaseIntegrationTest -PincludeDbTests`).
 
