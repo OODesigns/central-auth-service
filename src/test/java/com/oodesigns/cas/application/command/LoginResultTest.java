@@ -257,7 +257,7 @@ class LoginResultTest {
         assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult(null, userId));
         assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult("token", null));
 
-        final String mapped = r.mapTo(success -> "OK").orElse(LoginResult.FailureResult::errorCode);
+        final String mapped = r.mapTo(_ -> "OK").orElse(LoginResult.FailureResult::errorCode);
         // For Required2FAResult the mapTo should return failure mapping (MFA_SETUP_REQUIRED)
         assertEquals("MFA_SETUP_REQUIRED", mapped);
     }
@@ -269,7 +269,7 @@ class LoginResultTest {
         assertNotNull(pr);
         assertThrows(NullPointerException.class, () -> new LoginResult.PasswordResetRequiredResult(null));
 
-        final String mapped = pr.mapTo(success -> "OK").orElse(LoginResult.FailureResult::errorCode);
+        final String mapped = pr.mapTo(_ -> "OK").orElse(LoginResult.FailureResult::errorCode);
         assertEquals("PASSWORD_RESET_REQUIRED", mapped);
     }
 }
