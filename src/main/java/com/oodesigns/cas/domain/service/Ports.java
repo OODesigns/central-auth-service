@@ -38,6 +38,32 @@ public class Ports {
     }
 
     /**
+     * Port for verifying signed tokens issued by {@link TokenSigner}.
+     * <p>
+     * Implementations (in {@code infrastructure/}) use the same key material as
+     * {@link TokenSigner} to validate signatures, expiry, and audience claims.
+     * The domain/application layers never handle raw JWT bytes.
+     */
+    public interface TokenVerifier {
+        /**
+         * Verify a 2FA verification token and extract the subject user ID.
+         * <p>
+         * A valid token must have:
+         * <ul>
+         *   <li>A trusted signature (same key as used by {@link TokenSigner}).</li>
+         *   <li>An {@code exp} claim that has not yet passed.</li>
+         *   <li>An {@code aud} claim equal to {@code "2fa_verification"}.</li>
+         * </ul>
+         *
+         * @param token the compact JWT string received from the client
+         * @return Optional containing the {@link UserId} from the {@code sub} claim if
+         *         the token is valid; empty if the token is expired, has a bad signature,
+         *         has the wrong audience, or is otherwise malformed
+         */
+        Optional<UserId> verify2FAVerificationToken(String token);
+    }
+
+    /**
      * Port for clock/time operations.
      */
     public interface Clock {

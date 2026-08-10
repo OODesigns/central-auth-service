@@ -140,9 +140,15 @@ Implications for the plan:
       + return one-time-visible plaintext backup codes via `generateBackupCodes`. Wrong OTP →
       `INVALID_TOTP_CODE` (no state change). `EnableTotpResult` sealed interface +
       `EnableTotpCommand` record (6-digit code validated in compact constructor) added.
-- [ ] 1.6 `VerifyTotpCommandHandler` — validate the 2FA verification token
-      (`aud: 2fa_verification`, unexpired), accept OTP **or** backup code (consume it),
-      issue full access + refresh tokens.
+- [x] 1.6 `VerifyTotpCommandHandler` — security-ordered: (1) validate the 2FA verification
+      JWT via the new `Ports.TokenVerifier.verify2FAVerificationToken` port (signature,
+      expiry, `aud: 2fa_verification`); (2) verify OTP via `Ports.TotpVerifier.verifyCode`
+      or consume backup code via `verifyBackupCode` — routing determined by code format;
+      (3) load user via `Ports.UserRetriever`; (4) issue full access + refresh tokens via
+      `TokenService`. Error codes: `INVALID_VERIFICATION_TOKEN`, `INVALID_TOTP_CODE`,
+      `USER_NOT_FOUND`, `INTERNAL_ERROR`, `INVALID_REQUEST`. `VerifyTotpResult` sealed
+      interface + `VerifyTotpCommand` record (validates format: `^\d{6}$` or
+      `XXXX-XXXX-XXXX-XXXX`) added. `Ports.TokenVerifier` interface added.
 - [ ] 1.7 All new commands/results follow existing patterns: records, sealed result interfaces
       with `mapTo`/`orElse`, `ValidatedValue` for new value types, 100% coverage.
 
