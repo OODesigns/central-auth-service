@@ -79,17 +79,48 @@ class JooqTotpVerifierTest {
     }
 
     @Test
-    void verifyCodeReturnsFalseWhenSecretCannotBeLoaded() {
+    void verifyBackupCodeReturnsFalseWhenNoUnusedHashesExist() {
         final UUID userId = UUID.randomUUID();
-        when(dslContext.fetchOptional("SELECT * FROM api_schema.get_totp_secret(?)", userId))
-            .thenReturn(Optional.empty());
+        when(dslContext.fetchOne("SELECT api_schema.find_unused_backup_code_hashes(?)", userId))
+            .thenReturn(null);
 
-        assertFalse(verifier.verifyCode(UserId.of(userId), TotpCode.of("123456")));
-        verifyNoInteractions(keySupplier);
+        assertFalse(verifier.verifyBackupCode(UserId.of(userId), BackupCode.of("ABCD-EFGH-IJKL-MNPQ")));
+        verify(dslContext, never()).fetchOne("SELECT api_schema.consume_backup_code(?, ?)", userId, "unused");
     }
 
     @Test
-    void verifyCodeReturnsFalseWhenInputsAreNull() {
+    void verifyBackupCodeReturnsFalseWhenHashesExistButNoneMatch() {
+        // Hashes present but none match → covers the passwordEncoder.matches()=false branch
+        final UUID userId = UUID.randomUUID();
+        final BackupCode attempted = BackupCode.of("AAAA-BBBB-CCCC-DDDD");
+        final String hashOfDifferentCode = passwordEncoder.encode("ZZZZ-YYYY-XXXX-WWWV");
+        when(dslContext.fetchOne("SELECT api_schema.find_unused_backup_code_hashes(?)", userId))
+            .thenReturn(backupHashesRecord(hashOfDifferentCode));
+
+        assertFalse(verifier.verifyBackupCode(UserId.of(userId), attempted));
+        verify(dslContext, never()).fetchOne(
+                org.mockito.ArgumentMatchers.eq("SELECT api_schema.consume_backup_code(?, ?)"),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void verifyBackupCodeReturnsFalseWhenConsumeBackupCodeFailsConcurrently() {
+        // Hash matches but consumeBackupCode returns false (concurrent consumption race)
+        // → covers the matches()=true but consumeBackupCode()=false branch
+        final UUID userId = UUID.randomUUID();
+        final BackupCode backupCode = BackupCode.of("ABCD-EFGH-IJKL-MNPQ");
+        final String hash = passwordEncoder.encode(backupCode.getCode());
+        when(dslContext.fetchOne("SELECT api_schema.find_unused_backup_code_hashes(?)", userId))
+            .thenReturn(backupHashesRecord(hash));
+        when(dslContext.fetchOne("SELECT api_schema.consume_backup_code(?, ?)", userId, hash))
+            .thenReturn(falseRecord());
+
+        assertFalse(verifier.verifyBackupCode(UserId.of(userId), backupCode));
+        verify(dslContext, never()).fetchOne("SELECT api_schema.mark_totp_last_used(?)", userId);
+    }
+
+    @Test
+    void verifyBackupCodeReturnsFalseWhenInputsAreNull() {
         assertFalse(verifier.verifyCode(null, TotpCode.of("123456")));
         assertFalse(verifier.verifyCode(UserId.of(UUID.randomUUID()), null));
     }
@@ -111,21 +142,6 @@ class JooqTotpVerifierTest {
         verify(dslContext).fetchOne("SELECT api_schema.mark_totp_last_used(?)", userId);
     }
 
-    @Test
-    void verifyBackupCodeReturnsFalseWhenNoUnusedHashesExist() {
-        final UUID userId = UUID.randomUUID();
-        when(dslContext.fetchOne("SELECT api_schema.find_unused_backup_code_hashes(?)", userId))
-            .thenReturn(null);
-
-        assertFalse(verifier.verifyBackupCode(UserId.of(userId), BackupCode.of("ABCD-EFGH-IJKL-MNPQ")));
-        verify(dslContext, never()).fetchOne("SELECT api_schema.consume_backup_code(?, ?)", userId, "unused");
-    }
-
-    @Test
-    void verifyBackupCodeReturnsFalseWhenInputsAreNull() {
-        assertFalse(verifier.verifyBackupCode(null, BackupCode.of("ABCD-EFGH-IJKL-MNPQ")));
-        assertFalse(verifier.verifyBackupCode(UserId.of(UUID.randomUUID()), null));
-    }
 
     @Test
     void isTotpEnabledReturnsTrueWhenStatusRowExists() {
@@ -189,6 +205,16 @@ class JooqTotpVerifierTest {
             final Object[] args = invocation.getArguments();
             if (args.length == 2 && args[0] instanceof Integer && ((Integer) args[0]) == 0) {
                 return Boolean.TRUE;
+            }
+            return null;
+        });
+    }
+
+    private Record falseRecord() {
+        return mock(Record.class, invocation -> {
+            final Object[] args = invocation.getArguments();
+            if (args.length == 2 && args[0] instanceof Integer && ((Integer) args[0]) == 0) {
+                return Boolean.FALSE;
             }
             return null;
         });

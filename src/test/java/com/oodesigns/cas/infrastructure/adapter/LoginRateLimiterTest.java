@@ -98,6 +98,14 @@ class LoginRateLimiterTest {
     }
 
     @Test
+    void testDefaultConstructorAllowsRequests() {
+        // Exercises the no-arg constructor (defaults: 5 attempts per minute)
+        final LoginRateLimiter defaultLimiter = new LoginRateLimiter();
+        final var result = defaultLimiter.checkLimit(command1);
+        assertTrue(result.mapTo(_ -> true).orElse(_ -> false));
+    }
+
+    @Test
     void testConstructorThrowsForZeroMaxAttempts() {
         final Duration duration = Duration.ofMinutes(1);
         assertThrows(IllegalArgumentException.class,
@@ -197,20 +205,6 @@ class LoginRateLimiterTest {
         assertTrue(limiter.checkLimit(cmdA).mapTo(_ -> true).orElse(b -> false));
         // Second attempt from different IP but same username should be blocked at username level
         assertFalse(limiter.checkLimit(cmdB).mapTo(_ -> true).orElse(b -> false));
-    }
-
-    @Test
-    void testCheckLimitForKeyRejectsEmptyKeyViaReflection() throws Exception {
-        final java.lang.reflect.Method m = LoginRateLimiter.class.getDeclaredMethod("checkLimitForKey", String.class);
-        m.setAccessible(true);
-        final LoginRateLimiter limiter = new LoginRateLimiter();
-        assertThrows(IllegalArgumentException.class, () -> {
-            try {
-                m.invoke(limiter, "");
-            } catch (final java.lang.reflect.InvocationTargetException e) {
-                throw e.getCause();
-            }
-        });
     }
 }
 

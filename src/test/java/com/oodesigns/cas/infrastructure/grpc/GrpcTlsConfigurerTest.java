@@ -34,6 +34,7 @@ class GrpcTlsConfigurerTest {
 
     private static String jksPath;
     private static String p12Path;
+    private static String pfxPath;
 
     @BeforeAll
     static void resolveTestKeystorePaths() {
@@ -44,6 +45,10 @@ class GrpcTlsConfigurerTest {
         p12Path = Objects.requireNonNull(
                 GrpcTlsConfigurerTest.class.getClassLoader().getResource("tls/test-keystore.p12"),
                 "test-keystore.p12 not found on classpath"
+        ).getPath();
+        pfxPath = Objects.requireNonNull(
+                GrpcTlsConfigurerTest.class.getClassLoader().getResource("tls/test-keystore.pfx"),
+                "test-keystore.pfx not found on classpath"
         ).getPath();
     }
 
@@ -104,6 +109,15 @@ class GrpcTlsConfigurerTest {
         when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
         final Optional<SslContext> result = configurer.buildServerSslContext(p12Path, null);
+        assertTrue(result.isPresent());
+    }
+
+    @Test
+    void buildServerSslContext_ReturnsSslContext_ForValidPfxKeystore() {
+        // Exercises the .pfx extension branch in loadKeyStore (same PKCS12 format as .p12)
+        when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY))
+                .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
+        final Optional<SslContext> result = configurer.buildServerSslContext(pfxPath, null);
         assertTrue(result.isPresent());
     }
 

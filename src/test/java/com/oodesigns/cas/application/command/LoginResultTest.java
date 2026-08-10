@@ -254,6 +254,7 @@ class LoginResultTest {
         final LoginResult.Required2FAResult r = LoginResult.required2FA("verif-token", userId);
         assertNotNull(r);
         assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult("", userId));
+        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult(null, userId));
         assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult("token", null));
 
         final String mapped = r.mapTo(success -> "OK").orElse(failure -> failure.errorCode());

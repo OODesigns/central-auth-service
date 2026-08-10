@@ -16,6 +16,10 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.StreamHandler;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -209,6 +213,56 @@ class JwtTokenVerifierTest {
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
         assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
+    }
+
+    @Test
+    void verify2FAVerificationToken_ReturnsEmpty_WhenPayloadClaimIsBlank() {
+        // "payload" claim present but whitespace-only → covers the payloadJson.isBlank() branch.
+        // JJWT nullifies empty claim values, so we test the private method via reflection to reach
+        // the isBlank() branch with a guaranteed non-null blank string.
+        assertDoesNotThrow(() -> {
+            final java.lang.reflect.Method m = JwtTokenVerifier.class
+                    .getDeclaredMethod("extractUserId", String.class);
+            m.setAccessible(true);
+            final JwtTokenVerifier v = new JwtTokenVerifier(keySupplier, JWT_KEY_ID, new ObjectMapper());
+            @SuppressWarnings("unchecked")
+            final Optional<UserId> result = (Optional<UserId>) m.invoke(v, "   ");
+            assertTrue(result.isEmpty());
+        });
+    }
+
+
+    @Test
+    void verify2FAVerificationToken_FineLogging_CoversLoggerLambdas() {
+        // Enable FINE logging so the supplier lambdas in LOGGER.log(FINE, () -> …) are evaluated
+        final Logger logger = Logger.getLogger(JwtTokenVerifier.class.getName());
+        final Level savedLevel = logger.getLevel();
+        final Handler handler = new StreamHandler(java.io.OutputStream.nullOutputStream(), new java.util.logging.SimpleFormatter());
+        handler.setLevel(Level.ALL);
+        logger.addHandler(handler);
+        logger.setLevel(Level.ALL);
+        try {
+            when(keySupplier.getPassword(JWT_KEY_ID))
+                    .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+            // Expired token → catch(RuntimeException) in parseAndVerify → lambda$parseAndVerify$0 triggered
+            final UUID userId = UUID.randomUUID();
+            final String expiredToken = buildValid2FAToken(userId, "2fa_verification",
+                    Instant.now().minusSeconds(1));
+            assertTrue(verifier.verify2FAVerificationToken(expiredToken).isEmpty());
+
+            when(keySupplier.getPassword(JWT_KEY_ID))
+                    .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+            // Invalid JSON payload → catch(Exception) in extractUserId → lambda$extractUserId$0 triggered
+            final String tokenWithBadJson = Jwts.builder()
+                    .claim("payload", "not-json")
+                    .expiration(Date.from(Instant.now().plusSeconds(300)))
+                    .signWith(signingKey, Jwts.SIG.HS256)
+                    .compact();
+            assertTrue(verifier.verify2FAVerificationToken(tokenWithBadJson).isEmpty());
+        } finally {
+            logger.setLevel(savedLevel);
+            logger.removeHandler(handler);
+        }
     }
 
     // -------------------------------------------------------------------------

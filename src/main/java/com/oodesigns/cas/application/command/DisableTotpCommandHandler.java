@@ -88,10 +88,8 @@ public final class DisableTotpCommandHandler {
 
         // Success: TOTP secret and all backup codes deleted
         // Audit event 'TOTP_DISABLED' emitted by database trigger with reason
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.log(Level.INFO, "TOTP disabled for user {0} - reason: {1}",
-                new Object[]{command.userId(), command.reason()});
-        }
+        LOGGER.log(Level.INFO, "TOTP disabled for user {0} - reason: {1}",
+            new Object[]{command.userId(), command.reason()});
         return DisableTotpResult.success();
     }
 

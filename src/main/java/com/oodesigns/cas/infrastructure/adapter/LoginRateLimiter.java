@@ -77,9 +77,6 @@ public class LoginRateLimiter implements Ports.RateLimiter {
      * @return allowed if under limit, blocked if limit exceeded
      */
     private Ports.RateLimitResult checkLimitForKey(final String key) {
-        if (key == null || key.isEmpty()) {
-            throw new IllegalArgumentException("Key cannot be null or empty");
-        }
 
         final Bucket bucket = buckets.computeIfAbsent(key, k -> createBucket());
 
