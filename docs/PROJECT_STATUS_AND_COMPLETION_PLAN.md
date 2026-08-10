@@ -181,7 +181,11 @@ Implications for the plan:
       — `consume_backup_code(uuid, text) RETURNS boolean`: `UPDATE … WHERE used_at IS NULL`
       makes concurrent redemption safe; returns `false` if already used or absent.
       ⚠ Phase 2.2b must add `find_user_credentials_by_id(uuid)` for `DisableTotpCommandHandler`.
-- [ ] 2.2 `JooqTotpStatusReader` (wraps existing `api_schema.get_totp_status`).
+- [x] 2.2 `JooqTotpStatusReader` (wraps existing `api_schema.get_totp_status`) — added
+      `infrastructure/adapter/JooqTotpStatusReader` with a thin jOOQ shim around
+      `api_schema.get_totp_status(uuid)`. Returns `Optional<UserId>` when the function
+      yields a row and `Optional.empty()` otherwise. Tests cover null input, no row,
+      row-found, and SQL contract verification.
 - [ ] 2.2b `JooqUserCredentialByIdReader` implementing `Ports.UserCredentialByIdRetriever`
       (needs a new `api_schema.find_user_credentials_by_id(uuid)` function — required by the
       Phase 1.2 disable-2FA re-authentication).
