@@ -166,10 +166,21 @@ Implications for the plan:
 
 ### Phase 2 — Database + adapters
 
-- [ ] 2.1 New Flyway migration(s) (`V1_4_x__…`) for write-side API functions:
-      `store_totp_secret`, `enable_totp`, `disable_totp`, `insert_backup_codes`,
-      `consume_backup_code` — idempotent, `REVOKE ALL … FROM PUBLIC` + `GRANT EXECUTE … TO
-      app_user`, `${VARIABLE}` placeholders for secrets.
+- [x] 2.1 New Flyway migration `V1_4_0__add_totp_write_api_functions.sql` — 5 write-side
+      `SECURITY DEFINER` functions in `api_schema` (all owned by `owner_role`, all with
+      `REVOKE ALL … FROM PUBLIC` + `GRANT EXECUTE … TO ${API_USER}`):
+      — `store_totp_secret(uuid, bytea)`: upserts pending secret (`ON CONFLICT DO UPDATE`
+      resets `verified_at = NULL` so re-setup never leaves stale active state).
+      — `enable_totp(uuid) RETURNS boolean`: sets `verified_at = now()` only when
+      `verified_at IS NULL`; returns `false` if already active (maps to
+      `TOTP_ALREADY_ENABLED` in `EnableTotpCommandHandler`).
+      — `disable_totp(uuid) RETURNS boolean`: deletes the `totp_secrets` row; backup codes
+      removed by `ON DELETE CASCADE`; returns `false` if no row found.
+      — `insert_backup_codes(uuid, text[], uuid)`: atomically DELETEs old codes then bulk-
+      INSERTs the new BCrypt-hashed batch (`unnest`); updates `backup_codes_generated_at`.
+      — `consume_backup_code(uuid, text) RETURNS boolean`: `UPDATE … WHERE used_at IS NULL`
+      makes concurrent redemption safe; returns `false` if already used or absent.
+      ⚠ Phase 2.2b must add `find_user_credentials_by_id(uuid)` for `DisableTotpCommandHandler`.
 - [ ] 2.2 `JooqTotpStatusReader` (wraps existing `api_schema.get_totp_status`).
 - [ ] 2.2b `JooqUserCredentialByIdReader` implementing `Ports.UserCredentialByIdRetriever`
       (needs a new `api_schema.find_user_credentials_by_id(uuid)` function — required by the
