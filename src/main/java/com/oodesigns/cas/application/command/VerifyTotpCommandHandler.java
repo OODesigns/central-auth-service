@@ -50,6 +50,7 @@ public final class VerifyTotpCommandHandler {
     private final Ports.TotpVerifier totpVerifier;
     private final Ports.UserRetriever userRetriever;
     private final TokenService tokenService;
+    private final Ports.TotpRateLimiter totpRateLimiter;
 
     /**
      * @param tokenVerifier  port for verifying the 2FA verification JWT
@@ -60,11 +61,13 @@ public final class VerifyTotpCommandHandler {
     public VerifyTotpCommandHandler(final Ports.TokenVerifier tokenVerifier,
                                     final Ports.TotpVerifier totpVerifier,
                                     final Ports.UserRetriever userRetriever,
-                                    final TokenService tokenService) {
+                                    final TokenService tokenService,
+                                    final Ports.TotpRateLimiter totpRateLimiter) {
         this.tokenVerifier = Objects.requireNonNull(tokenVerifier, "TokenVerifier is required");
         this.totpVerifier = Objects.requireNonNull(totpVerifier, "TotpVerifier is required");
         this.userRetriever = Objects.requireNonNull(userRetriever, "UserRetriever is required");
         this.tokenService = Objects.requireNonNull(tokenService, "TokenService is required");
+        this.totpRateLimiter = Objects.requireNonNull(totpRateLimiter, "TotpRateLimiter is required");
     }
 
     /**
@@ -96,7 +99,14 @@ public final class VerifyTotpCommandHandler {
         }
         final UserId userId = userIdOpt.get();
 
-        // Step 2: Verify OTP code or (single-use) backup code
+        // Step 2: Rate limit 2FA verification attempts for this user
+        final Ports.RateLimitResult rateLimitResult = totpRateLimiter.checkLimit(userId);
+        final boolean allowed = rateLimitResult.mapTo(a -> true).orElse(b -> false);
+        if (!allowed) {
+            return VerifyTotpResult.failure("RATE_LIMIT_EXCEEDED", "Too many 2FA attempts. Try again later.");
+        }
+
+        // Step 3: Verify OTP code or (single-use) backup code
         final boolean codeValid = command.isOtpCode()
             ? totpVerifier.verifyCode(userId, TotpCode.of(command.code()))
             : totpVerifier.verifyBackupCode(userId, BackupCode.of(command.code()));

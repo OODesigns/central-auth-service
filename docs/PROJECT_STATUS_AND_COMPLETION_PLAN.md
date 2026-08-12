@@ -6,6 +6,44 @@
 
 ---
 
+## Ticket status summary (as of 2026-08-11)
+
+### ✅ Done
+
+**Phase 1 — Application-layer 2FA flow (complete, 1.1–1.7)**
+- 1.1 Login enforcement (`MFA_SETUP_REQUIRED`, `PasswordResetRequiredResult`)
+- 1.2 `DisableTotpCommandHandler` re-auth fix via new `Ports.UserCredentialByIdRetriever` + `Password` value object
+- 1.3 `TotpCodeGenerator` (RFC 6238, verified against Appendix B vectors) + `BackupCodeGenerator`
+- 1.4 `SetupTotpCommandHandler` (otpauth URI)
+- 1.5 `EnableTotpCommandHandler` (security-ordered, backup codes)
+- 1.6 `VerifyTotpCommandHandler` + `Ports.TokenVerifier`
+- 1.7 Pattern consistency audit (`TotpCode` value object, port signature cleanups)
+
+**Phase 2 — Database + adapters (mostly done)**
+- 2.1 `V1_4_0` migration — 5 TOTP write functions
+- 2.2 `JooqTotpStatusReader`
+- 2.3 `JooqTotpVerifier` + `JooqTotpSetupProvider` + `V1_4_1` read functions
+- 2.4 In-memory mock adapters (`MockTotpStatusReader`, `MockTotpVerifier`, `MockTotpSetupProvider`)
+
+**Phase 3 (partial)**
+- 3.1 Transport decision: **gRPC** (decided 2026-08-10)
+
+### ⬜ Outstanding
+
+| Ticket | Description |
+|---|---|
+| **Phase 0** (0.1–0.7) | Still unchecked below — coverage-gap tests (`DisableTotp*`, `LoginResult` 2FA variants, `TokenService`, rate limiter) + committing pending changes. *Possibly stale given 1.7 claims "100% coverage maintained" — re-verify with `jacocoTestCoverageVerification`.* |
+| **2.2b** | `JooqUserCredentialByIdReader` + `api_schema.find_user_credentials_by_id(uuid)` migration (blocks the disable-2FA re-auth path against a real DB) |
+| **2.5** | `@Tag("database")` tests for the new adapters/migrations |
+| **3.2** | gRPC delivery layer + `Main` wiring |
+| **3.3** | TLS wiring (`KeySupplier`, keystore/truststore env vars) |
+| **3.4** | End-to-end smoke tests against docker-compose |
+| **Phase 4** (4.1–4.5) | Refresh token rotation, logout/revocation, 2FA rate limiting, doc cleanup, CI workflow |
+
+**Suggested next ticket:** 2.2b — small, well-defined (one migration + one JOOQ adapter cloning the `UserCredentialReader` pattern), and it unblocks the disable-2FA flow end-to-end.
+
+---
+
 ## Development environment (devcontainer)
 
 The `.devcontainer/` provides a **complete runnable stack** — nothing needs to be provisioned:
@@ -244,26 +282,32 @@ novel algorithms → premium model briefly, then hand implementation back to a c
 The 100% JaCoCo gate + test tiers act as a safety net for cheap-model output — anything a
 test can verify, use the cheap model and let the build catch mistakes.
 
+**Tier legend (Copilot premium-request multipliers — verify against the current model picker):**
+
+| Tier | Multiplier | Concrete models |
+|---|---|---|
+| 🟢 Cheap | 0x–0.33x | **GPT-5 mini (0x — preferred, free)**, Gemini 2.0 Flash (0.25x), o4-mini / Claude Haiku (0.33x) |
+| 🟡 Mid | 1x | Claude Sonnet, GPT-5, Gemini 2.5 Pro |
+| 🔴 Premium | 1x–10x | GPT-5 (1x — cost-effective choice), Claude Opus (10x) |
+
 | Task | Model tier | Why |
 |---|---|---|
-| **Phase 0** — all missing tests (0.2–0.7) | 🟢 Cheap/included (e.g., GPT-5 mini / Gemini Flash class, 0–0.33x) | Pure pattern-cloning from `LoginCommandHandlerTest`, `LoginResultTest`. Verifiable by JaCoCo — the coverage gate catches any model mistakes for free |
-| **Phase 1.1** — login enforcement | 🟡 Mid (Sonnet class, 1x) | Small logic change but security-ordered; needs care with the check sequence |
-| **Phase 1.2** — fix disable-password gap | 🔴 Premium, one short session (Opus/GPT-5 class) | This is a *security design decision* (new port vs command change). Get the design decided, then implement with a cheap model |
-| **Phase 1.3** — `TotpCodeGenerator` (RFC 6238) | 🔴 Premium for the algorithm, 🟢 cheap for tests | Crypto correctness (HMAC, time-step, constant-time compare) is where cheap models make subtle mistakes. Test vectors from RFC 6238 Appendix B make verification objective |
-| **Phase 1.3** — `BackupCodeGenerator` | 🟢 Cheap | SecureRandom + formatting, trivially testable |
-| **Phase 1.4–1.7** — setup/enable/verify handlers | 🟡 Mid | Follows `LoginCommandHandler` shape, but token-validation logic in `VerifyTotpCommandHandler` deserves 1x attention |
-| **Phase 2.1** — Flyway migrations | 🟡 Mid | SQL security (REVOKE/GRANT, idempotency) — mistakes are cheap to make, annoying to fix in prod |
-| **Phase 2.2–2.4** — JOOQ adapters + mocks | 🟢 Cheap | Direct clone of `UserCredentialReader` pattern |
-| **Phase 2.5** — `@Tag("database")` tests | 🟢 Cheap | Pattern-following, verifiable against compose DB |
-| **Phase 3.1** — transport decision | ✅ **DECIDED**: gRPC | Decision recorded 2026-08-10 |
-| **Phase 3.2–3.3** — gRPC layer + TLS wiring | 🟡 Mid | Proto definitions + service wiring + TLS; no existing pattern to clone |
-| **Phase 3.4** — smoke tests | 🟢 Cheap | Mechanical |
-| **Phase 4.1–4.2** — refresh/logout | 🟡 Mid | Token rotation semantics need care |
-| **Phase 4.3–4.5** — 2FA rate limit, docs, CI | 🟢 Cheap | Rate limiter clones `LoginRateLimiter`; docs/CI are boilerplate |
+| **Phase 0 verification** — run `test integrationTest jacocoTestCoverageVerification`, fix any residual gaps, tidy commits (0.1) | 🟢 Cheap/included (GPT-5 mini / Gemini Flash class, 0–0.33x) | Likely already green after 1.7 ("100% coverage maintained"); any remaining test gaps are pure pattern-cloning verified by the JaCoCo gate |
+| **2.2b** — `find_user_credentials_by_id(uuid)` migration + `JooqUserCredentialByIdReader` | 🟢 Cheap | Direct clone of `find_user_credentials` SQL + `UserCredentialReader` JOOQ pattern; migration security boilerplate (REVOKE/GRANT) copies V1_4_0 verbatim |
+| **2.5** — `@Tag("database")` tests for new adapters/migrations | 🟢 Cheap | Pattern-following, objectively verifiable against the compose DB |
+| **3.2** — gRPC delivery layer + `Main` wiring | 🟡 Mid (Sonnet class, 1x) | Proto definitions + service-to-handler mapping; no existing pattern to clone; error-mapping decisions need care |
+| **3.3** — TLS wiring | 🟡 Mid | Security-sensitive config (keystore/truststore, netty TLS); mistakes are silent until runtime |
+| **3.4** — end-to-end smoke tests | 🟢 Cheap | Mechanical, once 3.2/3.3 exist |
+| **4.1** — refresh token rotation | 🟡 Mid | Rotation/reuse-detection semantics need care; one-time 🔴 premium *design review* of the rotation strategy is worth it before implementing |
+| **4.2** — logout / revocation via `invalidated_jwts` | 🟡 Mid | Touches the token validation path — correctness matters |
+| **4.3** — 2FA verification rate limiting | 🟢 Cheap | Direct clone of `LoginRateLimiter` |
+| **4.4** — doc cleanup (`2FA_IMPLEMENTATION_CHECKLIST.md`) | 🟢 Cheap | Boilerplate |
+| **4.5** — GitHub Actions CI | 🟢 Cheap | Boilerplate workflow running existing gradle tasks |
 
-**Budget summary:** ~70% of remaining work is 🟢 cheap-model territory, ~25% is 🟡 mid-tier,
-and only **3 short 🔴 premium sessions** are needed (1.2 design, 1.3 TOTP algorithm, 3.1
-transport decision).
+**Budget summary (remaining work):** ~60% 🟢 cheap (Phase 0, 2.2b, 2.5, 3.4, 4.3–4.5),
+~40% 🟡 mid-tier (3.2, 3.3, 4.1, 4.2), and at most **one short 🔴 premium session**
+(4.1 refresh-rotation design review). Recommended order: Phase 0 verify → 2.2b → 2.5
+(all cheap, unblocks DB-complete) → 3.2 → 3.3 → 3.4 (runnable service) → 4.x incrementally.
 
 ---
 

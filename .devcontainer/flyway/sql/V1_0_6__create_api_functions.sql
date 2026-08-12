@@ -37,8 +37,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION api_schema.find_user_credentials(text) IS
-  'Retrieves user credentials for password-based authentication. ' ||
-  'SECURITY DEFINER runs as owner_role. Primary entry point for login.';
+  'Retrieves user credentials for password-based authentication. SECURITY DEFINER runs as owner_role. Primary entry point for login.';
 
 ALTER FUNCTION api_schema.find_user_credentials(text) OWNER TO owner_role;
 
@@ -74,8 +73,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION api_schema.get_user(uuid) IS
-  'Retrieves authenticated user with permissions for authorization. ' ||
-  'SECURITY DEFINER runs as owner_role. Called after successful authentication.';
+  'Retrieves authenticated user with permissions for authorization. SECURITY DEFINER runs as owner_role. Called after successful authentication.';
 
 ALTER FUNCTION api_schema.get_user(uuid) OWNER TO owner_role;
 
@@ -99,8 +97,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION api_schema.get_totp_status(uuid) IS
-  'Checks if 2FA (TOTP) is enabled for user. ' ||
-  'SECURITY DEFINER runs as owner_role. Used to determine if TOTP verification required.';
+  'Checks if 2FA (TOTP) is enabled for user. SECURITY DEFINER runs as owner_role. Used to determine if TOTP verification required.';
 
 ALTER FUNCTION api_schema.get_totp_status(uuid) OWNER TO owner_role;
 
@@ -123,8 +120,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION api_schema.encrypt_totp_secret(text, text) IS
-  'Encrypt a TOTP secret using AES-CBC. ' ||
-  'SECURITY DEFINER runs as owner_role. Uses semantic-secure AES-CBC (not ECB).';
+  'Encrypt a TOTP secret using AES-CBC. SECURITY DEFINER runs as owner_role. Uses semantic-secure AES-CBC (not ECB).';
 
 ALTER FUNCTION api_schema.encrypt_totp_secret(text, text) OWNER TO owner_role;
 

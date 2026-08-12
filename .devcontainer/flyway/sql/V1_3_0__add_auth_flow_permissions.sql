@@ -18,7 +18,7 @@
 -- ADD NEW PERMISSIONS
 -- ============================================================================
 
-INSERT INTO permissions (name)
+INSERT INTO private_schema.permissions (name)
 VALUES ('change_password'),
        ('setup_mfa'),
        ('view_settings')
@@ -29,26 +29,26 @@ ON CONFLICT (name) DO NOTHING;
 -- ============================================================================
 
 -- All authenticated users can change their own password
-INSERT INTO role_permissions (role_id, permission_id)
+INSERT INTO private_schema.role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id
-FROM roles r
-  CROSS JOIN permissions p
+FROM private_schema.roles r
+  CROSS JOIN private_schema.permissions p
 WHERE p.name = 'change_password'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- All authenticated users can set up their own 2FA
-INSERT INTO role_permissions (role_id, permission_id)
+INSERT INTO private_schema.role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id
-FROM roles r
-  CROSS JOIN permissions p
+FROM private_schema.roles r
+  CROSS JOIN private_schema.permissions p
 WHERE p.name = 'setup_mfa'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- All authenticated users can view their own settings
-INSERT INTO role_permissions (role_id, permission_id)
+INSERT INTO private_schema.role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id
-FROM roles r
-  CROSS JOIN permissions p
+FROM private_schema.roles r
+  CROSS JOIN private_schema.permissions p
 WHERE p.name = 'view_settings'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 

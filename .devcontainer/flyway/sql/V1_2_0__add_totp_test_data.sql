@@ -29,10 +29,9 @@ INSERT INTO private_schema.totp_secrets (
 ) SELECT
   gen_random_uuid(),
   user_id,
-  pgcrypto.encrypt(
-    pgcrypto.convert('JBSWY3DPEBLW64TMMQ======', 'SQL_ASCII'),
-    pgcrypto.convert('test-encryption-key-dev-only', 'SQL_ASCII'),
-    'aes'
+  api_schema.encrypt_totp_secret(
+    'JBSWY3DPEBLW64TMMQ======',
+    'test-encryption-key-dev-only'
   ),
   'SHA1',
   30,
@@ -66,15 +65,15 @@ SELECT
   NULL,  -- Not yet used
   now()
 FROM private_schema.users u
+-- Generate 10 backup codes (cross join to duplicate rows)
+CROSS JOIN generate_series(1, 10)
 WHERE u.username = 'admin'
 AND EXISTS (
   SELECT 1 FROM private_schema.totp_secrets ts WHERE ts.user_id = u.user_id
 )
 AND NOT EXISTS (
   SELECT 1 FROM private_schema.backup_codes bc WHERE bc.user_id = u.user_id
-)
--- Generate 10 backup codes (cross join to duplicate rows)
-CROSS JOIN generate_series(1, 10);
+);
 
 -- Note: users table no longer has totp_enabled or totp_verified_at columns
 -- TOTP status is tracked in totp_secrets.verified_at

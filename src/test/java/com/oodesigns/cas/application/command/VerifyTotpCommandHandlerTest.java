@@ -38,6 +38,7 @@ class VerifyTotpCommandHandlerTest {
     @Mock private Ports.UserRetriever userRetriever;
     @Mock private Ports.TokenSigner tokenSigner;
     @Mock private Ports.Clock clock;
+    @Mock private Ports.TotpRateLimiter totpRateLimiter;
 
     private VerifyTotpCommandHandler handler;
     private TokenService tokenService;
@@ -48,7 +49,9 @@ class VerifyTotpCommandHandlerTest {
     @BeforeEach
     void setUp() {
         tokenService = new TokenService(clock, tokenSigner);
-        handler = new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, tokenService);
+        // Default rate limiter permits attempts (lenient to avoid unnecessary stubbing failures)
+        org.mockito.Mockito.lenient().when(totpRateLimiter.checkLimit(any())).thenReturn(Ports.RateLimitResult.allowed());
+        handler = new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, tokenService, totpRateLimiter);
         userId = UserId.of(UUID.randomUUID());
         user = new User(userId, Username.of("alice"), Set.of(Permission.of("read")), null, null);
         tokenPair = new TokenService.TokenPair("access.token", "refresh.token");
@@ -159,6 +162,20 @@ class VerifyTotpCommandHandlerTest {
         verifyNoInteractions(totpVerifier, userRetriever);
     }
 
+    @Test
+    void handleReturnsRateLimitExceededWhenLimiterBlocks() {
+        when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
+            .thenReturn(Optional.of(userId));
+        when(totpRateLimiter.checkLimit(userId)).thenReturn(Ports.RateLimitResult.blocked("too many"));
+
+        final VerifyTotpResult result = handler.handle(new VerifyTotpCommand(VERIFICATION_TOKEN, VALID_OTP));
+
+        result.mapTo(s -> { fail("Expected RATE_LIMIT_EXCEEDED"); return null; })
+            .orElse(f -> { assertEquals("RATE_LIMIT_EXCEEDED", f.errorCode()); return null; });
+
+        verifyNoInteractions(totpVerifier, userRetriever);
+    }
+
     // ---------------------------------------------------------------- INVALID_TOTP_CODE
 
     @Test
@@ -262,13 +279,15 @@ class VerifyTotpCommandHandlerTest {
     @Test
     void constructorRejectsNulls() {
         assertThrows(NullPointerException.class,
-            () -> new VerifyTotpCommandHandler(null, totpVerifier, userRetriever, tokenService));
+            () -> new VerifyTotpCommandHandler(null, totpVerifier, userRetriever, tokenService, totpRateLimiter));
         assertThrows(NullPointerException.class,
-            () -> new VerifyTotpCommandHandler(tokenVerifier, null, userRetriever, tokenService));
+            () -> new VerifyTotpCommandHandler(tokenVerifier, null, userRetriever, tokenService, totpRateLimiter));
         assertThrows(NullPointerException.class,
-            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, null, tokenService));
+            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, null, tokenService, totpRateLimiter));
         assertThrows(NullPointerException.class,
-            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, null));
+            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, null, totpRateLimiter));
+        assertThrows(NullPointerException.class,
+            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, tokenService, null));
     }
 }
 

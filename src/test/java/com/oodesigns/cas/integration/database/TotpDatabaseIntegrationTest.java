@@ -52,6 +52,7 @@ class TotpDatabaseIntegrationTest {
 
     private DatabaseConfig databaseConfig;
     private DSLContext dslContext;
+    private DSLContext adminDsl;
     private UserId createdUserId;
 
     @BeforeEach
@@ -65,12 +66,32 @@ class TotpDatabaseIntegrationTest {
         );
         databaseConfig = new DatabaseConfig(propertiesReader);
         dslContext = DatabaseContextFactory.create(databaseConfig);
+        adminDsl = createAdminDsl();
+    }
+
+    /**
+     * Privileged connection for test fixtures and row-level verification.
+     * The application connection uses the restricted API role, which (by design)
+     * cannot read or write private_schema tables directly.
+     */
+    private DSLContext createAdminDsl() {
+        final String adminUser = System.getenv().getOrDefault("POSTGRES_USER", "postgres");
+        final String adminPassword = System.getenv().getOrDefault("POSTGRES_PASSWORD", "postgres");
+        final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s",
+            databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+        try {
+            final java.sql.Connection connection =
+                java.sql.DriverManager.getConnection(jdbcUrl, adminUser, adminPassword);
+            return org.jooq.impl.DSL.using(connection, org.jooq.SQLDialect.POSTGRES);
+        } catch (final java.sql.SQLException e) {
+            throw new IllegalStateException("Could not open admin fixture connection", e);
+        }
     }
 
     @AfterEach
     void tearDown() {
         if (createdUserId != null) {
-            dslContext.execute("DELETE FROM private_schema.users WHERE user_id = ?", createdUserId.value());
+            adminDsl.execute("DELETE FROM private_schema.users WHERE user_id = ?", createdUserId.value());
         }
         createdUserId = null;
     }
@@ -161,7 +182,7 @@ class TotpDatabaseIntegrationTest {
         final UUID adminRoleId = adminRoleId();
         final String passwordHash = new BCryptPasswordEncoder().encode("TemporaryPassword123!");
 
-        dslContext.execute(
+        adminDsl.execute(
             "INSERT INTO private_schema.users (user_id, username, password_hash, role_id) VALUES (?, ?, ?, ?)",
             userId,
             username,
@@ -174,7 +195,7 @@ class TotpDatabaseIntegrationTest {
     }
 
     private UUID adminRoleId() {
-        final Record record = dslContext.fetchOne(
+        final Record record = adminDsl.fetchOne(
             "SELECT role_id FROM private_schema.roles WHERE name = ?",
             "admin"
         );
@@ -183,8 +204,10 @@ class TotpDatabaseIntegrationTest {
     }
 
     private boolean tableExists(final String tableName) {
+        // pg_catalog is privilege-independent; information_schema hides tables the
+        // restricted API role has no privileges on (by design).
         final Record record = dslContext.fetchOne(
-            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'private_schema' AND table_name = ?)",
+            "SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname = 'private_schema' AND tablename = ?)",
             tableName
         );
         return record != null && Boolean.TRUE.equals(record.get(0, Boolean.class));
@@ -192,7 +215,7 @@ class TotpDatabaseIntegrationTest {
 
     private boolean functionExists(final String functionName) {
         final Record record = dslContext.fetchOne(
-            "SELECT EXISTS (SELECT 1 FROM information_schema.routines WHERE routine_schema = 'api_schema' AND routine_name = ?)",
+            "SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'api_schema' AND p.proname = ?)",
             functionName
         );
         return record != null && Boolean.TRUE.equals(record.get(0, Boolean.class));
@@ -211,7 +234,7 @@ class TotpDatabaseIntegrationTest {
     }
 
     private boolean lastUsedAtIsPopulated(final UserId userId) {
-        final Record record = dslContext.fetchOne(
+        final Record record = adminDsl.fetchOne(
             "SELECT last_used_at FROM private_schema.totp_secrets WHERE user_id = ?",
             userId.value()
         );
@@ -219,7 +242,7 @@ class TotpDatabaseIntegrationTest {
     }
 
     private int rowCount(final String sql, final Object bindValue) {
-        final Record record = dslContext.fetchOne(sql, bindValue);
+        final Record record = adminDsl.fetchOne(sql, bindValue);
         assertNotNull(record, "Query should return a row");
         final Number count = record.get(0, Number.class);
         return count == null ? 0 : count.intValue();
@@ -244,6 +267,4 @@ class TotpDatabaseIntegrationTest {
         return 10;
     }
 }
-
-
 

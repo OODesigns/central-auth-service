@@ -124,6 +124,7 @@ jacocoTestReport {
     // Aggregate coverage across all test tiers (unit + integration). The database
     // tier is included automatically if it has been run (its .exec file will exist).
     dependsOn test, tasks.named('integrationTest')
+    mustRunAfter tasks.named('databaseIntegrationTest')
     executionData fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec')
     afterEvaluate {
         classDirectories.setFrom(files(classDirectories.files.collect { directory ->
@@ -173,6 +174,7 @@ jacocoTestCoverageVerification {
     // classes exercised only by integration tests (e.g. LoginRateLimiter,
     // TokenService) count toward the 100% line-coverage requirement.
     dependsOn test, tasks.named('integrationTest')
+    mustRunAfter tasks.named('databaseIntegrationTest')
     executionData fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec')
     afterEvaluate {
         classDirectories.setFrom(files(classDirectories.files.collect { directory ->

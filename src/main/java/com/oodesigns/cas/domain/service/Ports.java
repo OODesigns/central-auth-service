@@ -244,6 +244,20 @@ public class Ports {
     }
 
     /**
+     * Port for rate limiting 2FA verification attempts (per-user).
+     * Implementations should apply limits to reject excessive verification attempts
+     * for a given user to mitigate brute-force or abuse of backup-code redemption.
+     */
+    public interface TotpRateLimiter {
+        /**
+         * Check rate limits for a 2FA verification attempt for the given user.
+         * @param userId the user being verified
+         * @return RateLimitResult.allowed() if allowed, or RateLimitResult.blocked(message)
+         */
+        RateLimitResult checkLimit(final UserId userId);
+    }
+
+    /**
      * Port for TOTP setup and management.
      * Handles generation and storage of TOTP secrets during enrollment.
      *

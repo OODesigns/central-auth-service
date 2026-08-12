@@ -72,6 +72,7 @@ public final class Main {
         final JwtTokenVerifier tokenVerifier = new JwtTokenVerifier(keySupplier, JWT_KEY_ID);
         final BcryptPasswordVerifier passwordVerifier = new BcryptPasswordVerifier();
         final LoginRateLimiter rateLimiter = new LoginRateLimiter();
+        final com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter totpRateLimiter = new com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter();
         final UserCredentialReader credentialReader = new UserCredentialReader(dsl);
         final UserRepository userRepository = new UserRepository(dsl);
         final JooqTotpStatusReader totpStatusReader = new JooqTotpStatusReader(dsl);
@@ -95,7 +96,7 @@ public final class Main {
         final EnableTotpCommandHandler enableTotpHandler =
                 new EnableTotpCommandHandler(totpVerifier, totpSetupProvider);
         final VerifyTotpCommandHandler verifyTotpHandler =
-                new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRepository, tokenService);
+                new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRepository, tokenService, totpRateLimiter);
         final DisableTotpCommandHandler disableTotpHandler =
                 new DisableTotpCommandHandler(authService, credentialByIdReader, totpSetupProvider);
 

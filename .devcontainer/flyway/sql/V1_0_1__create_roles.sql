@@ -21,8 +21,7 @@ BEGIN
 END
 $$;
 
-COMMENT ON ROLE owner_role IS 'ROLE: Owner of all tables and functions. ' ||
-    'NOLOGIN (never logs in directly). Used only for SECURITY DEFINER function execution.';
+COMMENT ON ROLE owner_role IS 'ROLE: Owner of all tables and functions. NOLOGIN (never logs in directly). Used only for SECURITY DEFINER function execution.';
 
 -- Transfer schema ownership to owner_role
 -- Ownership grants full control: USAGE, CREATE, DROP, and all object management
@@ -47,10 +46,7 @@ BEGIN
 END
 $$;
 
-COMMENT ON ROLE ${API_USER} IS 'ROLE: Application database connection with minimal privileges. ' ||
-    'Constraints: NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOREPLICATION. ' ||
-    'Can ONLY execute api_schema.* functions via SECURITY DEFINER. ' ||
-    'Cannot read/write private_schema.* tables directly.';
+COMMENT ON ROLE ${API_USER} IS 'ROLE: Application database connection with minimal privileges. Constraints: NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOREPLICATION. Can ONLY execute api_schema.* functions via SECURITY DEFINER. Cannot read/write private_schema.* tables directly.';
 
 -- Grant schema usage to api_schema only (NOT private_schema)
 -- Note: api_role accesses private_schema ONLY through SECURITY DEFINER functions

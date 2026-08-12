@@ -66,9 +66,7 @@ COMMENT ON COLUMN private_schema.users.role_id IS
 COMMENT ON COLUMN private_schema.users.password_reset_required_at IS
   'Timestamp when password reset was required; NULL if password reset is not required';
 COMMENT ON COLUMN private_schema.users.mfa_required_at IS
-  'Timestamp when 2FA became mandatory for this user. NULL = 2FA optional. NOT NULL = 2FA enrollment required. ' ||
-  'Enforcement: If this timestamp is <= NOW() and totp_secrets.verified_at IS NULL, login is blocked until 2FA setup completes. ' ||
-  'Supports future-dated 2FA mandates (e.g., grace periods) and role/org-level enforcement policies.';
+  'Timestamp when 2FA became mandatory for this user. NULL = 2FA optional. NOT NULL = 2FA enrollment required. Enforcement: If this timestamp is <= NOW() and totp_secrets.verified_at IS NULL, login is blocked until 2FA setup completes. Supports future-dated 2FA mandates (e.g., grace periods) and role/org-level enforcement policies.';
 COMMENT ON COLUMN private_schema.users.created_at IS
   'Timestamp when the user record was created';
 COMMENT ON COLUMN private_schema.users.updated_at IS
@@ -287,19 +285,13 @@ CREATE TABLE private_schema.totp_secrets (
 );
 
 COMMENT ON TABLE private_schema.totp_secrets IS
-  'Time-based One-Time Password (TOTP) secrets for authenticator app-based 2FA. ' ||
-  '2FA status: verified_at IS NULL = disabled/not verified, verified_at IS NOT NULL = enabled. ' ||
-  'Secret key encrypted at rest using AES-CBC via pgcrypto (semantic security with random IVs). ' ||
-  'Encryption key must be stored separately from database (key separation principle).';
+  'Time-based One-Time Password (TOTP) secrets for authenticator app-based 2FA. 2FA status: verified_at IS NULL = disabled/not verified, verified_at IS NOT NULL = enabled. Secret key encrypted at rest using AES-CBC via pgcrypto (semantic security with random IVs). Encryption key must be stored separately from database (key separation principle).';
 COMMENT ON COLUMN private_schema.totp_secrets.id IS
   'Unique identifier for the TOTP secret record (UUID)';
 COMMENT ON COLUMN private_schema.totp_secrets.user_id IS
   'References users.user_id. UNIQUE ensures one TOTP secret per user. ON DELETE CASCADE removes secret when user is deleted';
 COMMENT ON COLUMN private_schema.totp_secrets.secret_key_encrypted IS
-  'ENCRYPTED Base32-encoded TOTP secret. Encrypted using AES-CBC (pgcrypto) with 256-bit master key stored separately from database. ' ||
-  'Each encryption generates a random IV (included in ciphertext). NEVER stored in plaintext. ' ||
-  'Decrypted only during TOTP verification, then immediately discarded. ' ||
-  'Database compromise does not expose plaintext secrets (cryptographically protected).';
+  'ENCRYPTED Base32-encoded TOTP secret. Encrypted using AES-CBC (pgcrypto) with 256-bit master key stored separately from database. Each encryption generates a random IV (included in ciphertext). NEVER stored in plaintext. Decrypted only during TOTP verification, then immediately discarded. Database compromise does not expose plaintext secrets (cryptographically protected).';
 COMMENT ON COLUMN private_schema.totp_secrets.algorithm IS
   'HMAC algorithm for TOTP generation (SHA1, SHA256, SHA512). Default: SHA1 for compatibility with most authenticator apps.';
 COMMENT ON COLUMN private_schema.totp_secrets.period_seconds IS
@@ -309,11 +301,9 @@ COMMENT ON COLUMN private_schema.totp_secrets.digits IS
 COMMENT ON COLUMN private_schema.totp_secrets.verified_at IS
   'Single source of truth for 2FA status. NULL = 2FA disabled (secret created but not verified). NOT NULL = 2FA enabled (timestamp when user verified the secret during setup).';
 COMMENT ON COLUMN private_schema.totp_secrets.last_used_at IS
-  'Timestamp when TOTP was last successfully used for authentication. NULL until first use. ' ||
-  'Useful for security analytics: detect dormant 2FA, investigate account activity, validate "was 2FA actually used?" scenarios.';
+  'Timestamp when TOTP was last successfully used for authentication. NULL until first use. Useful for security analytics: detect dormant 2FA, investigate account activity, validate "was 2FA actually used?" scenarios.';
 COMMENT ON COLUMN private_schema.totp_secrets.backup_codes_generated_at IS
-  'Timestamp when backup codes were last generated for account recovery. NULL if not yet generated. ' ||
-  'When new codes are generated, old codes should be invalidated (see backup_codes.generation_batch_id).';
+  'Timestamp when backup codes were last generated for account recovery. NULL if not yet generated. When new codes are generated, old codes should be invalidated (see backup_codes.generation_batch_id).';
 COMMENT ON COLUMN private_schema.totp_secrets.created_at IS
   'Timestamp when the TOTP secret was created';
 COMMENT ON COLUMN private_schema.totp_secrets.updated_at IS
@@ -336,22 +326,17 @@ CREATE TABLE private_schema.backup_codes (
 );
 
 COMMENT ON TABLE private_schema.backup_codes IS
-  'Single-use backup codes for account recovery when authenticator device is lost. ' ||
-  'Generated and stored hashed. Supports batch invalidation when new codes are generated via generation_batch_id.';
+  'Single-use backup codes for account recovery when authenticator device is lost. Generated and stored hashed. Supports batch invalidation when new codes are generated via generation_batch_id.';
 COMMENT ON COLUMN private_schema.backup_codes.id IS
   'Unique identifier for the backup code record (UUID)';
 COMMENT ON COLUMN private_schema.backup_codes.user_id IS
   'References users.user_id. ON DELETE CASCADE removes backup codes when user is deleted';
 COMMENT ON COLUMN private_schema.backup_codes.generation_batch_id IS
-  'Groups codes by generation batch (UUID). Allows invalidating old codes when new ones are generated. ' ||
-  'All codes in a batch are created at the same time (see totp_secrets.backup_codes_generated_at). ' ||
-  'App can invalidate old batches: DELETE FROM backup_codes WHERE user_id = ? AND generation_batch_id != current_batch_id.';
+  'Groups codes by generation batch (UUID). Allows invalidating old codes when new ones are generated. All codes in a batch are created at the same time (see totp_secrets.backup_codes_generated_at). App can invalidate old batches: DELETE FROM backup_codes WHERE user_id = ? AND generation_batch_id != current_batch_id.';
 COMMENT ON COLUMN private_schema.backup_codes.code_hash IS
-  'Hash of the backup code (never store plaintext). User receives plaintext codes only during setup. ' ||
-  'Hashed with bcrypt or similar (20+ rounds minimum). Cannot be recovered even if database is compromised.';
+  'Hash of the backup code (never store plaintext). User receives plaintext codes only during setup. Hashed with bcrypt or similar (20+ rounds minimum). Cannot be recovered even if database is compromised.';
 COMMENT ON COLUMN private_schema.backup_codes.used_at IS
-  'Timestamp when the backup code was used for account recovery. NULL until first use. ' ||
-  'After use, code cannot be reused (enforced by app logic: reject if used_at IS NOT NULL).';
+  'Timestamp when the backup code was used for account recovery. NULL until first use. After use, code cannot be reused (enforced by app logic: reject if used_at IS NOT NULL).';
 COMMENT ON COLUMN private_schema.backup_codes.created_at IS
   'Timestamp when the backup code was generated';
 
