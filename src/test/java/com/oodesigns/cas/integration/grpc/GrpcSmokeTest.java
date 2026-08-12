@@ -1,0 +1,321 @@
+package com.oodesigns.cas.integration.grpc;
+
+import com.oodesigns.cas.application.command.DisableTotpCommandHandler;
+import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
+import com.oodesigns.cas.application.command.LoginCommandHandler;
+import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
+import com.oodesigns.cas.application.command.VerifyTotpCommandHandler;
+import com.oodesigns.cas.domain.service.AuthenticationService;
+import com.oodesigns.cas.domain.service.TotpCodeGenerator;
+import com.oodesigns.cas.domain.service.TokenService;
+import com.oodesigns.cas.domain.value.SecretFor2FA;
+import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.infrastructure.adapter.BcryptPasswordVerifier;
+import com.oodesigns.cas.infrastructure.adapter.EnvironmentKeySupplier;
+import com.oodesigns.cas.infrastructure.adapter.JooqTotpSetupProvider;
+import com.oodesigns.cas.infrastructure.adapter.JooqTotpStatusReader;
+import com.oodesigns.cas.infrastructure.adapter.JooqTotpVerifier;
+import com.oodesigns.cas.infrastructure.adapter.JooqUserCredentialByIdReader;
+import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
+import com.oodesigns.cas.infrastructure.adapter.JwtTokenVerifier;
+import com.oodesigns.cas.infrastructure.adapter.LoginRateLimiter;
+import com.oodesigns.cas.infrastructure.adapter.SystemClock;
+import com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter;
+import com.oodesigns.cas.infrastructure.adapter.UserCredentialReader;
+import com.oodesigns.cas.infrastructure.adapter.UserRepository;
+import com.oodesigns.cas.infrastructure.config.DatabaseConfig;
+import com.oodesigns.cas.infrastructure.config.DatabaseContextFactory;
+import com.oodesigns.cas.infrastructure.grpc.AuthGrpcService;
+import com.oodesigns.cas.util.file.FileLoaderProviderFactory;
+import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
+import com.oodesigns.cas.util.properties.PropertiesReader;
+import com.oodesigns.cas.infrastructure.grpc.proto.AuthServiceGrpc;
+import com.oodesigns.cas.infrastructure.grpc.proto.DisableTotpRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.DisableTotpResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.LoginRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.LoginResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpResponse;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.Server;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import org.jooq.DSLContext;
+import org.jooq.Record;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * End-to-end smoke test for the gRPC delivery layer against the live docker-compose database.
+ * <p>
+ * This test boots the real gRPC server in-process and exercises the full flow over a
+ * blocking gRPC client: login → setup TOTP → enable TOTP → verify TOTP → disable TOTP.
+ * The database is the compose-backed PostgreSQL instance seeded by Flyway.
+ */
+@Tag("database")
+@Tag("smoke")
+@Tag("integration")
+class GrpcSmokeTest {
+
+    private static final String DEFAULT_DB_HOST = "localhost";
+    private static final String DEFAULT_JWT_SECRET = "smoke-test-jwt-secret-smoke-test-jwt-secret-0123456789";
+    private static final String DEFAULT_TOTP_ENCRYPTION_KEY = "smoke-test-totp-encryption-key-smoke-test-0123456789";
+    private static final String DEFAULT_POSTGRES_USER = "postgres";
+    private static final String DEFAULT_POSTGRES_PASSWORD = "postgres";
+    private static final String TEST_PASSWORD = "SmokePassword123!";
+    private static final String TEST_IP = "127.0.0.1";
+    private static final String TEST_USERNAME = "grpc_smoke";
+
+    private static volatile boolean defaultsInitialized;
+
+    private DSLContext adminDsl;
+    private Connection adminConnection;
+    private Server server;
+    private ManagedChannel channel;
+    private AuthServiceGrpc.AuthServiceBlockingStub stub;
+    private UserId createdUserId;
+
+    @BeforeAll
+    static void initializeDefaults() {
+        if (defaultsInitialized) {
+            return;
+        }
+        System.setProperty("DB_HOST", System.getProperty("DB_HOST", DEFAULT_DB_HOST));
+        System.setProperty("JWT_SECRET", System.getProperty("JWT_SECRET", DEFAULT_JWT_SECRET));
+        System.setProperty("KEYSTORE_PASSWORD", System.getProperty("KEYSTORE_PASSWORD", DEFAULT_TOTP_ENCRYPTION_KEY));
+        System.setProperty("TRUSTSTORE_PASSWORD", System.getProperty("TRUSTSTORE_PASSWORD", DEFAULT_TOTP_ENCRYPTION_KEY));
+        System.setProperty("POSTGRES_USER", System.getProperty("POSTGRES_USER", DEFAULT_POSTGRES_USER));
+        System.setProperty("POSTGRES_PASSWORD", System.getProperty("POSTGRES_PASSWORD", DEFAULT_POSTGRES_PASSWORD));
+        System.setProperty("API_USER", System.getProperty("API_USER", "app_user"));
+        System.setProperty("API_PASSWORD", System.getProperty("API_PASSWORD", "DefaultP@ss123"));
+        System.setProperty("APP_DB", System.getProperty("APP_DB", "auth_db"));
+        defaultsInitialized = true;
+    }
+
+    @BeforeEach
+    void setUp() throws Exception {
+        Assumptions.assumeTrue(isDatabaseAvailable(), "Live PostgreSQL database is not available");
+
+        final PropertiesReader propertiesReader = new PropertiesReader(
+                "application.properties",
+                new EnvironmentVariableTransformer(),
+                FileLoaderProviderFactory.defaultProvider()
+        );
+        final DatabaseConfig databaseConfig = new DatabaseConfig(propertiesReader);
+        final DSLContext appDsl = DatabaseContextFactory.create(databaseConfig);
+
+        adminConnection = openAdminConnection(databaseConfig);
+        adminDsl = org.jooq.impl.DSL.using(adminConnection, org.jooq.SQLDialect.POSTGRES);
+
+        final EnvironmentKeySupplier keySupplier = new EnvironmentKeySupplier(name -> {
+            final String envValue = System.getenv(name);
+            if (envValue != null && !envValue.isBlank()) {
+                return envValue;
+            }
+            final String propertyValue = System.getProperty(name);
+            return (propertyValue == null || propertyValue.isBlank()) ? null : propertyValue;
+        });
+
+        final AuthenticationService authenticationService = new AuthenticationService(new BcryptPasswordVerifier());
+        final TokenService tokenService = new TokenService(new SystemClock(), new JwtTokenSigner(keySupplier, "JWT_SECRET"));
+        final UserCredentialReader credentialReader = new UserCredentialReader(appDsl);
+        final UserRepository userRepository = new UserRepository(appDsl);
+        final JooqTotpStatusReader totpStatusReader = new JooqTotpStatusReader(appDsl);
+        final JooqTotpVerifier totpVerifier = new JooqTotpVerifier(appDsl, new SystemClock(), keySupplier, "KEYSTORE_PASSWORD");
+        final JooqTotpSetupProvider totpSetupProvider = new JooqTotpSetupProvider(appDsl, keySupplier, "KEYSTORE_PASSWORD");
+        final JooqUserCredentialByIdReader credentialByIdReader = new JooqUserCredentialByIdReader(appDsl);
+
+        final LoginCommandHandler loginHandler = new LoginCommandHandler(
+                authenticationService,
+                tokenService,
+                credentialReader,
+                userRepository,
+                totpStatusReader,
+                new LoginRateLimiter()
+        );
+        final SetupTotpCommandHandler setupTotpHandler = new SetupTotpCommandHandler(totpSetupProvider, "CentralAuthService");
+        final EnableTotpCommandHandler enableTotpHandler = new EnableTotpCommandHandler(totpVerifier, totpSetupProvider);
+        final VerifyTotpCommandHandler verifyTotpHandler = new VerifyTotpCommandHandler(
+                new JwtTokenVerifier(keySupplier, "JWT_SECRET"),
+                totpVerifier,
+                userRepository,
+                tokenService,
+                new TotpRateLimiter()
+        );
+        final DisableTotpCommandHandler disableTotpHandler = new DisableTotpCommandHandler(
+                authenticationService,
+                credentialByIdReader,
+                totpSetupProvider
+        );
+
+        server = NettyServerBuilder.forPort(0)
+                .addService(new AuthGrpcService(
+                        loginHandler,
+                        setupTotpHandler,
+                        enableTotpHandler,
+                        verifyTotpHandler,
+                        disableTotpHandler))
+                .build()
+                .start();
+
+        channel = ManagedChannelBuilder.forAddress("127.0.0.1", server.getPort())
+                .usePlaintext()
+                .build();
+        stub = AuthServiceGrpc.newBlockingStub(channel);
+
+        createdUserId = createSmokeUser();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (channel != null) {
+            channel.shutdownNow();
+            channel.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        if (server != null) {
+            server.shutdownNow();
+            server.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        if (adminDsl != null && createdUserId != null) {
+            //noinspection SqlResolve
+            adminDsl.execute("DELETE FROM private_schema.users WHERE user_id = ?", createdUserId.value());
+        }
+        if (adminConnection != null && !adminConnection.isClosed()) {
+            adminConnection.close();
+        }
+        channel = null;
+        server = null;
+        stub = null;
+        adminDsl = null;
+        adminConnection = null;
+        createdUserId = null;
+    }
+
+    @Test
+    void grpcSmokeFlow_CoversLoginSetupEnableVerifyAndDisableAgainstLiveServer() {
+        final LoginResponse initialLogin = stub.login(LoginRequest.newBuilder()
+                .setUsername(TEST_USERNAME)
+                .setPassword(TEST_PASSWORD)
+                .setIpAddress(TEST_IP)
+                .build());
+        assertTrue(initialLogin.hasSuccess(), "Initial login should succeed before TOTP is enabled");
+        assertFalse(initialLogin.getSuccess().getPermissionsList().isEmpty(), "Role permissions should be returned");
+
+        final SetupTotpResponse setup = stub.setupTotp(SetupTotpRequest.newBuilder()
+                .setUserId(createdUserId.value().toString())
+                .setUsername(TEST_USERNAME)
+                .build());
+        assertTrue(setup.hasSuccess(), "TOTP setup should return a secret and otpauth URI");
+        assertFalse(setup.getSuccess().getSecret().isEmpty(), "TOTP secret should be present");
+
+        final String otp = new TotpCodeGenerator(new SystemClock())
+                .generate(SecretFor2FA.of(setup.getSuccess().getSecret()));
+
+        final EnableTotpResponse enable = stub.enableTotp(EnableTotpRequest.newBuilder()
+                .setUserId(createdUserId.value().toString())
+                .setTotpCode(otp)
+                .build());
+        assertTrue(enable.hasSuccess(), "TOTP enable should succeed with a valid OTP");
+        assertFalse(enable.getSuccess().getBackupCodesList().isEmpty(), "Backup codes should be returned");
+
+        final LoginResponse challenge = stub.login(LoginRequest.newBuilder()
+                .setUsername(TEST_USERNAME)
+                .setPassword(TEST_PASSWORD)
+                .setIpAddress(TEST_IP)
+                .build());
+        assertTrue(challenge.hasTotpRequired(), "Login should now require 2FA verification");
+
+        final VerifyTotpResponse verified = stub.verifyTotp(VerifyTotpRequest.newBuilder()
+                .setVerificationToken(challenge.getTotpRequired().getVerificationToken())
+                .setCode(otp)
+                .build());
+        assertTrue(verified.hasSuccess(), "VerifyTotp should exchange the 2FA token for access tokens");
+        assertEquals(createdUserId.value().toString(), verified.getSuccess().getUserId());
+        assertFalse(verified.getSuccess().getPermissionsList().isEmpty(), "Permissions should be returned");
+
+        final DisableTotpResponse disabled = stub.disableTotp(DisableTotpRequest.newBuilder()
+                .setUserId(createdUserId.value().toString())
+                .setPassword(TEST_PASSWORD)
+                .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.USER_REQUESTED)
+                .build());
+        assertTrue(disabled.hasSuccess(), "DisableTotp should succeed after password re-authentication");
+
+        final LoginResponse afterDisable = stub.login(LoginRequest.newBuilder()
+                .setUsername(TEST_USERNAME)
+                .setPassword(TEST_PASSWORD)
+                .setIpAddress(TEST_IP)
+                .build());
+        assertTrue(afterDisable.hasSuccess(), "Login should succeed again once TOTP is disabled");
+    }
+
+    private UserId createSmokeUser() {
+        final UUID userId = UUID.randomUUID();
+        final UUID roleId = adminRoleId();
+        final String passwordHash = new BCryptPasswordEncoder().encode(TEST_PASSWORD);
+
+        //noinspection SqlResolve
+        adminDsl.execute(
+                "INSERT INTO private_schema.users (user_id, username, password_hash, role_id, password_reset_required_at, mfa_required_at) VALUES (?, ?, ?, ?, NULL, NULL)",
+                userId,
+                TEST_USERNAME,
+                passwordHash,
+                roleId
+        );
+
+        return UserId.of(userId);
+    }
+
+    private UUID adminRoleId() {
+        //noinspection SqlResolve
+        final Record record = adminDsl.fetchOne(
+                "SELECT role_id FROM private_schema.roles WHERE name = ?",
+                "admin"
+        );
+        assertNotNull(record, "Admin role should exist in seeded data");
+        return record.get("role_id", UUID.class);
+    }
+
+    private Connection openAdminConnection(final DatabaseConfig databaseConfig) throws SQLException {
+        final String adminUser = System.getProperty("POSTGRES_USER", DEFAULT_POSTGRES_USER);
+        final String adminPassword = System.getProperty("POSTGRES_PASSWORD", DEFAULT_POSTGRES_PASSWORD);
+        final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s",
+                databaseConfig.getHost(),
+                databaseConfig.getPort(),
+                databaseConfig.getDatabaseName());
+        return DriverManager.getConnection(jdbcUrl, adminUser, adminPassword);
+    }
+
+    private boolean isDatabaseAvailable() {
+        try {
+            final PropertiesReader propertiesReader = new PropertiesReader(
+                    "application.properties",
+                    new EnvironmentVariableTransformer(),
+                    FileLoaderProviderFactory.defaultProvider()
+            );
+            final DatabaseConfig config = new DatabaseConfig(propertiesReader);
+            DatabaseContextFactory.create(config);
+            return true;
+        } catch (final RuntimeException e) {
+            return false;
+        }
+    }
+}

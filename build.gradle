@@ -115,8 +115,9 @@ tasks.register('databaseIntegrationTest', Test) {
     shouldRunAfter test
 
     // Only run if database is available (check via environment variable or manual flag)
+    final boolean includeDbTests = System.getenv('RUN_DATABASE_TESTS') == 'true' || findProperty('includeDbTests') != null
     onlyIf {
-        System.getenv('RUN_DATABASE_TESTS') == 'true' || project.hasProperty('includeDbTests')
+        includeDbTests
     }
 }
 
