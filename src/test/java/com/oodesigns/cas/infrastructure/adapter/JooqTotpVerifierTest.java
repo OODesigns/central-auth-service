@@ -79,6 +79,26 @@ class JooqTotpVerifierTest {
     }
 
     @Test
+    void verifySetupCodeReturnsTrueForMatchingPendingSecret() {
+        final UUID userId = UUID.randomUUID();
+        final String code = totpCodeGenerator.generate(SecretFor2FA.of(SECRET));
+        when(keySupplier.getPassword(ENCRYPTION_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_KEY)));
+        when(dslContext.fetchOptional("SELECT * FROM api_schema.get_pending_totp_secret(?)", userId))
+            .thenReturn(Optional.of(secretRecord()));
+
+        assertTrue(verifier.verifySetupCode(UserId.of(userId), TotpCode.of(code)));
+        // Enrolment must NOT consult the active-secret function.
+        verify(dslContext).fetchOptional("SELECT * FROM api_schema.get_pending_totp_secret(?)", userId);
+        verify(dslContext, never()).fetchOptional("SELECT * FROM api_schema.get_totp_secret(?)", userId);
+    }
+
+    @Test
+    void verifySetupCodeReturnsFalseWhenInputsAreNull() {
+        assertFalse(verifier.verifySetupCode(null, TotpCode.of("123456")));
+        assertFalse(verifier.verifySetupCode(UserId.of(UUID.randomUUID()), null));
+    }
+
+    @Test
     void verifyBackupCodeReturnsFalseWhenNoUnusedHashesExist() {
         final UUID userId = UUID.randomUUID();
         when(dslContext.fetchOne("SELECT api_schema.find_unused_backup_code_hashes(?)", userId))

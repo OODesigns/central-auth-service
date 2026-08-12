@@ -34,6 +34,17 @@ public class MockTotpVerifier implements Ports.TotpVerifier {
     }
 
     @Override
+    public boolean verifySetupCode(final UserId userId, final TotpCode totpCode) {
+        // Enrolment happens before activation, so — unlike verifyCode — this does not require
+        // the user to be enabled; it validates against the pending secret only.
+        verificationAttempts.incrementAndGet();
+        if (userId == null || totpCode == null) {
+            return false;
+        }
+        return validTotpCodes.contains(totpCode.getCode());
+    }
+
+    @Override
     public boolean verifyBackupCode(final UserId userId, final BackupCode backupCode) {
         backupAttempts.incrementAndGet();
         if (userId == null || backupCode == null) {

@@ -39,6 +39,7 @@ class VerifyTotpCommandHandlerTest {
     @Mock private Ports.TokenSigner tokenSigner;
     @Mock private Ports.Clock clock;
     @Mock private Ports.TotpRateLimiter totpRateLimiter;
+    @Mock private Ports.RefreshTokenStore refreshTokenStore;
 
     private VerifyTotpCommandHandler handler;
     private TokenService tokenService;
@@ -51,7 +52,7 @@ class VerifyTotpCommandHandlerTest {
         tokenService = new TokenService(clock, tokenSigner);
         // Default rate limiter permits attempts (lenient to avoid unnecessary stubbing failures)
         org.mockito.Mockito.lenient().when(totpRateLimiter.checkLimit(any())).thenReturn(Ports.RateLimitResult.allowed());
-        handler = new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, tokenService, totpRateLimiter);
+        handler = new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, tokenService, totpRateLimiter, refreshTokenStore);
         userId = UserId.of(UUID.randomUUID());
         user = new User(userId, Username.of("alice"), Set.of(Permission.of("read")), null, null);
         tokenPair = new TokenService.TokenPair("access.token", "refresh.token");
@@ -279,15 +280,30 @@ class VerifyTotpCommandHandlerTest {
     @Test
     void constructorRejectsNulls() {
         assertThrows(NullPointerException.class,
-            () -> new VerifyTotpCommandHandler(null, totpVerifier, userRetriever, tokenService, totpRateLimiter));
+            () -> new VerifyTotpCommandHandler(null, totpVerifier, userRetriever, tokenService, totpRateLimiter, refreshTokenStore));
         assertThrows(NullPointerException.class,
-            () -> new VerifyTotpCommandHandler(tokenVerifier, null, userRetriever, tokenService, totpRateLimiter));
+            () -> new VerifyTotpCommandHandler(tokenVerifier, null, userRetriever, tokenService, totpRateLimiter, refreshTokenStore));
         assertThrows(NullPointerException.class,
-            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, null, tokenService, totpRateLimiter));
+            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, null, tokenService, totpRateLimiter, refreshTokenStore));
         assertThrows(NullPointerException.class,
-            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, null, totpRateLimiter));
+            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, null, totpRateLimiter, refreshTokenStore));
         assertThrows(NullPointerException.class,
-            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, tokenService, null));
+            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, tokenService, null, refreshTokenStore));
+        assertThrows(NullPointerException.class,
+            () -> new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, tokenService, totpRateLimiter, null));
+    }
+
+    @Test
+    void handlePersistsRefreshTokenOnSuccess() {
+        when(tokenVerifier.verify2FAVerificationToken(VERIFICATION_TOKEN))
+            .thenReturn(Optional.of(userId));
+        when(totpVerifier.verifyCode(userId, TotpCode.of(VALID_OTP))).thenReturn(true);
+        when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
+        mockSuccessfulTokenGeneration();
+
+        handler.handle(new VerifyTotpCommand(VERIFICATION_TOKEN, VALID_OTP));
+
+        verify(refreshTokenStore).issue(eq(userId), anyString());
     }
 }
 

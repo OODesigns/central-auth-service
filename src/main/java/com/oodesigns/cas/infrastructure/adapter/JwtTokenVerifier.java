@@ -37,7 +37,8 @@ import java.util.logging.Logger;
 public final class JwtTokenVerifier implements Ports.TokenVerifier {
 
     private static final Logger LOGGER = Logger.getLogger(JwtTokenVerifier.class.getName());
-    private static final String EXPECTED_AUDIENCE = "2fa_verification";
+    private static final String AUDIENCE_2FA = "2fa_verification";
+    private static final String AUDIENCE_REFRESH = "refresh_token";
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     private final KeySupplier keySupplier;
@@ -73,14 +74,31 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
      */
     @Override
     public Optional<UserId> verify2FAVerificationToken(final String token) {
+        return verifyWithAudience(token, AUDIENCE_2FA);
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Returns {@link Optional#empty()} when the token is {@code null}, blank, expired,
+     * has an invalid signature, has an audience other than {@code "refresh_token"}, or
+     * cannot be parsed.
+     */
+    @Override
+    public Optional<UserId> verifyRefreshToken(final String token) {
+        return verifyWithAudience(token, AUDIENCE_REFRESH);
+    }
+
+    private Optional<UserId> verifyWithAudience(final String token, final String expectedAudience) {
         if (token == null || token.isBlank()) {
             return Optional.empty();
         }
         return keySupplier.getPassword(keyId)
-                .flatMap(password -> parseAndVerify(token, password));
+                .flatMap(password -> parseAndVerify(token, password, expectedAudience));
     }
 
-    private Optional<UserId> parseAndVerify(final String token, final KeyPassword password) {
+    private Optional<UserId> parseAndVerify(final String token, final KeyPassword password,
+                                            final String expectedAudience) {
         try (password) {
             final SecretKey key = Keys.hmacShaKeyFor(password.toUtf8Bytes());
             final Claims claims = Jwts.parser()
@@ -89,21 +107,21 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
                     .parseSignedClaims(token)
                     .getPayload();
             final String payloadJson = claims.get("payload", String.class);
-            return extractUserId(payloadJson);
+            return extractUserId(payloadJson, expectedAudience);
         } catch (final RuntimeException e) {
-            LOGGER.log(Level.FINE, () -> "Failed to verify 2FA token: " + e.getMessage());
+            LOGGER.log(Level.FINE, () -> "Failed to verify token: " + e.getMessage());
             return Optional.empty();
         }
     }
 
-    private Optional<UserId> extractUserId(final String payloadJson) {
+    private Optional<UserId> extractUserId(final String payloadJson, final String expectedAudience) {
         if (payloadJson == null || payloadJson.isBlank()) {
             return Optional.empty();
         }
         try {
             final Map<String, Object> payload = objectMapper.readValue(payloadJson, MAP_TYPE);
             final String aud = (String) payload.get("aud");
-            if (!EXPECTED_AUDIENCE.equals(aud)) {
+            if (!expectedAudience.equals(aud)) {
                 return Optional.empty();
             }
             final String sub = (String) payload.get("sub");
@@ -112,7 +130,7 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
             }
             return Optional.of(UserId.of(sub));
         } catch (final Exception e) {
-            LOGGER.log(Level.FINE, () -> "Failed to parse 2FA token payload: " + e.getMessage());
+            LOGGER.log(Level.FINE, () -> "Failed to parse token payload: " + e.getMessage());
             return Optional.empty();
         }
     }

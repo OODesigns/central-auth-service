@@ -21,6 +21,9 @@ service AuthService {
     // Exchange a 2FA verification token + OTP/backup code for full access tokens.
     rpc VerifyTotp(VerifyTotpRequest) returns (VerifyTotpResponse);
 
+    // Rotate a refresh token for a fresh access + refresh token pair (reuse-detecting).
+    rpc Refresh(RefreshRequest) returns (RefreshResponse);
+
     // Disable TOTP 2FA after password re-authentication.
     rpc DisableTotp(DisableTotpRequest) returns (DisableTotpResponse);
 }
@@ -119,6 +122,28 @@ message VerifyTotpResponse {
 }
 
 message VerifyTotpSuccess {
+    string          access_token  = 1;
+    string          refresh_token = 2;
+    string          user_id       = 3;
+    repeated string permissions   = 4;
+}
+
+// ============================================================================
+// Refresh (refresh-token rotation)
+// ============================================================================
+
+message RefreshRequest {
+    string refresh_token = 1;
+}
+
+message RefreshResponse {
+    oneof result {
+        RefreshSuccess success = 1;
+        Error          error   = 2;
+    }
+}
+
+message RefreshSuccess {
     string          access_token  = 1;
     string          refresh_token = 2;
     string          user_id       = 3;

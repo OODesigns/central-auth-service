@@ -38,7 +38,7 @@
 | **3.2** | gRPC delivery layer + `Main` wiring |
 | **3.3** | TLS wiring (`KeySupplier`, keystore/truststore env vars) |
 | **3.4** | End-to-end smoke tests against docker-compose |
-| **Phase 4** (4.1–4.5) | Refresh token rotation, logout/revocation, 2FA rate limiting, doc cleanup, CI workflow |
+| **Phase 4** (4.2–4.5) | Logout/revocation, 2FA rate limiting, doc cleanup, CI workflow (4.1 refresh-token rotation ✅ done) |
 
 **Suggested next ticket:** 2.2b — small, well-defined (one migration + one JOOQ adapter cloning the `UserCredentialReader` pattern), and it unblocks the disable-2FA flow end-to-end.
 
@@ -256,12 +256,35 @@ Implications for the plan:
 
 ### Phase 4 — Token lifecycle + hardening
 
-- [ ] 4.1 Refresh handler with rotation using the `refresh_tokens` table.
+- [x] 4.1 Refresh handler with rotation using the `refresh_tokens` table.
+      **Strategy: rotating refresh tokens with family-based automatic reuse detection.**
+      — New `Ports.RefreshTokenStore` (`issue` / `rotate` → `RotationStatus`) + `Ports.TokenVerifier.verifyRefreshToken`.
+      — `RefreshTokenCommandHandler` (+ `RefreshTokenCommand` / `RefreshTokenResult`): verify refresh JWT →
+        load user → generate new pair → atomic `rotate`. Maps `ROTATED`/`REUSE_DETECTED`/`EXPIRED`/`NOT_FOUND`
+        to `success` / `REFRESH_TOKEN_REUSE_DETECTED` / `REFRESH_TOKEN_EXPIRED` / `INVALID_REFRESH_TOKEN`.
+      — `JooqRefreshTokenStore` stores only a SHA-256 hash of each token; `V1_4_6__add_refresh_token_api_functions.sql`
+        adds `store_refresh_token` + `rotate_refresh_token` (atomic `SELECT … FOR UPDATE`; reuse revokes the whole family).
+      — Refresh tokens now carry `aud:"refresh_token"` (token-type separation) **and a unique `jti`** so two tokens
+        issued in the same second never collide on `token_hash`.
+      — `LoginCommandHandler` / `VerifyTotpCommandHandler` persist the issued refresh token; `Refresh` gRPC RPC added.
+      — Verified end-to-end against docker-compose (`GrpcSmokeTest`: rotation → reuse detection → family revocation).
+      100% coverage maintained.
 - [ ] 4.2 Logout / revocation using `invalidated_jwts` (check on token validation path).
 - [ ] 4.3 Rate limiting on 2FA verification attempts (currently only login is limited).
 - [ ] 4.4 Update stale docs (`2FA_IMPLEMENTATION_CHECKLIST.md`'s `totp_enabled` references).
 - [ ] 4.5 CI workflow (GitHub Actions) running `test`, `integrationTest`,
       `jacocoTestCoverageVerification`.
+
+> **Fixed (2026-08-12):** the `V1_4_5` side effect where `get_totp_secret` returned *pending* secrets (so
+> `JooqTotpVerifier.verifyCode` accepted codes before enrolment completed). `V1_4_7__split_pending_totp_secret_lookup.sql`
+> reverts `get_totp_secret` to **active secrets only** and adds `get_pending_totp_secret` for the enrolment path; a new
+> `Ports.TotpVerifier.verifySetupCode` (used by `EnableTotpCommandHandler`) validates the first OTP against the pending
+> secret, while login-time `verifyCode` only sees active secrets. Verified against docker-compose
+> (`TotpDatabaseIntegrationTest` + `GrpcSmokeTest`).
+>
+> **Build note:** the `protobuf-gradle-plugin` (0.9.5) still emits a "multi-string dependency notation deprecated
+> (Gradle 10)" warning when it synthesizes the platform `protoc`/`grpc` executables. This is an upstream plugin
+> limitation, not our build script, and is non-fatal under Gradle 9.x (documented in `build.gradle`).
 
 ### Sizing & order
 

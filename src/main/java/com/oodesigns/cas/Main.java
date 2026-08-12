@@ -3,6 +3,7 @@ package com.oodesigns.cas;
 import com.oodesigns.cas.application.command.DisableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
+import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
 import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
 import com.oodesigns.cas.application.command.VerifyTotpCommandHandler;
 import com.oodesigns.cas.domain.service.AuthenticationService;
@@ -13,6 +14,7 @@ import com.oodesigns.cas.infrastructure.adapter.JooqTotpSetupProvider;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpStatusReader;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpVerifier;
 import com.oodesigns.cas.infrastructure.adapter.JooqUserCredentialByIdReader;
+import com.oodesigns.cas.infrastructure.adapter.JooqRefreshTokenStore;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenVerifier;
 import com.oodesigns.cas.infrastructure.adapter.LoginRateLimiter;
@@ -82,6 +84,7 @@ public final class Main {
                 new JooqTotpSetupProvider(dsl, keySupplier, TOTP_ENCRYPTION_KEY_ID);
         final JooqUserCredentialByIdReader credentialByIdReader =
                 new JooqUserCredentialByIdReader(dsl);
+        final JooqRefreshTokenStore refreshTokenStore = new JooqRefreshTokenStore(dsl);
 
         // --- Domain services ---
         final AuthenticationService authService = new AuthenticationService(passwordVerifier);
@@ -90,20 +93,22 @@ public final class Main {
         // --- Command handlers ---
         final LoginCommandHandler loginHandler = new LoginCommandHandler(
                 authService, tokenService, credentialReader, userRepository,
-                totpStatusReader, rateLimiter);
+                totpStatusReader, rateLimiter, refreshTokenStore);
         final SetupTotpCommandHandler setupTotpHandler =
                 new SetupTotpCommandHandler(totpSetupProvider, issuerName);
         final EnableTotpCommandHandler enableTotpHandler =
                 new EnableTotpCommandHandler(totpVerifier, totpSetupProvider);
         final VerifyTotpCommandHandler verifyTotpHandler =
-                new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRepository, tokenService, totpRateLimiter);
+                new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRepository, tokenService, totpRateLimiter, refreshTokenStore);
         final DisableTotpCommandHandler disableTotpHandler =
                 new DisableTotpCommandHandler(authService, credentialByIdReader, totpSetupProvider);
+        final RefreshTokenCommandHandler refreshTokenHandler =
+                new RefreshTokenCommandHandler(tokenVerifier, userRepository, tokenService, refreshTokenStore);
 
         // --- gRPC service ---
         final AuthGrpcService grpcService = new AuthGrpcService(
                 loginHandler, setupTotpHandler, enableTotpHandler,
-                verifyTotpHandler, disableTotpHandler);
+                verifyTotpHandler, disableTotpHandler, refreshTokenHandler);
 
         // --- TLS (optional) ---
         final String keystorePath = props.get("grpc.tls.keystore.path");

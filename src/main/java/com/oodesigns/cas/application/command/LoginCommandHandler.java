@@ -63,19 +63,22 @@ public final class LoginCommandHandler {
     private final Ports.UserRetriever userRepository;
     private final Ports.TotpStatusReader totpStatusReader;
     private final Ports.RateLimiter rateLimiter;
+    private final Ports.RefreshTokenStore refreshTokenStore;
 
     public LoginCommandHandler(final AuthenticationService authService,
                                final TokenService tokenService,
                                final Ports.UserCredentialRetriever credentialReader,
                                final Ports.UserRetriever userRepository,
                                final Ports.TotpStatusReader totpStatusReader,
-                               final Ports.RateLimiter rateLimiter) {
+                               final Ports.RateLimiter rateLimiter,
+                               final Ports.RefreshTokenStore refreshTokenStore) {
         this.authService = Objects.requireNonNull(authService);
         this.tokenService = Objects.requireNonNull(tokenService);
         this.credentialReader = Objects.requireNonNull(credentialReader);
         this.userRepository = Objects.requireNonNull(userRepository);
         this.totpStatusReader = Objects.requireNonNull(totpStatusReader);
         this.rateLimiter = Objects.requireNonNull(rateLimiter);
+        this.refreshTokenStore = Objects.requireNonNull(refreshTokenStore);
     }
 
     /**
@@ -174,6 +177,8 @@ public final class LoginCommandHandler {
         // Step 6: Full token issuance
         final Optional<TokenService.TokenPair> tokens = tokenService.generateTokens(user);
         if (tokens.isPresent()) {
+            // Record the refresh token so it can later be rotated / reuse-detected.
+            refreshTokenStore.issue(user.userId(), tokens.get().refreshToken());
             return LoginResult.success(tokens.get(), user.userId(), user.permissions());
         }
         return LoginResult.failure(INTERNAL_ERROR, "Failed to generate tokens");

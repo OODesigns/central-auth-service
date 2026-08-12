@@ -51,9 +51,18 @@ public final class JooqTotpVerifier implements Ports.TotpVerifier {
 
     @Override
     public boolean verifyCode(final UserId userId, final TotpCode totpCode) {
+        return verifyAgainst(userId, totpCode, Routines::getTotpSecret);
+    }
+
+    @Override
+    public boolean verifySetupCode(final UserId userId, final TotpCode totpCode) {
+        return verifyAgainst(userId, totpCode, Routines::getPendingTotpSecret);
+    }
+
+    private boolean verifyAgainst(final UserId userId, final TotpCode totpCode, final SecretLoader loader) {
         return Optional.ofNullable(userId)
             .flatMap(id -> Optional.ofNullable(totpCode)
-                .flatMap(code -> loadSecret(id).map(secret -> totpCodeGenerator.verify(secret, code.value()))))
+                .flatMap(code -> loadSecret(id, loader).map(secret -> totpCodeGenerator.verify(secret, code.value()))))
             .orElse(false);
     }
 
@@ -72,8 +81,8 @@ public final class JooqTotpVerifier implements Ports.TotpVerifier {
             .orElse(false);
     }
 
-    private Optional<SecretFor2FA> loadSecret(final UserId userId) {
-        return Routines.getTotpSecret(dsl, userId.value())
+    private Optional<SecretFor2FA> loadSecret(final UserId userId, final SecretLoader loader) {
+        return loader.load(dsl, userId.value())
             .flatMap(record -> encryptionKey().map(key -> decryptSecret(record, key)))
             .filter(Objects::nonNull)
             .map(SecretFor2FA::of);
@@ -105,13 +114,20 @@ public final class JooqTotpVerifier implements Ports.TotpVerifier {
      */
     private static final class Routines {
         static Optional<TotpSecretRecord> getTotpSecret(final DSLContext ctx, final UUID userId) {
-            return ctx.fetchOptional("SELECT * FROM api_schema.get_totp_secret(?)", userId)
-                .map(record -> new TotpSecretRecord(
-                    record.get("secret_key_encrypted", byte[].class),
-                    record.get("algorithm", String.class),
-                    record.get("period_seconds", Integer.class),
-                    record.get("digits", Integer.class)
-                ));
+            return mapSecret(ctx.fetchOptional("SELECT * FROM api_schema.get_totp_secret(?)", userId));
+        }
+
+        static Optional<TotpSecretRecord> getPendingTotpSecret(final DSLContext ctx, final UUID userId) {
+            return mapSecret(ctx.fetchOptional("SELECT * FROM api_schema.get_pending_totp_secret(?)", userId));
+        }
+
+        private static Optional<TotpSecretRecord> mapSecret(final Optional<Record> row) {
+            return row.map(record -> new TotpSecretRecord(
+                record.get("secret_key_encrypted", byte[].class),
+                record.get("algorithm", String.class),
+                record.get("period_seconds", Integer.class),
+                record.get("digits", Integer.class)
+            ));
         }
 
         static Optional<TotpStatusRecord> getTotpStatus(final DSLContext ctx, final UUID userId) {
@@ -142,6 +158,16 @@ public final class JooqTotpVerifier implements Ports.TotpVerifier {
     }
 
     private record TotpStatusRecord(UUID userId) {
+    }
+
+    /**
+     * Strategy for loading an encrypted TOTP secret record — either the active secret
+     * ({@code get_totp_secret}) for login, or the pending secret ({@code get_pending_totp_secret})
+     * for enrolment.
+     */
+    @FunctionalInterface
+    private interface SecretLoader {
+        Optional<TotpSecretRecord> load(DSLContext ctx, UUID userId);
     }
 }
 

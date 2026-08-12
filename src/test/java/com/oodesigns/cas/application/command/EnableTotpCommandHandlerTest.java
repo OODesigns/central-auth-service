@@ -53,7 +53,7 @@ class EnableTotpCommandHandlerTest {
 
     @Test
     void handleReturnsSuccessWithBackupCodesOnValidCode() {
-        when(totpVerifier.verifyCode(userId, TotpCode.of("123456"))).thenReturn(true);
+        when(totpVerifier.verifySetupCode(userId, TotpCode.of("123456"))).thenReturn(true);
         when(totpSetupProvider.enableTotp(userId)).thenReturn(true);
         when(totpSetupProvider.generateBackupCodes(userId)).thenReturn(BACKUP_CODES);
 
@@ -67,7 +67,7 @@ class EnableTotpCommandHandlerTest {
 
     @Test
     void handleLogsInfoOnSuccess() {
-        when(totpVerifier.verifyCode(userId, TotpCode.of("123456"))).thenReturn(true);
+        when(totpVerifier.verifySetupCode(userId, TotpCode.of("123456"))).thenReturn(true);
         when(totpSetupProvider.enableTotp(userId)).thenReturn(true);
         when(totpSetupProvider.generateBackupCodes(userId)).thenReturn(BACKUP_CODES);
 
@@ -84,7 +84,7 @@ class EnableTotpCommandHandlerTest {
 
     @Test
     void handleSucceedsEvenWhenInfoLoggingDisabled() {
-        when(totpVerifier.verifyCode(userId, TotpCode.of("123456"))).thenReturn(true);
+        when(totpVerifier.verifySetupCode(userId, TotpCode.of("123456"))).thenReturn(true);
         when(totpSetupProvider.enableTotp(userId)).thenReturn(true);
         when(totpSetupProvider.generateBackupCodes(userId)).thenReturn(BACKUP_CODES);
 
@@ -104,14 +104,14 @@ class EnableTotpCommandHandlerTest {
 
     @Test
     void handleCallsPortsInSecurityOrder() {
-        when(totpVerifier.verifyCode(userId, TotpCode.of("123456"))).thenReturn(true);
+        when(totpVerifier.verifySetupCode(userId, TotpCode.of("123456"))).thenReturn(true);
         when(totpSetupProvider.enableTotp(userId)).thenReturn(true);
         when(totpSetupProvider.generateBackupCodes(userId)).thenReturn(BACKUP_CODES);
 
         handler.handle(command);
 
         final var inOrder = inOrder(totpVerifier, totpSetupProvider);
-        inOrder.verify(totpVerifier).verifyCode(userId, TotpCode.of("123456"));
+        inOrder.verify(totpVerifier).verifySetupCode(userId, TotpCode.of("123456"));
         inOrder.verify(totpSetupProvider).enableTotp(userId);
         inOrder.verify(totpSetupProvider).generateBackupCodes(userId);
     }
@@ -120,7 +120,7 @@ class EnableTotpCommandHandlerTest {
 
     @Test
     void handleReturnsInvalidTotpCodeWhenVerificationFails() {
-        when(totpVerifier.verifyCode(userId, TotpCode.of("123456"))).thenReturn(false);
+        when(totpVerifier.verifySetupCode(userId, TotpCode.of("123456"))).thenReturn(false);
 
         final EnableTotpResult result = handler.handle(command);
 
@@ -139,7 +139,7 @@ class EnableTotpCommandHandlerTest {
 
     @Test
     void handleReturnsTotpAlreadyEnabledWhenEnableReturnsFalse() {
-        when(totpVerifier.verifyCode(userId, TotpCode.of("123456"))).thenReturn(true);
+        when(totpVerifier.verifySetupCode(userId, TotpCode.of("123456"))).thenReturn(true);
         when(totpSetupProvider.enableTotp(userId)).thenReturn(false);
 
         final EnableTotpResult result = handler.handle(command);
@@ -173,7 +173,7 @@ class EnableTotpCommandHandlerTest {
 
     @Test
     void handleReturnsInternalErrorWhenVerifierThrows() {
-        when(totpVerifier.verifyCode(any(), any())).thenThrow(new RuntimeException("db error"));
+        when(totpVerifier.verifySetupCode(any(), any())).thenThrow(new RuntimeException("db error"));
 
         final Logger logger = Logger.getLogger(EnableTotpCommandHandler.class.getName());
         final Level old = logger.getLevel();
@@ -193,7 +193,7 @@ class EnableTotpCommandHandlerTest {
 
     @Test
     void handleReturnsInternalErrorWhenEnableProviderThrows() {
-        when(totpVerifier.verifyCode(userId, TotpCode.of("123456"))).thenReturn(true);
+        when(totpVerifier.verifySetupCode(userId, TotpCode.of("123456"))).thenReturn(true);
         when(totpSetupProvider.enableTotp(any())).thenThrow(new RuntimeException("storage failure"));
 
         final Logger logger = Logger.getLogger(EnableTotpCommandHandler.class.getName());

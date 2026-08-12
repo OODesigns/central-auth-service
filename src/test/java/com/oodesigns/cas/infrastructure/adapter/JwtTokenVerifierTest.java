@@ -222,11 +222,11 @@ class JwtTokenVerifierTest {
         // the isBlank() branch with a guaranteed non-null blank string.
         assertDoesNotThrow(() -> {
             final java.lang.reflect.Method m = JwtTokenVerifier.class
-                    .getDeclaredMethod("extractUserId", String.class);
+                    .getDeclaredMethod("extractUserId", String.class, String.class);
             m.setAccessible(true);
             final JwtTokenVerifier v = new JwtTokenVerifier(keySupplier, JWT_KEY_ID, new ObjectMapper());
             @SuppressWarnings("unchecked")
-            final Optional<UserId> result = (Optional<UserId>) m.invoke(v, "   ");
+            final Optional<UserId> result = (Optional<UserId>) m.invoke(v, "   ", "2fa_verification");
             assertTrue(result.isEmpty());
         });
     }
@@ -266,11 +266,67 @@ class JwtTokenVerifierTest {
     }
 
     // -------------------------------------------------------------------------
+    // Refresh token verification
+    // -------------------------------------------------------------------------
+
+    @Test
+    void verifyRefreshToken_ReturnsUserId_WhenTokenIsValid() {
+        final UUID userId = UUID.randomUUID();
+        final String token = buildValidToken(userId, "refresh_token", Instant.now().plusSeconds(600));
+
+        when(keySupplier.getPassword(JWT_KEY_ID))
+                .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+        final Optional<UserId> result = verifier.verifyRefreshToken(token);
+
+        assertTrue(result.isPresent());
+        assertEquals(userId, result.get().asUUID());
+    }
+
+    @Test
+    void verifyRefreshToken_ReturnsEmpty_WhenTokenIsNull() {
+        assertTrue(verifier.verifyRefreshToken(null).isEmpty());
+    }
+
+    @Test
+    void verifyRefreshToken_ReturnsEmpty_WhenTokenIsBlank() {
+        assertTrue(verifier.verifyRefreshToken("  ").isEmpty());
+    }
+
+    @Test
+    void verifyRefreshToken_ReturnsEmpty_WhenTokenIsExpired() {
+        final UUID userId = UUID.randomUUID();
+        final String token = buildValidToken(userId, "refresh_token", Instant.now().minusSeconds(1));
+
+        when(keySupplier.getPassword(JWT_KEY_ID))
+                .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+        assertTrue(verifier.verifyRefreshToken(token).isEmpty());
+    }
+
+    @Test
+    void verifyRefreshToken_ReturnsEmpty_WhenAudienceIsWrong() {
+        // A 2FA verification token must NOT be usable as a refresh token.
+        final UUID userId = UUID.randomUUID();
+        final String token = buildValidToken(userId, "2fa_verification", Instant.now().plusSeconds(600));
+
+        when(keySupplier.getPassword(JWT_KEY_ID))
+                .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+        assertTrue(verifier.verifyRefreshToken(token).isEmpty());
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
     private String buildValid2FAToken(final UUID userId, final String audience,
                                       final Instant expiresAt) {
+        return buildValidToken(userId, audience, expiresAt);
+    }
+
+    private String buildValidToken(final UUID userId, final String audience,
+                                   final Instant expiresAt) {
         final String payloadJson = buildPayloadJson(userId.toString(), audience, expiresAt);
         return Jwts.builder()
                 .claim("payload", payloadJson)

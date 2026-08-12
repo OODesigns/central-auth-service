@@ -10,6 +10,9 @@ import com.oodesigns.cas.application.command.EnableTotpResult;
 import com.oodesigns.cas.application.command.LoginCommand;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
 import com.oodesigns.cas.application.command.LoginResult;
+import com.oodesigns.cas.application.command.RefreshTokenCommand;
+import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
+import com.oodesigns.cas.application.command.RefreshTokenResult;
 import com.oodesigns.cas.application.command.SetupTotpCommand;
 import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
 import com.oodesigns.cas.application.command.SetupTotpResult;
@@ -34,6 +37,9 @@ import com.oodesigns.cas.infrastructure.grpc.proto.LoginPasswordResetRequired;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginSuccess;
+import com.oodesigns.cas.infrastructure.grpc.proto.RefreshRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.RefreshResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.RefreshSuccess;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpSuccess;
@@ -72,17 +78,20 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
     private final EnableTotpCommandHandler enableTotpHandler;
     private final VerifyTotpCommandHandler verifyTotpHandler;
     private final DisableTotpCommandHandler disableTotpHandler;
+    private final RefreshTokenCommandHandler refreshTokenHandler;
 
     public AuthGrpcService(final LoginCommandHandler loginHandler,
                            final SetupTotpCommandHandler setupTotpHandler,
                            final EnableTotpCommandHandler enableTotpHandler,
                            final VerifyTotpCommandHandler verifyTotpHandler,
-                           final DisableTotpCommandHandler disableTotpHandler) {
+                           final DisableTotpCommandHandler disableTotpHandler,
+                           final RefreshTokenCommandHandler refreshTokenHandler) {
         this.loginHandler = Objects.requireNonNull(loginHandler, "LoginCommandHandler is required");
         this.setupTotpHandler = Objects.requireNonNull(setupTotpHandler, "SetupTotpCommandHandler is required");
         this.enableTotpHandler = Objects.requireNonNull(enableTotpHandler, "EnableTotpCommandHandler is required");
         this.verifyTotpHandler = Objects.requireNonNull(verifyTotpHandler, "VerifyTotpCommandHandler is required");
         this.disableTotpHandler = Objects.requireNonNull(disableTotpHandler, "DisableTotpCommandHandler is required");
+        this.refreshTokenHandler = Objects.requireNonNull(refreshTokenHandler, "RefreshTokenCommandHandler is required");
     }
 
     // =========================================================================
@@ -264,6 +273,47 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
 
     private VerifyTotpResponse invalidRequestVerifyTotpResponse(final String message) {
         return VerifyTotpResponse.newBuilder()
+                .setError(errorMessage(INVALID_REQUEST, message))
+                .build();
+    }
+
+    // =========================================================================
+    // Refresh (refresh-token rotation)
+    // =========================================================================
+
+    @Override
+    public void refresh(final RefreshRequest request,
+                        final StreamObserver<RefreshResponse> responseObserver) {
+        final RefreshResponse response;
+        try {
+            final RefreshTokenCommand command = new RefreshTokenCommand(request.getRefreshToken());
+            response = toRefreshResponse(refreshTokenHandler.handle(command));
+        } catch (final RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Refresh request validation failed", e);
+            respond(responseObserver, invalidRequestRefreshResponse(e.getMessage()));
+            return;
+        }
+        respond(responseObserver, response);
+    }
+
+    private RefreshResponse toRefreshResponse(final RefreshTokenResult result) {
+        return result.mapTo(s -> RefreshResponse.newBuilder()
+                        .setSuccess(RefreshSuccess.newBuilder()
+                                .setAccessToken(s.tokenPair().accessToken())
+                                .setRefreshToken(s.tokenPair().refreshToken())
+                                .setUserId(s.userId().asUUID().toString())
+                                .addAllPermissions(s.permissions().stream()
+                                        .map(p -> p.value())
+                                        .toList())
+                                .build())
+                        .build())
+                .orElse(f -> RefreshResponse.newBuilder()
+                        .setError(errorMessage(f.errorCode(), f.errorMessage()))
+                        .build());
+    }
+
+    private RefreshResponse invalidRequestRefreshResponse(final String message) {
+        return RefreshResponse.newBuilder()
                 .setError(errorMessage(INVALID_REQUEST, message))
                 .build();
     }

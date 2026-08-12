@@ -61,7 +61,8 @@ class LoginMockIntegrationTest {
 
         // Create command handler with injected dependencies
         // InMemoryUserRepository implements both UserCredentialReader and UserRepository
-        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, totpStatusReader, rateLimiter);
+        final MockRefreshTokenStore refreshTokenStore = new MockRefreshTokenStore();
+        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, totpStatusReader, rateLimiter, refreshTokenStore);
     }
 
     /**

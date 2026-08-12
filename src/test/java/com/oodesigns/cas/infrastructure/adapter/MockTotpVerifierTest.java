@@ -35,12 +35,25 @@ class MockTotpVerifierTest {
         final MockTotpVerifier verifier = new MockTotpVerifier();
 
         assertFalse(verifier.verifyCode(null, null));
+        assertFalse(verifier.verifySetupCode(null, null));
         assertFalse(verifier.verifyBackupCode(null, null));
         assertFalse(verifier.isTotpEnabled(null));
 
         verifier.clear();
         assertEquals(0, verifier.getVerificationAttemptCount());
         assertEquals(0, verifier.getBackupAttemptCount());
+    }
+
+    @Test
+    void verifySetupCodeAcceptsPendingCodeWithoutRequiringEnabledUser() {
+        final MockTotpVerifier verifier = new MockTotpVerifier();
+        final UserId userId = UserId.of(UUID.randomUUID());
+        verifier.registerValidTotpCode("654321");
+
+        // Not enabled yet (enrolment in progress) — verifyCode rejects, verifySetupCode accepts.
+        assertFalse(verifier.verifyCode(userId, TotpCode.of("654321")));
+        assertTrue(verifier.verifySetupCode(userId, TotpCode.of("654321")));
+        assertFalse(verifier.verifySetupCode(userId, TotpCode.of("000000")));
     }
 }
 

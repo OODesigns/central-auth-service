@@ -63,7 +63,7 @@ class AdminLoginMockIntegrationTest {
         final Ports.TotpStatusReader totpStatusReader = userId -> Optional.empty();
 
         // Create command handler
-        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, totpStatusReader, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, tokenService, userRepository, userRepository, totpStatusReader, rateLimiter, new MockRefreshTokenStore());
 
         // Setup admin user with admin role
         setupAdminUser();

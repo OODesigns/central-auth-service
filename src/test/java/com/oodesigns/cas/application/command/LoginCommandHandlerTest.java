@@ -50,6 +50,9 @@ class LoginCommandHandlerTest {
     @Mock
     private Ports.TotpStatusReader totpStatusReader;
 
+    @Mock
+    private Ports.RefreshTokenStore refreshTokenStore;
+
     private LoginCommandHandler loginHandler;
     private UserCredential testCredential;
     private User testUser;
@@ -58,7 +61,7 @@ class LoginCommandHandlerTest {
     void setUp() {
         final AuthenticationService authService = new AuthenticationService(passwordHasher);
         final TokenService tokenService = new TokenService(clock, tokenSigner);
-        loginHandler = new LoginCommandHandler(authService, tokenService, credentialReader, userRepository, totpStatusReader, rateLimiter);
+        loginHandler = new LoginCommandHandler(authService, tokenService, credentialReader, userRepository, totpStatusReader, rateLimiter, refreshTokenStore);
 
         // Setup test data
         final UserId userId = UserId.of(UUID.randomUUID());
@@ -306,6 +309,44 @@ class LoginCommandHandlerTest {
             assertEquals("PASSWORD_RESET_REQUIRED", failure.errorCode());
             return null;
         });
+    }
+
+    @Test
+    void testSuccessfulLoginPersistsRefreshTokenForRotation() {
+        mockSuccessfulFlow();
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
+        when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
+
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
+        loginHandler.handle(cmd);
+
+        // The issued refresh token must be recorded so it can be rotated / reuse-detected later.
+        verify(refreshTokenStore).issue(eq(testCredential.userId()), anyString());
+    }
+
+    @Test
+    void testLoginDoesNotPersistRefreshTokenWhenSigningFails() {
+        when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
+        when(clock.now()).thenReturn(Instant.now());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
+        when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
+        when(totpStatusReader.check2FAStatus(any())).thenReturn(Optional.empty());
+        when(tokenSigner.sign(any(), any())).thenReturn(Optional.empty());
+
+        final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
+        loginHandler.handle(cmd);
+
+        verify(refreshTokenStore, never()).issue(any(), anyString());
+    }
+
+    @Test
+    void testConstructorRejectsNullRefreshTokenStore() {
+        final AuthenticationService authService = new AuthenticationService(passwordHasher);
+        final TokenService tokenService = new TokenService(clock, tokenSigner);
+        assertThrows(NullPointerException.class, () -> new LoginCommandHandler(
+            authService, tokenService, credentialReader, userRepository, totpStatusReader, rateLimiter, null));
     }
 
     @Test

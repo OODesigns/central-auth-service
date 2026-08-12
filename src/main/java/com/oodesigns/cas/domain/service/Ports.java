@@ -65,6 +65,28 @@ public class Ports {
          *         has the wrong audience, or is otherwise malformed
          */
         Optional<UserId> verify2FAVerificationToken(String token);
+
+        /**
+         * Verify a refresh token and extract the subject user ID.
+         * <p>
+         * A valid token must have:
+         * <ul>
+         *   <li>A trusted signature (same key as used by {@link TokenSigner}).</li>
+         *   <li>An {@code exp} claim that has not yet passed.</li>
+         *   <li>An {@code aud} claim equal to {@code "refresh_token"} — this distinguishes
+         *       refresh tokens from access tokens (no {@code aud}) and 2FA verification
+         *       tokens ({@code aud: 2fa_verification}), preventing token-type confusion.</li>
+         * </ul>
+         * <p>
+         * NOTE: signature/expiry validation here is a fast, DB-free first gate. The
+         * authoritative check that the token is still <em>current</em> (not already rotated
+         * or revoked) is performed atomically by {@link RefreshTokenStore#rotate}.
+         *
+         * @param token the compact JWT refresh token received from the client
+         * @return Optional containing the {@link UserId} from the {@code sub} claim if the
+         *         token is valid; empty otherwise
+         */
+        Optional<UserId> verifyRefreshToken(String token);
     }
 
     /**
@@ -225,6 +247,21 @@ public class Ports {
         boolean verifyCode(final UserId userId, final TotpCode totpCode);
 
         /**
+         * Verify the first OTP code during <b>enrolment</b>, against the user's <em>pending</em>
+         * (not-yet-activated) TOTP secret.
+         * <p>
+         * SECURITY: This is deliberately distinct from {@link #verifyCode}, which only accepts
+         * an <em>active</em> secret. A pending secret must never satisfy a login-time 2FA
+         * challenge, so the enable flow uses this method while the login flow uses
+         * {@link #verifyCode}.
+         *
+         * @param userId   the user completing enrolment
+         * @param totpCode the first 6-digit code from the authenticator app
+         * @return true if the code matches the pending secret's current time window
+         */
+        boolean verifySetupCode(final UserId userId, final TotpCode totpCode);
+
+        /**
          * Verify and consume a backup code for account recovery.
          * A successfully verified code is immediately invalidated (single-use).
          *
@@ -305,5 +342,54 @@ public class Ports {
          * @return list of 10-16 backup codes
          */
         List<BackupCode> generateBackupCodes(final UserId userId);
+    }
+
+    /**
+     * Port for persisting and rotating refresh tokens (backed by the {@code refresh_tokens}
+     * table) to support long-lived sessions with automatic reuse detection.
+     * <p>
+     * SECURITY MODEL — rotating refresh tokens with family-based reuse detection:
+     * <ul>
+     *   <li>Only a one-way hash of each refresh token is stored (never the raw token).</li>
+     *   <li>Every token belongs to a <em>family</em> created at login / 2FA completion.</li>
+     *   <li>On each use the presented token is consumed and replaced by a fresh token in the
+     *       same family ({@link #rotate}).</li>
+     *   <li>If an already-consumed token is presented again, the whole family is revoked —
+     *       a stolen-token replay can never outlive a single rotation.</li>
+     * </ul>
+     */
+    public interface RefreshTokenStore {
+        /**
+         * Record a newly issued refresh token, starting a new token family.
+         * Called after a successful login or 2FA verification.
+         *
+         * @param userId       the owner of the refresh token
+         * @param refreshToken the raw refresh token (the implementation stores only its hash)
+         */
+        void issue(final UserId userId, final String refreshToken);
+
+        /**
+         * Atomically consume the presented refresh token and record its replacement within the
+         * same family. Detects reuse of an already-rotated/revoked token and revokes the family.
+         *
+         * @param presentedToken   the raw refresh token supplied by the client
+         * @param replacementToken the raw refresh token that replaces it on success
+         * @return the outcome of the rotation attempt
+         */
+        RotationStatus rotate(final String presentedToken, final String replacementToken);
+
+        /**
+         * Outcome of a {@link #rotate} attempt.
+         */
+        enum RotationStatus {
+            /** Token was current; it has been consumed and replaced within its family. */
+            ROTATED,
+            /** Token was already consumed/revoked — replay detected; the family was revoked. */
+            REUSE_DETECTED,
+            /** No stored token matched the presented hash. */
+            NOT_FOUND,
+            /** The stored token existed but had already expired. */
+            EXPIRED
+        }
     }
 }

@@ -76,16 +76,24 @@ public final class TokenService {
 
     private Optional<String> createRefreshToken(final UserId userId, final Instant issuedAt) {
         final Instant expiresAt = issuedAt.plus(REFRESH_TOKEN_TTL);
+        // A unique jti guarantees every refresh token is a distinct credential even when two
+        // are issued for the same user within the same second (e.g. rotation), so their hashes
+        // never collide in the refresh_tokens table.
+        final Jti jti = Jti.generate();
 
-        return createRefreshTokenPayload(userId, issuedAt, expiresAt)
+        return createRefreshTokenPayload(userId, jti, issuedAt, expiresAt)
                 .flatMap(payload -> tokenSigner.sign(payload, expiresAt));
     }
 
-    private Optional<Payload> createRefreshTokenPayload(final UserId userId, 
+    private Optional<Payload> createRefreshTokenPayload(final UserId userId,
+                                                       final Jti jti,
                                                        final Instant issuedAt,
                                                        final Instant expiresAt){
-        return Optional.of(Payload.of(String.format("{\"sub\":\"%s\",\"iat\":%d,\"exp\":%d}",
-                userId.toString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
+        // aud:"refresh_token" distinguishes this from access tokens (no aud) and 2FA
+        // verification tokens (aud:2fa_verification), preventing token-type confusion.
+        return Optional.of(Payload.of(String.format(
+                "{\"sub\":\"%s\",\"aud\":\"refresh_token\",\"jti\":\"%s\",\"iat\":%d,\"exp\":%d}",
+                userId.toString(), jti.toString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
     }
 
 

@@ -103,6 +103,7 @@ class TotpDatabaseIntegrationTest {
 
         assertTrue(functionExists("get_totp_status"));
         assertTrue(functionExists("get_totp_secret"));
+        assertTrue(functionExists("get_pending_totp_secret"));
         assertTrue(functionExists("find_unused_backup_code_hashes"));
         assertTrue(functionExists("mark_totp_last_used"));
         assertTrue(functionExists("store_totp_secret"));
@@ -130,7 +131,10 @@ class TotpDatabaseIntegrationTest {
         assertFalse(verifier.isTotpEnabled(userId));
 
         final String otp = codeGenerator.generate(SecretFor2FA.of(secret));
+        // Login-time verification must NOT accept a code against a pending (not-yet-enabled) secret,
+        // but the enrolment path (verifySetupCode) must accept it against the pending secret.
         assertFalse(verifier.verifyCode(userId, TotpCode.of(otp)));
+        assertTrue(verifier.verifySetupCode(userId, TotpCode.of(otp)));
 
         assertTrue(setupProvider.enableTotp(userId));
         assertTrue(statusReader.check2FAStatus(userId).isPresent());

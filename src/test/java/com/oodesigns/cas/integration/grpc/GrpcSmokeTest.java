@@ -3,6 +3,7 @@ package com.oodesigns.cas.integration.grpc;
 import com.oodesigns.cas.application.command.DisableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
+import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
 import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
 import com.oodesigns.cas.application.command.VerifyTotpCommandHandler;
 import com.oodesigns.cas.domain.service.AuthenticationService;
@@ -16,6 +17,7 @@ import com.oodesigns.cas.infrastructure.adapter.JooqTotpSetupProvider;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpStatusReader;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpVerifier;
 import com.oodesigns.cas.infrastructure.adapter.JooqUserCredentialByIdReader;
+import com.oodesigns.cas.infrastructure.adapter.JooqRefreshTokenStore;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenVerifier;
 import com.oodesigns.cas.infrastructure.adapter.LoginRateLimiter;
@@ -36,6 +38,8 @@ import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.RefreshRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.RefreshResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpRequest;
@@ -61,6 +65,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -143,6 +148,7 @@ class GrpcSmokeTest {
         final JooqTotpVerifier totpVerifier = new JooqTotpVerifier(appDsl, new SystemClock(), keySupplier, "KEYSTORE_PASSWORD");
         final JooqTotpSetupProvider totpSetupProvider = new JooqTotpSetupProvider(appDsl, keySupplier, "KEYSTORE_PASSWORD");
         final JooqUserCredentialByIdReader credentialByIdReader = new JooqUserCredentialByIdReader(appDsl);
+        final JooqRefreshTokenStore refreshTokenStore = new JooqRefreshTokenStore(appDsl);
 
         final LoginCommandHandler loginHandler = new LoginCommandHandler(
                 authenticationService,
@@ -150,21 +156,30 @@ class GrpcSmokeTest {
                 credentialReader,
                 userRepository,
                 totpStatusReader,
-                new LoginRateLimiter()
+                new LoginRateLimiter(),
+                refreshTokenStore
         );
         final SetupTotpCommandHandler setupTotpHandler = new SetupTotpCommandHandler(totpSetupProvider, "CentralAuthService");
         final EnableTotpCommandHandler enableTotpHandler = new EnableTotpCommandHandler(totpVerifier, totpSetupProvider);
+        final JwtTokenVerifier tokenVerifier = new JwtTokenVerifier(keySupplier, "JWT_SECRET");
         final VerifyTotpCommandHandler verifyTotpHandler = new VerifyTotpCommandHandler(
-                new JwtTokenVerifier(keySupplier, "JWT_SECRET"),
+                tokenVerifier,
                 totpVerifier,
                 userRepository,
                 tokenService,
-                new TotpRateLimiter()
+                new TotpRateLimiter(),
+                refreshTokenStore
         );
         final DisableTotpCommandHandler disableTotpHandler = new DisableTotpCommandHandler(
                 authenticationService,
                 credentialByIdReader,
                 totpSetupProvider
+        );
+        final RefreshTokenCommandHandler refreshTokenHandler = new RefreshTokenCommandHandler(
+                tokenVerifier,
+                userRepository,
+                tokenService,
+                refreshTokenStore
         );
 
         server = NettyServerBuilder.forPort(0)
@@ -173,7 +188,8 @@ class GrpcSmokeTest {
                         setupTotpHandler,
                         enableTotpHandler,
                         verifyTotpHandler,
-                        disableTotpHandler))
+                        disableTotpHandler,
+                        refreshTokenHandler))
                 .build()
                 .start();
 
@@ -251,6 +267,30 @@ class GrpcSmokeTest {
         assertTrue(verified.hasSuccess(), "VerifyTotp should exchange the 2FA token for access tokens");
         assertEquals(createdUserId.value().toString(), verified.getSuccess().getUserId());
         assertFalse(verified.getSuccess().getPermissionsList().isEmpty(), "Permissions should be returned");
+
+        // --- Refresh-token rotation ---------------------------------------------------------
+        final String issuedRefreshToken = verified.getSuccess().getRefreshToken();
+        final RefreshResponse rotated = stub.refresh(RefreshRequest.newBuilder()
+                .setRefreshToken(issuedRefreshToken)
+                .build());
+        assertTrue(rotated.hasSuccess(), "Refresh should rotate the token and issue a fresh pair");
+        assertFalse(rotated.getSuccess().getRefreshToken().isEmpty(), "A new refresh token should be issued");
+        assertNotEquals(issuedRefreshToken, rotated.getSuccess().getRefreshToken(),
+                "Rotation must issue a different refresh token");
+
+        // Replaying the now-consumed token must trigger reuse detection (family revoked).
+        final RefreshResponse reuse = stub.refresh(RefreshRequest.newBuilder()
+                .setRefreshToken(issuedRefreshToken)
+                .build());
+        assertTrue(reuse.hasError(), "Replaying a rotated refresh token must fail");
+        assertEquals("REFRESH_TOKEN_REUSE_DETECTED", reuse.getError().getErrorCode(),
+                "Reuse of a rotated token must be detected");
+
+        // The replacement issued by the reuse-detected family is now revoked too.
+        final RefreshResponse afterReuse = stub.refresh(RefreshRequest.newBuilder()
+                .setRefreshToken(rotated.getSuccess().getRefreshToken())
+                .build());
+        assertTrue(afterReuse.hasError(), "The whole family must be revoked after reuse detection");
 
         final DisableTotpResponse disabled = stub.disableTotp(DisableTotpRequest.newBuilder()
                 .setUserId(createdUserId.value().toString())

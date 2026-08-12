@@ -68,8 +68,10 @@ public final class EnableTotpCommandHandler {
     }
 
     private EnableTotpResult enableTotp(final EnableTotpCommand command) {
-        // Step 1: Verify the submitted OTP code before touching any persistent state
-        if (!totpVerifier.verifyCode(command.userId(), command.totpCode())) {
+        // Step 1: Verify the submitted OTP against the PENDING secret before touching state.
+        // Uses verifySetupCode (pending secret) — not verifyCode (active secret) — so an
+        // in-progress enrolment is validated without exposing the pending secret to login.
+        if (!totpVerifier.verifySetupCode(command.userId(), command.totpCode())) {
             return EnableTotpResult.failure("INVALID_TOTP_CODE",
                 "The submitted TOTP code is invalid. Please check your authenticator app and try again.");
         }

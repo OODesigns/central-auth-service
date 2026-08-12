@@ -6,6 +6,8 @@ import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpResult;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
 import com.oodesigns.cas.application.command.LoginResult;
+import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
+import com.oodesigns.cas.application.command.RefreshTokenResult;
 import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
 import com.oodesigns.cas.application.command.SetupTotpResult;
 import com.oodesigns.cas.application.command.VerifyTotpCommandHandler;
@@ -20,6 +22,8 @@ import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.RefreshRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.RefreshResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpRequest;
@@ -52,6 +56,7 @@ class AuthGrpcServiceTest {
     @Mock private EnableTotpCommandHandler enableTotpHandler;
     @Mock private VerifyTotpCommandHandler verifyTotpHandler;
     @Mock private DisableTotpCommandHandler disableTotpHandler;
+    @Mock private RefreshTokenCommandHandler refreshTokenHandler;
 
     @SuppressWarnings("unchecked")
     @Mock private StreamObserver<LoginResponse> loginObserver;
@@ -63,6 +68,8 @@ class AuthGrpcServiceTest {
     @Mock private StreamObserver<VerifyTotpResponse> verifyTotpObserver;
     @SuppressWarnings("unchecked")
     @Mock private StreamObserver<DisableTotpResponse> disableTotpObserver;
+    @SuppressWarnings("unchecked")
+    @Mock private StreamObserver<RefreshResponse> refreshObserver;
 
     private AuthGrpcService service;
 
@@ -74,7 +81,7 @@ class AuthGrpcServiceTest {
     void setUp() {
         service = new AuthGrpcService(
                 loginHandler, setupTotpHandler, enableTotpHandler,
-                verifyTotpHandler, disableTotpHandler);
+                verifyTotpHandler, disableTotpHandler, refreshTokenHandler);
     }
 
     // =========================================================================
@@ -85,35 +92,42 @@ class AuthGrpcServiceTest {
     void constructor_ThrowsNPE_WhenLoginHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(null, setupTotpHandler, enableTotpHandler,
-                        verifyTotpHandler, disableTotpHandler));
+                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenSetupTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, null, enableTotpHandler,
-                        verifyTotpHandler, disableTotpHandler));
+                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenEnableTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, null,
-                        verifyTotpHandler, disableTotpHandler));
+                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenVerifyTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
-                        null, disableTotpHandler));
+                        null, disableTotpHandler, refreshTokenHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenDisableTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
-                        verifyTotpHandler, null));
+                        verifyTotpHandler, null, refreshTokenHandler));
+    }
+
+    @Test
+    void constructor_ThrowsNPE_WhenRefreshTokenHandlerIsNull() {
+        assertThrows(NullPointerException.class, () ->
+                new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
+                        verifyTotpHandler, disableTotpHandler, null));
     }
 
     // =========================================================================
@@ -417,6 +431,70 @@ class AuthGrpcServiceTest {
     }
 
     // =========================================================================
+    // Refresh (refresh-token rotation)
+    // =========================================================================
+
+    @Test
+    void refresh_SuccessResult_ReturnsRefreshSuccessResponse() {
+        final TokenService.TokenPair tokenPair =
+                new TokenService.TokenPair(TEST_ACCESS_TOKEN, TEST_REFRESH_TOKEN);
+        final RefreshTokenResult result = RefreshTokenResult.success(
+                tokenPair, UserId.of(TEST_USER_ID), Set.of(Permission.of("read_data")));
+
+        when(refreshTokenHandler.handle(any())).thenReturn(result);
+
+        service.refresh(validRefreshRequest(), refreshObserver);
+
+        final ArgumentCaptor<RefreshResponse> captor = ArgumentCaptor.forClass(RefreshResponse.class);
+        verify(refreshObserver).onNext(captor.capture());
+        verify(refreshObserver).onCompleted();
+
+        final RefreshResponse response = captor.getValue();
+        assertTrue(response.hasSuccess());
+        assertEquals(TEST_ACCESS_TOKEN, response.getSuccess().getAccessToken());
+        assertEquals(TEST_REFRESH_TOKEN, response.getSuccess().getRefreshToken());
+        assertEquals(TEST_USER_ID, response.getSuccess().getUserId());
+        assertTrue(response.getSuccess().getPermissionsList().contains("read_data"));
+    }
+
+    @Test
+    void refresh_FailureResult_ReturnsErrorResponse() {
+        final RefreshTokenResult result =
+                RefreshTokenResult.failure("REFRESH_TOKEN_REUSE_DETECTED", "Reuse detected");
+
+        when(refreshTokenHandler.handle(any())).thenReturn(result);
+
+        service.refresh(validRefreshRequest(), refreshObserver);
+
+        final ArgumentCaptor<RefreshResponse> captor = ArgumentCaptor.forClass(RefreshResponse.class);
+        verify(refreshObserver).onNext(captor.capture());
+        verify(refreshObserver).onCompleted();
+
+        final RefreshResponse response = captor.getValue();
+        assertTrue(response.hasError());
+        assertEquals("REFRESH_TOKEN_REUSE_DETECTED", response.getError().getErrorCode());
+    }
+
+    @Test
+    void refresh_InvalidRequest_ReturnsInvalidRequestError() {
+        // Blank refresh token fails RefreshTokenCommand validation → IllegalArgumentException
+        final RefreshRequest invalidRequest = RefreshRequest.newBuilder()
+                .setRefreshToken("")
+                .build();
+
+        service.refresh(invalidRequest, refreshObserver);
+
+        final ArgumentCaptor<RefreshResponse> captor = ArgumentCaptor.forClass(RefreshResponse.class);
+        verify(refreshObserver).onNext(captor.capture());
+        verify(refreshObserver).onCompleted();
+        verify(refreshTokenHandler, never()).handle(any());
+
+        final RefreshResponse response = captor.getValue();
+        assertTrue(response.hasError());
+        assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
+    }
+
+    // =========================================================================
     // Disable TOTP
     // =========================================================================
 
@@ -585,6 +663,12 @@ class AuthGrpcServiceTest {
                 .setUserId(TEST_USER_ID)
                 .setPassword("securepassword123")
                 .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.USER_REQUESTED)
+                .build();
+    }
+
+    private RefreshRequest validRefreshRequest() {
+        return RefreshRequest.newBuilder()
+                .setRefreshToken("valid.refresh.token")
                 .build();
     }
 }

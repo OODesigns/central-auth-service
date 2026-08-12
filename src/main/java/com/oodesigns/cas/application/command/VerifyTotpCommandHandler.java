@@ -51,6 +51,7 @@ public final class VerifyTotpCommandHandler {
     private final Ports.UserRetriever userRetriever;
     private final TokenService tokenService;
     private final Ports.TotpRateLimiter totpRateLimiter;
+    private final Ports.RefreshTokenStore refreshTokenStore;
 
     /**
      * @param tokenVerifier  port for verifying the 2FA verification JWT
@@ -62,12 +63,14 @@ public final class VerifyTotpCommandHandler {
                                     final Ports.TotpVerifier totpVerifier,
                                     final Ports.UserRetriever userRetriever,
                                     final TokenService tokenService,
-                                    final Ports.TotpRateLimiter totpRateLimiter) {
+                                    final Ports.TotpRateLimiter totpRateLimiter,
+                                    final Ports.RefreshTokenStore refreshTokenStore) {
         this.tokenVerifier = Objects.requireNonNull(tokenVerifier, "TokenVerifier is required");
         this.totpVerifier = Objects.requireNonNull(totpVerifier, "TotpVerifier is required");
         this.userRetriever = Objects.requireNonNull(userRetriever, "UserRetriever is required");
         this.tokenService = Objects.requireNonNull(tokenService, "TokenService is required");
         this.totpRateLimiter = Objects.requireNonNull(totpRateLimiter, "TotpRateLimiter is required");
+        this.refreshTokenStore = Objects.requireNonNull(refreshTokenStore, "RefreshTokenStore is required");
     }
 
     /**
@@ -124,8 +127,12 @@ public final class VerifyTotpCommandHandler {
 
         // Step 4: Issue full access + refresh tokens
         return tokenService.generateTokens(userOpt.get())
-            .map(tokens -> (VerifyTotpResult) VerifyTotpResult.success(
-                tokens, userId, userOpt.get().permissions()))
+            .map(tokens -> {
+                // Record the refresh token so it can later be rotated / reuse-detected.
+                refreshTokenStore.issue(userId, tokens.refreshToken());
+                return (VerifyTotpResult) VerifyTotpResult.success(
+                    tokens, userId, userOpt.get().permissions());
+            })
             .orElseGet(() -> VerifyTotpResult.failure(INTERNAL_ERROR,
                 "Failed to generate tokens."));
     }

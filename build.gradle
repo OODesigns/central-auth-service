@@ -3,7 +3,7 @@ import java.awt.Desktop
 plugins {
     id 'java'
     id 'jacoco'
-    id 'com.google.protobuf' version '0.9.4'
+    id 'com.google.protobuf' version '0.9.5'
 }
 
 group = 'com.oodesigns'
@@ -67,6 +67,12 @@ dependencies {
     mockitoAgent('org.mockito:mockito-core:5.14.1') { transitive = false }
 }
 
+// NOTE: The "multi-string dependency notation ... deprecated (Gradle 10)" warning during
+// configuration originates INSIDE the protobuf-gradle-plugin, which synthesizes the
+// platform-specific executable dependencies (e.g. "…:protoc:3.25.5:linux-x86_64@exe") using
+// the deprecated multi-string notation. The single-string `artifact = '…'` values below are
+// already correct; the warning cannot be removed from this build script and will be resolved
+// when the plugin migrates off the deprecated API upstream (tracked for a future plugin release).
 protobuf {
     protoc {
         artifact = 'com.google.protobuf:protoc:3.25.5'

@@ -102,7 +102,8 @@ class AdminLoginDatabaseIntegrationTest {
         final Ports.TotpStatusReader totpStatusReader = _ -> java.util.Optional.empty();
 
         // Create command handler with real database repositories
-        loginHandler = new LoginCommandHandler(authService, tokenService, userCredentialReader, userRepository, totpStatusReader, rateLimiter);
+        final var refreshTokenStore = new com.oodesigns.cas.infrastructure.adapter.JooqRefreshTokenStore(dslContext);
+        loginHandler = new LoginCommandHandler(authService, tokenService, userCredentialReader, userRepository, totpStatusReader, rateLimiter, refreshTokenStore);
 
         clearAdminPasswordResetFlag();
     }
