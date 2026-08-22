@@ -1,0 +1,50 @@
+@startuml
+!include ../../../themes/dark-theme.puml
+title Verify TOTP or Backup Code
+
+legend top
+Entry point:
+Login returned Login2FARequired
+
+Policy:
+- 2FA verification token is short-lived
+- Per-user rate limiter protects attempts
+- Successful verification issues full tokens
+end legend
+
+start
+
+:Receive MFA code / assertion;
+
+:Validate 2FA verification token;
+note right
+  JwtTokenVerifier checks signature,
+  expiry, token type, subject, and
+  the 2FA verification audience.
+end note
+
+:Check per-user TOTP rate limit; <<warning>>
+if (Rate limited?) then (yes)
+  :Reject login; <<failure>>
+  end
+endif
+
+:Verify submitted factor;
+note right
+  TOTP secret is decrypted only for
+  verification. A backup code is checked
+  against its hash and consumed once.
+end note
+
+if (Factor valid?) then (yes)
+  :Load user and generate access + refresh tokens; <<success>>
+  :Store refresh token family member;
+  :Return VerifyTotpSuccess;
+  end
+
+else (no)
+  :Return INVALID_TOTP_CODE; <<failure>>
+  end
+endif
+
+@enduml

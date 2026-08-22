@@ -1,7 +1,9 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.KeyPassword;
+import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.UserId;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -22,6 +24,7 @@ import java.util.logging.Logger;
 import java.util.logging.StreamHandler;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,13 +38,18 @@ class JwtTokenVerifierTest {
     @Mock
     private KeySupplier keySupplier;
 
+        @Mock
+        private Ports.AccessTokenRevocationStore accessTokenRevocationStore;
+
     private JwtTokenVerifier verifier;
     private SecretKey signingKey;
 
     @BeforeEach
     void setUp() {
-        verifier = new JwtTokenVerifier(keySupplier, JWT_KEY_ID);
+                verifier = new JwtTokenVerifier(keySupplier, JWT_KEY_ID, new ObjectMapper(), accessTokenRevocationStore);
         signingKey = Keys.hmacShaKeyFor(TEST_SECRET.getBytes());
+                lenient().when(accessTokenRevocationStore.isInvalidated(org.mockito.ArgumentMatchers.any()))
+                        .thenReturn(false);
     }
 
     @Test
@@ -186,6 +194,125 @@ class JwtTokenVerifierTest {
         assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
     }
 
+        @Test
+        void verifyAccessToken_ReturnsClaims_WhenTokenIsValidAndNotRevoked() {
+                final UUID userId = UUID.randomUUID();
+                final UUID jti = UUID.randomUUID();
+                final Instant expiresAt = Instant.now().plusSeconds(600);
+                final String token = buildAccessToken(userId, jti, expiresAt, true);
+
+                when(keySupplier.getPassword(JWT_KEY_ID))
+                                .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+                final Optional<Ports.AccessTokenClaims> result = verifier.verifyAccessToken(token);
+
+                assertTrue(result.isPresent());
+                assertEquals(userId, result.get().userId().asUUID());
+                assertEquals(jti, result.get().jti().asUUID());
+                assertEquals(expiresAt.getEpochSecond(), result.get().expiresAt().getEpochSecond());
+        }
+
+        @Test
+        void verifyAccessToken_ReturnsEmpty_WhenTokenHasAudience() {
+                final UUID userId = UUID.randomUUID();
+                final UUID jti = UUID.randomUUID();
+                final String token = buildAccessToken(userId, jti, Instant.now().plusSeconds(600), false);
+
+                when(keySupplier.getPassword(JWT_KEY_ID))
+                                .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+                assertTrue(verifier.verifyAccessToken(token).isEmpty());
+        }
+
+        @Test
+        void verifyAccessToken_ReturnsEmpty_WhenTokenIsRevoked() {
+                final UUID userId = UUID.randomUUID();
+                final UUID jti = UUID.randomUUID();
+                final String token = buildAccessToken(userId, jti, Instant.now().plusSeconds(600), true);
+
+                when(keySupplier.getPassword(JWT_KEY_ID))
+                                .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+                when(accessTokenRevocationStore.isInvalidated(Jti.of(jti))).thenReturn(true);
+
+                assertTrue(verifier.verifyAccessToken(token).isEmpty());
+        }
+
+        @Test
+        void verifyAccessToken_ReturnsEmpty_WhenTokenIsBlank() {
+                assertTrue(verifier.verifyAccessToken("  ").isEmpty());
+        }
+
+        @Test
+        void verifyAccessToken_ReturnsEmpty_WhenTokenIsMalformed() {
+                when(keySupplier.getPassword(JWT_KEY_ID))
+                        .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+                assertTrue(verifier.verifyAccessToken("not-a-jwt").isEmpty());
+        }
+
+        @Test
+        void verifyAccessToken_ReturnsEmpty_WhenPayloadIsInvalid() {
+                final String token = Jwts.builder()
+                        .claim("payload", "not-json")
+                        .expiration(Date.from(Instant.now().plusSeconds(600)))
+                        .signWith(signingKey, Jwts.SIG.HS256)
+                        .compact();
+                when(keySupplier.getPassword(JWT_KEY_ID))
+                        .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+                assertTrue(verifier.verifyAccessToken(token).isEmpty());
+        }
+
+        @Test
+        void verifyAccessToken_ReturnsEmpty_WhenRequiredClaimsAreMissing() {
+                final String token = Jwts.builder()
+                        .claim("payload", "{\"permissions\":[]}")
+                        .expiration(Date.from(Instant.now().plusSeconds(600)))
+                        .signWith(signingKey, Jwts.SIG.HS256)
+                        .compact();
+                when(keySupplier.getPassword(JWT_KEY_ID))
+                        .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+                assertTrue(verifier.verifyAccessToken(token).isEmpty());
+        }
+
+        @Test
+        void extractAccessTokenClaimsRejectsBlankPayloadAndMissingExpiry() throws Exception {
+                final java.lang.reflect.Method method = JwtTokenVerifier.class
+                        .getDeclaredMethod("extractAccessTokenClaims", String.class, Date.class);
+                method.setAccessible(true);
+
+                assertEquals(Optional.empty(), method.invoke(verifier, " ", new Date()));
+                assertEquals(Optional.empty(), method.invoke(verifier,
+                        "{\"sub\":\"user\",\"jti\":\"value\"}", null));
+        }
+
+        @Test
+        void publicConstructorUsesNoopRevocationStore() {
+                final JwtTokenVerifier defaultVerifier = new JwtTokenVerifier(keySupplier, JWT_KEY_ID);
+                final UUID userId = UUID.randomUUID();
+                final UUID jti = UUID.randomUUID();
+                final String token = buildAccessToken(userId, jti, Instant.now().plusSeconds(600), true);
+                when(keySupplier.getPassword(JWT_KEY_ID))
+                        .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+                assertTrue(defaultVerifier.verifyAccessToken(token).isPresent());
+        }
+
+        @Test
+        void noopRevocationStoreAcceptsInvalidation() throws Exception {
+                final Class<?> storeType = Class.forName(
+                        "com.oodesigns.cas.infrastructure.adapter.JwtTokenVerifier$NoopAccessTokenRevocationStore");
+                final java.lang.reflect.Constructor<?> constructor = storeType.getDeclaredConstructor();
+                constructor.setAccessible(true);
+                final Ports.AccessTokenRevocationStore store =
+                        (Ports.AccessTokenRevocationStore) constructor.newInstance();
+                final Ports.AccessTokenClaims claims = new Ports.AccessTokenClaims(
+                        UserId.of(UUID.randomUUID()), Jti.of(UUID.randomUUID()), Instant.now().plusSeconds(600));
+
+                assertDoesNotThrow(() -> store.invalidate(claims, "token", "test"));
+        }
+
     @Test
     void constructor_PackagePrivate_ThrowsNPE_WhenObjectMapperIsNull() {
         assertThrows(NullPointerException.class,
@@ -328,6 +455,24 @@ class JwtTokenVerifierTest {
     private String buildValidToken(final UUID userId, final String audience,
                                    final Instant expiresAt) {
         final String payloadJson = buildPayloadJson(userId.toString(), audience, expiresAt);
+        return Jwts.builder()
+                .claim("payload", payloadJson)
+                .expiration(Date.from(expiresAt))
+                .signWith(signingKey, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    private String buildAccessToken(final UUID userId,
+                                    final UUID jti,
+                                    final Instant expiresAt,
+                                    final boolean omitAudience) {
+        final String payloadJson = omitAudience
+                ? String.format(
+                "{\"sub\":\"%s\",\"permissions\":[\"read\"],\"iat\":%d,\"exp\":%d,\"jti\":\"%s\"}",
+                userId, Instant.now().getEpochSecond(), expiresAt.getEpochSecond(), jti)
+                : String.format(
+                "{\"sub\":\"%s\",\"aud\":\"refresh_token\",\"permissions\":[\"read\"],\"iat\":%d,\"exp\":%d,\"jti\":\"%s\"}",
+                userId, Instant.now().getEpochSecond(), expiresAt.getEpochSecond(), jti);
         return Jwts.builder()
                 .claim("payload", payloadJson)
                 .expiration(Date.from(expiresAt))

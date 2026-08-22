@@ -160,7 +160,7 @@ public final class LoginCommandHandler {
         // Step 3: MFA enrollment enforcement
         if (user.mfaRequiredAt() != null && !totpEnabled) {
             return LoginResult.failure("MFA_SETUP_REQUIRED",
-                "MFA enrollment is required. Use /auth/2fa/setup to enroll.");
+                "MFA enrollment is required. Call SetupTotp to enroll.");
         }
 
         // Step 4: MFA challenge (enrolled users)

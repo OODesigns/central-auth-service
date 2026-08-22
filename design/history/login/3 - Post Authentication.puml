@@ -1,0 +1,42 @@
+@startuml
+!include ../../themes/dark-theme.puml
+title Post-Authentication
+
+start
+
+:Load security state;
+
+note right
+  Data requested:
+  - password_reset_required
+
+  Purpose:
+  - Enforce post-auth security rules
+  - Must occur AFTER MFA
+end note
+
+if (Password reset required?) then (yes)
+  :Issue reset-scoped token; <<warning>>
+  note right
+      Token parameters:
+      - type: password_reset
+      - audience: auth.password_reset
+      - ttl: 15 minutes
+      - permissions: change_password
+      - single_use: true
+      - terminal_flow: true
+
+      Security guarantees:
+      - no access token issued
+      - no refresh token issued
+      - all existing sessions invalidated
+    end note
+  :Return PASSWORD_RESET_REQUIRED;
+  :Force logout after reset;
+  end
+endif
+
+:Continue authentication\n(Authorization & Token Issuance);
+
+end
+@enduml

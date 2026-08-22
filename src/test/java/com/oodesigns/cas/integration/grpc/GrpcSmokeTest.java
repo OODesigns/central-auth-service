@@ -3,6 +3,7 @@ package com.oodesigns.cas.integration.grpc;
 import com.oodesigns.cas.application.command.DisableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
+import com.oodesigns.cas.application.command.LogoutCommandHandler;
 import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
 import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
 import com.oodesigns.cas.application.command.VerifyTotpCommandHandler;
@@ -17,6 +18,7 @@ import com.oodesigns.cas.infrastructure.adapter.JooqTotpSetupProvider;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpStatusReader;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpVerifier;
 import com.oodesigns.cas.infrastructure.adapter.JooqUserCredentialByIdReader;
+import com.oodesigns.cas.infrastructure.adapter.JooqAccessTokenRevocationStore;
 import com.oodesigns.cas.infrastructure.adapter.JooqRefreshTokenStore;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenVerifier;
@@ -38,6 +40,8 @@ import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.LogoutRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.LogoutResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.RefreshRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.RefreshResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpRequest;
@@ -61,6 +65,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.HexFormat;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -98,6 +105,8 @@ class GrpcSmokeTest {
     private ManagedChannel channel;
     private AuthServiceGrpc.AuthServiceBlockingStub stub;
     private UserId createdUserId;
+        private JwtTokenVerifier tokenVerifier;
+        private String revokedAccessTokenHash;
 
     @BeforeAll
     static void initializeDefaults() {
@@ -149,6 +158,7 @@ class GrpcSmokeTest {
         final JooqTotpSetupProvider totpSetupProvider = new JooqTotpSetupProvider(appDsl, keySupplier, "KEYSTORE_PASSWORD");
         final JooqUserCredentialByIdReader credentialByIdReader = new JooqUserCredentialByIdReader(appDsl);
         final JooqRefreshTokenStore refreshTokenStore = new JooqRefreshTokenStore(appDsl);
+        final JooqAccessTokenRevocationStore accessTokenRevocationStore = new JooqAccessTokenRevocationStore(appDsl);
 
         final LoginCommandHandler loginHandler = new LoginCommandHandler(
                 authenticationService,
@@ -161,7 +171,7 @@ class GrpcSmokeTest {
         );
         final SetupTotpCommandHandler setupTotpHandler = new SetupTotpCommandHandler(totpSetupProvider, "CentralAuthService");
         final EnableTotpCommandHandler enableTotpHandler = new EnableTotpCommandHandler(totpVerifier, totpSetupProvider);
-        final JwtTokenVerifier tokenVerifier = new JwtTokenVerifier(keySupplier, "JWT_SECRET");
+        tokenVerifier = new JwtTokenVerifier(keySupplier, "JWT_SECRET", new com.fasterxml.jackson.databind.ObjectMapper(), accessTokenRevocationStore);
         final VerifyTotpCommandHandler verifyTotpHandler = new VerifyTotpCommandHandler(
                 tokenVerifier,
                 totpVerifier,
@@ -181,6 +191,7 @@ class GrpcSmokeTest {
                 tokenService,
                 refreshTokenStore
         );
+        final LogoutCommandHandler logoutHandler = new LogoutCommandHandler(tokenVerifier, accessTokenRevocationStore);
 
         server = NettyServerBuilder.forPort(0)
                 .addService(new AuthGrpcService(
@@ -189,7 +200,8 @@ class GrpcSmokeTest {
                         enableTotpHandler,
                         verifyTotpHandler,
                         disableTotpHandler,
-                        refreshTokenHandler))
+                        refreshTokenHandler,
+                        logoutHandler))
                 .build()
                 .start();
 
@@ -211,10 +223,14 @@ class GrpcSmokeTest {
             server.shutdownNow();
             server.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
         }
-        if (adminDsl != null && createdUserId != null) {
+                if (adminDsl != null && createdUserId != null) {
             //noinspection SqlResolve
             adminDsl.execute("DELETE FROM private_schema.users WHERE user_id = ?", createdUserId.value());
         }
+                if (adminDsl != null && revokedAccessTokenHash != null) {
+                        //noinspection SqlResolve
+                        adminDsl.execute("DELETE FROM private_schema.invalidated_jwts WHERE token_hash = ?", revokedAccessTokenHash);
+                }
         if (adminConnection != null && !adminConnection.isClosed()) {
             adminConnection.close();
         }
@@ -235,6 +251,16 @@ class GrpcSmokeTest {
                 .build());
         assertTrue(initialLogin.hasSuccess(), "Initial login should succeed before TOTP is enabled");
         assertFalse(initialLogin.getSuccess().getPermissionsList().isEmpty(), "Role permissions should be returned");
+
+        final String accessToken = initialLogin.getSuccess().getAccessToken();
+        final LogoutResponse logout = stub.logout(LogoutRequest.newBuilder()
+                .setAccessToken(accessToken)
+                .build());
+        assertTrue(logout.hasSuccess(), "Logout should revoke the presented access token");
+        revokedAccessTokenHash = sha256Hex(accessToken);
+        assertEquals(1L, countInvalidatedTokens(revokedAccessTokenHash), "Logout should persist a revocation row");
+        assertTrue(tokenVerifier.verifyAccessToken(accessToken).isEmpty(),
+                "The same verifier must reject the revoked access token");
 
         final SetupTotpResponse setup = stub.setupTotp(SetupTotpRequest.newBuilder()
                 .setUserId(createdUserId.value().toString())
@@ -358,4 +384,22 @@ class GrpcSmokeTest {
             return false;
         }
     }
+
+        private long countInvalidatedTokens(final String tokenHash) {
+                //noinspection SqlResolve
+                final Record record = adminDsl.fetchOne(
+                                "SELECT count(*) AS count FROM private_schema.invalidated_jwts WHERE token_hash = ?",
+                                tokenHash);
+                assertNotNull(record, "Expected a row when counting invalidated tokens");
+                return record.get("count", Long.class);
+        }
+
+        private static String sha256Hex(final String token) {
+                try {
+                        final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                        return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
+                } catch (final Exception e) {
+                        throw new IllegalStateException(e);
+                }
+        }
 }

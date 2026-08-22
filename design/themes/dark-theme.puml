@@ -18,6 +18,78 @@ skinparam ArrowColor #93c5fd
 skinparam BorderColor #4b5563
 
 ' ===============================
+' Architecture, sequence, and data-model elements
+' ===============================
+skinparam Participant {
+  BackgroundColor #1f2937
+  BorderColor #94a3b8
+  FontColor #f9fafb
+}
+
+skinparam Actor {
+  BackgroundColor #1f2937
+  BorderColor #94a3b8
+  FontColor #f9fafb
+}
+
+skinparam Component {
+  BackgroundColor #1f2937
+  BorderColor #94a3b8
+  FontColor #f9fafb
+}
+
+skinparam Interface {
+  BackgroundColor #1f2937
+  BorderColor #93c5fd
+  FontColor #f9fafb
+}
+
+skinparam Database {
+  BackgroundColor #1f2937
+  BorderColor #94a3b8
+  FontColor #f9fafb
+}
+
+skinparam Entity {
+  BackgroundColor #1f2937
+  BorderColor #94a3b8
+  FontColor #f9fafb
+}
+
+skinparam Class {
+  BackgroundColor #1f2937
+  BorderColor #94a3b8
+  FontColor #f9fafb
+  AttributeFontColor #f9fafb
+}
+
+skinparam SequenceGroupBorderColor #38bdf8
+skinparam SequenceGroupBodyBackgroundColor #0b1220
+skinparam SequenceGroupHeaderBackgroundColor #1f2937
+skinparam SequenceGroupHeaderFontColor #111827
+skinparam SequenceDividerBackgroundColor #1f2937
+skinparam SequenceDividerBorderColor #94a3b8
+skinparam SequenceDividerFontColor #f9fafb
+
+skinparam Package {
+  BackgroundColor #0b1220
+  BorderColor #38bdf8
+  FontColor #38bdf8
+}
+
+skinparam Folder {
+  BackgroundColor #1f2937
+  BorderColor #94a3b8
+  FontColor #f9fafb
+}
+
+skinparam Cloud {
+  BackgroundColor #1f2937
+  BorderColor #94a3b8
+  FontColor #f9fafb
+}
+
+' ===============================
 ' Activities (normal flow)
 ' ===============================
 skinparam Activity {

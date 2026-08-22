@@ -1,0 +1,47 @@
+@startuml LogoutRevocation
+!include ../themes/dark-theme.puml
+title Logout, Access-Token Revocation, and Subsequent Rejection
+
+actor Client
+actor "Future protected caller" as Consumer
+participant "gRPC AuthService" as Grpc
+participant "LogoutCommandHandler" as Handler
+participant "JwtTokenVerifier" as Verifier
+participant "JooqAccessTokenRevocationStore" as Store
+database "private_schema.invalidated_jwts" as Db
+
+Client -> Grpc: Logout(access token)
+Grpc -> Handler: LogoutCommand
+Handler -> Verifier: verify access token
+alt Invalid, expired, wrong token type, or missing JTI
+  Verifier -->> Handler: empty
+  Handler -->> Grpc: INVALID_ACCESS_TOKEN
+else Valid access token
+  Handler -> Store: revoke(jti, SHA-256(token), expiry, logout)
+  Store -> Db: api_schema.invalidate_jwt(...)
+  Db -->> Store: recorded
+  Store -->> Handler: success
+  Handler -->> Grpc: LogoutSuccess
+  Grpc -->> Client: success
+  == Access-token validation contract ==
+  Consumer -> Verifier: verifyAccessToken(same token)
+  Verifier -> Store: isRevoked(jti)
+  Store -> Db: api_schema.is_jwt_invalidated(jti)
+  Db -->> Store: true
+  Store -->> Verifier: revoked
+  Verifier -->> Consumer: empty; caller rejects token
+end
+
+note right of Db
+  Raw access tokens are never stored.
+  Rows retain JTI, token hash, expiry,
+  and reason for audit and lookup.
+end note
+
+note right of Consumer
+  No protected business RPC or gRPC auth
+  interceptor consumes access tokens yet.
+  Logout and the live smoke test exercise
+  this verifier contract today.
+end note
+@enduml

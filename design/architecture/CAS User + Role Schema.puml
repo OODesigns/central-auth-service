@@ -1,0 +1,141 @@
+@startuml AuthenticationDataModel
+!include ../themes/dark-theme.puml
+title Authentication Persistence Model (private_schema)
+
+entity "roles" as roles {
+  * role_id : UUID <<PK>>
+  --
+  name : VARCHAR(50) <<UQ>>
+  description : TEXT
+}
+
+entity "users" as users {
+  * user_id : UUID <<PK>>
+  --
+  username : VARCHAR(50) <<UQ>>
+  password_hash : VARCHAR(255)
+  role_id : UUID <<FK>>
+  password_reset_required_at : TIMESTAMPTZ
+  mfa_required_at : TIMESTAMPTZ
+  created_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+}
+
+entity "permissions" as permissions {
+  * permission_id : UUID <<PK>>
+  --
+  name : VARCHAR(100) <<UQ>>
+}
+
+entity "role_permissions" as role_permissions {
+  * role_id : UUID <<PK, FK>>
+  * permission_id : UUID <<PK, FK>>
+  --
+  created_at : TIMESTAMPTZ
+}
+
+entity "totp_secrets" as totp_secrets {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK, UQ>>
+  secret_key_encrypted : BYTEA
+  algorithm : VARCHAR(10)
+  period_seconds : INTEGER
+  digits : INTEGER
+  verified_at : TIMESTAMPTZ
+  last_used_at : TIMESTAMPTZ
+  backup_codes_generated_at : TIMESTAMPTZ
+}
+
+entity "backup_codes" as backup_codes {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  generation_batch_id : UUID
+  code_hash : TEXT
+  used_at : TIMESTAMPTZ
+  created_at : TIMESTAMPTZ
+}
+
+entity "refresh_tokens" as refresh_tokens {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  token_hash : TEXT <<UQ>>
+  family_id : UUID
+  issued_at : TIMESTAMPTZ
+  expires_at : TIMESTAMPTZ
+  revoked_at : TIMESTAMPTZ
+  revoke_reason : TEXT
+  replaced_by_token_hash : TEXT
+  rotated_at : TIMESTAMPTZ
+}
+
+entity "invalidated_jwts" as invalidated_jwts {
+  * id : UUID <<PK>>
+  --
+  jti : VARCHAR(255)
+  token_hash : VARCHAR(255) <<UQ index>>
+  reason : TEXT
+  expiry_timestamp : TIMESTAMPTZ
+  created_at : TIMESTAMPTZ
+}
+
+entity "trusted_clients" as trusted_clients {
+  * id : UUID <<PK>>
+  --
+  common_name : TEXT
+  subject_dn : TEXT <<UQ>>
+  fingerprint : TEXT <<UQ>>
+  expires_at : TIMESTAMPTZ
+  revoked_at : TIMESTAMPTZ
+  revoke_reason : TEXT
+}
+
+entity "audit_logs" as audit_logs {
+  * id : UUID <<PK>>
+  --
+  actor_id : UUID
+  actor_type : VARCHAR(20)
+  action : VARCHAR(50)
+  target_type : VARCHAR(50)
+  target_id : UUID
+  metadata : JSONB
+  created_at : TIMESTAMPTZ
+}
+
+roles ||--o{ users : assigns
+roles ||--o{ role_permissions : grants
+permissions ||--o{ role_permissions : includes
+users ||--o| totp_secrets : enrolls
+users ||--o{ backup_codes : owns
+users ||--o{ refresh_tokens : sessions
+
+note right of totp_secrets
+  verified_at is the TOTP status source:
+  NULL = pending, timestamp = active.
+  Secret material is encrypted at rest.
+end note
+
+note right of refresh_tokens
+  Only token hashes are stored.
+  family_id supports rotation and
+  family-wide revocation on reuse.
+end note
+
+note right of invalidated_jwts
+  Access-token revocations are keyed by JTI
+  and retain a SHA-256 token hash. There is
+  intentionally no user foreign key.
+end note
+
+note bottom of audit_logs
+  actor_id and target_id are polymorphic audit
+  references, not database foreign keys.
+end note
+
+note bottom of trusted_clients
+  Certificate inventory table. Runtime mTLS
+  currently validates against the truststore.
+end note
+@enduml

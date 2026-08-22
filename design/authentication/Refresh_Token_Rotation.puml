@@ -1,0 +1,57 @@
+@startuml RefreshRotation
+!include ../themes/dark-theme.puml
+title Refresh Token Rotation and Family Reuse Detection
+
+actor Client
+participant "gRPC AuthService" as Grpc
+participant "RefreshTokenCommandHandler" as Handler
+participant "JwtTokenVerifier" as Verifier
+participant "UserRetriever" as Users
+participant "TokenService" as Tokens
+participant "JooqRefreshTokenStore" as Store
+database "private_schema.refresh_tokens" as Db
+
+Client -> Grpc: Refresh(presented refresh token)
+Grpc -> Handler: RefreshTokenCommand
+Handler -> Verifier: verifyRefreshToken(signature, exp, aud)
+alt Invalid JWT
+  Verifier -->> Handler: empty
+  Handler -->> Grpc: INVALID_REFRESH_TOKEN
+else Valid JWT
+  Handler -> Users: findById(subject)
+  alt User missing
+    Users -->> Handler: empty
+    Handler -->> Grpc: USER_NOT_FOUND
+  else User loaded
+    Users -->> Handler: user + permissions
+    Handler -> Tokens: generate replacement pair
+    alt Token generation failed
+      Tokens -->> Handler: empty
+      Handler -->> Grpc: INTERNAL_ERROR
+    else Pair generated but not yet persisted
+      Tokens -->> Handler: access + refresh pair
+      Handler -> Store: rotate(old token, new refresh token)
+      Store -> Store: SHA-256 both compact tokens
+      Store -> Db: api_schema.rotate_refresh_token(old hash, new hash)
+      alt Current token
+        Db -->> Store: ROTATED
+        Store -->> Handler: ROTATED
+        Handler -->> Grpc: fresh access + refresh tokens
+        Grpc -->> Client: RefreshSuccess
+      else Consumed or revoked token
+        Db -> Db: revoke every active token in family\nreason = reuse_detected
+        Db -->> Store: REUSE_DETECTED
+        Store -->> Handler: REUSE_DETECTED
+        Handler -->> Grpc: REFRESH_TOKEN_REUSE_DETECTED
+        Grpc -->> Client: error; login required
+      else Expired database row
+        Db -->> Store: EXPIRED
+        Handler -->> Grpc: REFRESH_TOKEN_EXPIRED
+      else Hash not found
+        Db -->> Store: NOT_FOUND
+        Handler -->> Grpc: INVALID_REFRESH_TOKEN
+      end
+    end
+  end
+end
+@enduml

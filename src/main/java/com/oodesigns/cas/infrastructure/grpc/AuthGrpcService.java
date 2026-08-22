@@ -10,6 +10,9 @@ import com.oodesigns.cas.application.command.EnableTotpResult;
 import com.oodesigns.cas.application.command.LoginCommand;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
 import com.oodesigns.cas.application.command.LoginResult;
+import com.oodesigns.cas.application.command.LogoutCommand;
+import com.oodesigns.cas.application.command.LogoutCommandHandler;
+import com.oodesigns.cas.application.command.LogoutResult;
 import com.oodesigns.cas.application.command.RefreshTokenCommand;
 import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
 import com.oodesigns.cas.application.command.RefreshTokenResult;
@@ -37,6 +40,9 @@ import com.oodesigns.cas.infrastructure.grpc.proto.LoginPasswordResetRequired;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginSuccess;
+import com.oodesigns.cas.infrastructure.grpc.proto.LogoutRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.LogoutResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.LogoutSuccess;
 import com.oodesigns.cas.infrastructure.grpc.proto.RefreshRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.RefreshResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.RefreshSuccess;
@@ -79,19 +85,22 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
     private final VerifyTotpCommandHandler verifyTotpHandler;
     private final DisableTotpCommandHandler disableTotpHandler;
     private final RefreshTokenCommandHandler refreshTokenHandler;
+        private final LogoutCommandHandler logoutHandler;
 
     public AuthGrpcService(final LoginCommandHandler loginHandler,
                            final SetupTotpCommandHandler setupTotpHandler,
                            final EnableTotpCommandHandler enableTotpHandler,
                            final VerifyTotpCommandHandler verifyTotpHandler,
                            final DisableTotpCommandHandler disableTotpHandler,
-                           final RefreshTokenCommandHandler refreshTokenHandler) {
+                           final RefreshTokenCommandHandler refreshTokenHandler,
+                           final LogoutCommandHandler logoutHandler) {
         this.loginHandler = Objects.requireNonNull(loginHandler, "LoginCommandHandler is required");
         this.setupTotpHandler = Objects.requireNonNull(setupTotpHandler, "SetupTotpCommandHandler is required");
         this.enableTotpHandler = Objects.requireNonNull(enableTotpHandler, "EnableTotpCommandHandler is required");
         this.verifyTotpHandler = Objects.requireNonNull(verifyTotpHandler, "VerifyTotpCommandHandler is required");
         this.disableTotpHandler = Objects.requireNonNull(disableTotpHandler, "DisableTotpCommandHandler is required");
         this.refreshTokenHandler = Objects.requireNonNull(refreshTokenHandler, "RefreshTokenCommandHandler is required");
+        this.logoutHandler = Objects.requireNonNull(logoutHandler, "LogoutCommandHandler is required");
     }
 
     // =========================================================================
@@ -314,6 +323,40 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
 
     private RefreshResponse invalidRequestRefreshResponse(final String message) {
         return RefreshResponse.newBuilder()
+                .setError(errorMessage(INVALID_REQUEST, message))
+                .build();
+    }
+
+    // =========================================================================
+    // Logout
+    // =========================================================================
+
+    @Override
+    public void logout(final LogoutRequest request,
+                       final StreamObserver<LogoutResponse> responseObserver) {
+        final LogoutResponse response;
+        try {
+            final LogoutCommand command = new LogoutCommand(request.getAccessToken());
+            response = toLogoutResponse(logoutHandler.handle(command));
+        } catch (final RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Logout request validation failed", e);
+            respond(responseObserver, invalidRequestLogoutResponse(e.getMessage()));
+            return;
+        }
+        respond(responseObserver, response);
+    }
+
+    private LogoutResponse toLogoutResponse(final LogoutResult result) {
+        return result.mapTo(success -> LogoutResponse.newBuilder()
+                        .setSuccess(LogoutSuccess.getDefaultInstance())
+                        .build())
+                .orElse(failure -> LogoutResponse.newBuilder()
+                        .setError(errorMessage(failure.errorCode(), failure.errorMessage()))
+                        .build());
+    }
+
+    private LogoutResponse invalidRequestLogoutResponse(final String message) {
+        return LogoutResponse.newBuilder()
                 .setError(errorMessage(INVALID_REQUEST, message))
                 .build();
     }

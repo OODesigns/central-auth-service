@@ -6,6 +6,8 @@ import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpResult;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
 import com.oodesigns.cas.application.command.LoginResult;
+import com.oodesigns.cas.application.command.LogoutCommandHandler;
+import com.oodesigns.cas.application.command.LogoutResult;
 import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
 import com.oodesigns.cas.application.command.RefreshTokenResult;
 import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
@@ -22,6 +24,8 @@ import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.LogoutRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.LogoutResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.RefreshRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.RefreshResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpRequest;
@@ -57,6 +61,7 @@ class AuthGrpcServiceTest {
     @Mock private VerifyTotpCommandHandler verifyTotpHandler;
     @Mock private DisableTotpCommandHandler disableTotpHandler;
     @Mock private RefreshTokenCommandHandler refreshTokenHandler;
+        @Mock private LogoutCommandHandler logoutHandler;
 
     @SuppressWarnings("unchecked")
     @Mock private StreamObserver<LoginResponse> loginObserver;
@@ -70,6 +75,8 @@ class AuthGrpcServiceTest {
     @Mock private StreamObserver<DisableTotpResponse> disableTotpObserver;
     @SuppressWarnings("unchecked")
     @Mock private StreamObserver<RefreshResponse> refreshObserver;
+        @SuppressWarnings("unchecked")
+        @Mock private StreamObserver<LogoutResponse> logoutObserver;
 
     private AuthGrpcService service;
 
@@ -81,7 +88,7 @@ class AuthGrpcServiceTest {
     void setUp() {
         service = new AuthGrpcService(
                 loginHandler, setupTotpHandler, enableTotpHandler,
-                verifyTotpHandler, disableTotpHandler, refreshTokenHandler);
+                verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler);
     }
 
     // =========================================================================
@@ -92,42 +99,49 @@ class AuthGrpcServiceTest {
     void constructor_ThrowsNPE_WhenLoginHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(null, setupTotpHandler, enableTotpHandler,
-                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler));
+                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenSetupTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, null, enableTotpHandler,
-                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler));
+                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenEnableTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, null,
-                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler));
+                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenVerifyTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
-                        null, disableTotpHandler, refreshTokenHandler));
+                        null, disableTotpHandler, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenDisableTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
-                        verifyTotpHandler, null, refreshTokenHandler));
+                        verifyTotpHandler, null, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenRefreshTokenHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
-                        verifyTotpHandler, disableTotpHandler, null));
+                        verifyTotpHandler, disableTotpHandler, null, logoutHandler));
+    }
+
+    @Test
+    void constructor_ThrowsNPE_WhenLogoutHandlerIsNull() {
+        assertThrows(NullPointerException.class, () ->
+                new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
+                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler, null));
     }
 
     // =========================================================================
@@ -493,6 +507,56 @@ class AuthGrpcServiceTest {
         assertTrue(response.hasError());
         assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
     }
+
+        // =========================================================================
+        // Logout
+        // =========================================================================
+
+        @Test
+        void logout_SuccessResult_ReturnsLogoutSuccessResponse() {
+                when(logoutHandler.handle(any())).thenReturn(LogoutResult.success());
+
+                service.logout(LogoutRequest.newBuilder().setAccessToken(TEST_ACCESS_TOKEN).build(), logoutObserver);
+
+                final ArgumentCaptor<LogoutResponse> captor = ArgumentCaptor.forClass(LogoutResponse.class);
+                verify(logoutObserver).onNext(captor.capture());
+                verify(logoutObserver).onCompleted();
+
+                final LogoutResponse response = captor.getValue();
+                assertTrue(response.hasSuccess());
+        }
+
+        @Test
+        void logout_FailureResult_ReturnsErrorResponse() {
+                when(logoutHandler.handle(any())).thenReturn(
+                                LogoutResult.failure("INVALID_ACCESS_TOKEN", "Invalid token"));
+
+                service.logout(LogoutRequest.newBuilder().setAccessToken(TEST_ACCESS_TOKEN).build(), logoutObserver);
+
+                final ArgumentCaptor<LogoutResponse> captor = ArgumentCaptor.forClass(LogoutResponse.class);
+                verify(logoutObserver).onNext(captor.capture());
+                verify(logoutObserver).onCompleted();
+
+                final LogoutResponse response = captor.getValue();
+                assertTrue(response.hasError());
+                assertEquals("INVALID_ACCESS_TOKEN", response.getError().getErrorCode());
+        }
+
+        @Test
+        void logout_InvalidRequest_ReturnsInvalidRequestError() {
+                final LogoutRequest invalidRequest = LogoutRequest.newBuilder().setAccessToken("").build();
+
+                service.logout(invalidRequest, logoutObserver);
+
+                final ArgumentCaptor<LogoutResponse> captor = ArgumentCaptor.forClass(LogoutResponse.class);
+                verify(logoutObserver).onNext(captor.capture());
+                verify(logoutObserver).onCompleted();
+                verify(logoutHandler, never()).handle(any());
+
+                final LogoutResponse response = captor.getValue();
+                assertTrue(response.hasError());
+                assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
+        }
 
     // =========================================================================
     // Disable TOTP

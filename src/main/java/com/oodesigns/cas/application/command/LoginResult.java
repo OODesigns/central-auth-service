@@ -124,14 +124,14 @@ public sealed interface LoginResult
             @Override
             public T orElse(final Function<FailureResult, T> failureMapper) {
                 return failureMapper.apply(new FailureResult("MFA_SETUP_REQUIRED",
-                    "2FA setup is required. Complete setup with /auth/2fa/setup endpoint."));
+                    "MFA enrollment is required. Call SetupTotp to enroll."));
             }
         }
     }
 
     /**
      * Password reset is required before user can proceed with login.
-     * User must call POST /auth/reset-password endpoint to update password.
+     * Password-reset transport is outside the current AuthService gRPC contract.
      */
     record PasswordResetRequiredResult(UserId userId) implements LoginResult {
 

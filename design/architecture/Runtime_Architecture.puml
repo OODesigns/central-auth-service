@@ -1,0 +1,57 @@
+@startuml RuntimeArchitecture
+!include ../themes/dark-theme.puml
+title Central Auth Service - Runtime Architecture and Trust Boundaries
+
+actor Client
+cloud "TLS / optional mTLS boundary" as Transport
+component "gRPC AuthService\nAuthGrpcService" as Grpc
+package "Application" {
+  component "Command handlers" as Handlers
+  component "Domain services\nAuthentication / Token / TOTP" as Domain
+  interface "Ports" as Ports
+}
+package "Infrastructure adapters" {
+  component "JOOQ adapters\nusers, TOTP, refresh, revocation" as Jooq
+  component "JWT signer / verifier" as Jwt
+  component "Bucket4j limiters" as Bucket
+  component "KeySupplier" as Keys
+  component "gRPC TLS config" as Tls
+}
+database "PostgreSQL" as Db
+folder "private_schema\nowner_role only" as Private
+folder "api_schema\nSECURITY DEFINER functions" as Api
+
+Client --> Transport
+Transport --> Grpc
+Grpc --> Handlers
+Handlers --> Domain
+Handlers --> Ports
+Ports <.. Jooq
+Ports <.. Jwt
+Ports <.. Bucket
+Jooq --> Api : EXECUTE only
+Api --> Private : fixed search_path\ncontrolled results
+Private --> Db
+Api --> Db
+Jwt --> Keys
+Jooq --> Keys : TOTP encryption key
+Transport --> Tls
+Tls --> Keys : keystore passwords
+
+note right of Transport
+  Plaintext is possible only when no
+  keystore path is configured. A truststore
+  enables required client certificates.
+end note
+note bottom of Api
+  PUBLIC execution is revoked; app role
+  receives only required function grants.
+end note
+
+note bottom of Grpc
+  AuthService currently has no access-token
+  authentication interceptor or protected
+  business RPC. verifyAccessToken is used by
+  logout and is available for future consumers.
+end note
+@enduml

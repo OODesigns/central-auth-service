@@ -1,0 +1,63 @@
+@startuml LoginSequenceDiagram
+!include ../themes/dark-theme.puml
+title Complete Login and MFA Branching
+
+actor Client
+participant "gRPC AuthService" as Grpc
+participant "LoginCommandHandler" as Login
+participant "LoginRateLimiter" as Limits
+participant "CredentialReader" as Credentials
+participant "AuthenticationService" as Auth
+participant "TotpStatusReader" as TotpStatus
+participant "TokenService" as Tokens
+participant "RefreshTokenStore" as RefreshStore
+participant "UserRetriever" as Users
+
+Client -> Grpc: Login(username, password, ip_address)
+Grpc -> Login: handle(LoginCommand)
+Login -> Limits: checkLimit(IP, username, IP+username)
+alt Any bucket blocked
+    Limits -->> Login: Blocked
+    Login -->> Grpc: RATE_LIMITED
+    Grpc -->> Client: LoginResponse.error(RATE_LIMITED)
+else Allowed
+    Login -> Credentials: findCredentialsByUsername(username)
+    Credentials -->> Login: credentials or empty
+    alt Unknown user or bad password
+        Login -> Auth: verify(credentials, password)
+        Auth -->> Login: empty
+        Login -->> Grpc: INVALID_CREDENTIALS
+        Grpc -->> Client: LoginResponse.error(INVALID_CREDENTIALS)
+    else Password valid
+        Login -> Auth: getAuthenticatedUser(credentials)
+        Auth -->> Login: userId
+        Login -> Users: findById(userId)
+        Users -->> Login: User(policy, permissions)
+        Login -> TotpStatus: check2FAStatus(userId)
+        TotpStatus -->> Login: enabled or disabled
+        alt MFA required but not enrolled
+            Login -->> Grpc: MFA_SETUP_REQUIRED
+            Grpc -->> Client: LoginResponse.error(MFA_SETUP_REQUIRED)
+        else TOTP enrolled
+            Login -> Tokens: generate2FAVerificationToken(userId)
+            Tokens -->> Login: short-lived verification token
+            Login -->> Grpc: Required2FA
+            Grpc -->> Client: LoginResponse.totp_required
+            Client -> Grpc: VerifyTotp(token, OTP or backup code)
+            Grpc -> Grpc: VerifyTotpCommandHandler
+            Grpc -->> Client: access + refresh tokens
+        else TOTP disabled
+            alt Password reset required
+                Login -->> Grpc: PASSWORD_RESET_REQUIRED
+                Grpc -->> Client: LoginResponse.password_reset_required
+            else Ready for session
+                Login -> Tokens: generateTokens(user)
+                Tokens -->> Login: access + refresh pair
+                Login -> RefreshStore: issue(userId, refresh token)
+                Login -->> Grpc: LoginSuccess
+                Grpc -->> Client: LoginResponse.success
+            end
+        end
+    end
+end
+@enduml

@@ -37,8 +37,8 @@ import java.util.logging.Logger;
  *       tampered token is rejected before touching infrastructure state.</li>
  *   <li>Backup codes are consumed (single-use) by the adapter on a successful
  *       {@code verifyBackupCode} call.</li>
- *   <li>Replay protection on the verification token (same JTI reused) is the adapter's
- *       responsibility (Phase 4.2 {@code invalidated_jwts} table).</li>
+ *   <li>Access tokens issued after successful verification are subject to JTI-based
+ *       revocation when later validated through {@link Ports.TokenVerifier#verifyAccessToken}.</li>
  * </ul>
  */
 public final class VerifyTotpCommandHandler {

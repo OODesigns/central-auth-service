@@ -1,8 +1,8 @@
 package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.entity.User;
-import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.BackupCode;
+import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.Credentials;
 import com.oodesigns.cas.domain.value.Payload;
 import com.oodesigns.cas.domain.value.TotpCode;
@@ -50,6 +50,14 @@ public class Ports {
      */
     public interface TokenVerifier {
         /**
+         * Verify an access token and extract the authenticated principal.
+         *
+         * @param token the compact JWT access token received from the client
+         * @return Optional containing the authenticated principal if valid, empty otherwise
+         */
+        Optional<AccessTokenClaims> verifyAccessToken(String token);
+
+        /**
          * Verify a 2FA verification token and extract the subject user ID.
          * <p>
          * A valid token must have:
@@ -87,6 +95,26 @@ public class Ports {
          *         token is valid; empty otherwise
          */
         Optional<UserId> verifyRefreshToken(String token);
+    }
+
+    /**
+     * Claims extracted from a validated access token.
+     */
+    public record AccessTokenClaims(UserId userId, Jti jti, Instant expiresAt) {
+        public AccessTokenClaims {
+            java.util.Objects.requireNonNull(userId, "UserId cannot be null");
+            java.util.Objects.requireNonNull(jti, "JTI cannot be null");
+            java.util.Objects.requireNonNull(expiresAt, "Expiry time cannot be null");
+        }
+    }
+
+    /**
+     * Port for invalidating and querying revoked access tokens.
+     */
+    public interface AccessTokenRevocationStore {
+        void invalidate(final AccessTokenClaims claims, final String token, final String reason);
+
+        boolean isInvalidated(final Jti jti);
     }
 
     /**

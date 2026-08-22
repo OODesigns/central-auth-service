@@ -1,0 +1,60 @@
+@startuml
+!include ../../themes/dark-theme.puml
+title Request Guardrails – Multi-Key Rate Limiting
+
+legend Top
+Because those three limiters are protecting three different abuse
+patterns, and they need different thresholds and time windows. One size won’t fit all.
+
+IP limiter = stops floods and bot storms
+Identifier limiter = stops account brute force (targeting one user)
+Combo limiter (IP+identifier) = stops a single attacker hammering one account from one IP
+
+If you only do one of these, attackers just switch strategy.
+end legend
+
+start
+:Receive login request;
+
+:Derive rate limit keys;
+note right
+  Keys:
+  - login:ip:{ip}
+  - login:id:{identifier}
+  - login:ip+id:{ip}:{identifier}
+end note
+
+:Check IP limiter (60 / 1m); <<warning>>
+if (IP limited?) then (yes)
+  :Return RATE_LIMITED; <<failure>>
+  note right
+    Source- ipLimiter : 60 requests / 1 minute
+    Message from RateLimitResult.Blocked
+  end note
+  end
+endif
+
+:Check Identifier limiter (10 / 10m); <<warning>>
+if (Identifier limited?) then (yes)
+  :Return RATE_LIMITED; <<failure>>
+  note right
+    Source - idLimiter : 10 attempts / 10 minutes
+    Message from RateLimitResult.Blocked
+  end note
+  end
+endif
+
+:Check IP+Identifier limiter (5 / 5m); <<warning>>
+if (Combo limited?) then (yes)
+  :Return RATE_LIMITED; <<failure>>
+  note right
+    Source - comboLimiter : 5 attempts / 5 minutes
+    Message from RateLimitResult.Blocked
+  end note
+  end
+endif
+
+:Continue to credential verification;
+
+end
+@enduml

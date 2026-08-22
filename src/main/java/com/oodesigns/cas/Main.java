@@ -3,6 +3,7 @@ package com.oodesigns.cas;
 import com.oodesigns.cas.application.command.DisableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
+import com.oodesigns.cas.application.command.LogoutCommandHandler;
 import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
 import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
 import com.oodesigns.cas.application.command.VerifyTotpCommandHandler;
@@ -15,6 +16,7 @@ import com.oodesigns.cas.infrastructure.adapter.JooqTotpStatusReader;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpVerifier;
 import com.oodesigns.cas.infrastructure.adapter.JooqUserCredentialByIdReader;
 import com.oodesigns.cas.infrastructure.adapter.JooqRefreshTokenStore;
+import com.oodesigns.cas.infrastructure.adapter.JooqAccessTokenRevocationStore;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenVerifier;
 import com.oodesigns.cas.infrastructure.adapter.LoginRateLimiter;
@@ -70,8 +72,9 @@ public final class Main {
         // --- Infrastructure adapters ---
         final EnvironmentKeySupplier keySupplier = new EnvironmentKeySupplier();
         final SystemClock clock = new SystemClock();
+        final JooqAccessTokenRevocationStore accessTokenRevocationStore = new JooqAccessTokenRevocationStore(dsl);
         final JwtTokenSigner tokenSigner = new JwtTokenSigner(keySupplier, JWT_KEY_ID);
-        final JwtTokenVerifier tokenVerifier = new JwtTokenVerifier(keySupplier, JWT_KEY_ID);
+        final JwtTokenVerifier tokenVerifier = new JwtTokenVerifier(keySupplier, JWT_KEY_ID, new com.fasterxml.jackson.databind.ObjectMapper(), accessTokenRevocationStore);
         final BcryptPasswordVerifier passwordVerifier = new BcryptPasswordVerifier();
         final LoginRateLimiter rateLimiter = new LoginRateLimiter();
         final com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter totpRateLimiter = new com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter();
@@ -104,11 +107,12 @@ public final class Main {
                 new DisableTotpCommandHandler(authService, credentialByIdReader, totpSetupProvider);
         final RefreshTokenCommandHandler refreshTokenHandler =
                 new RefreshTokenCommandHandler(tokenVerifier, userRepository, tokenService, refreshTokenStore);
+        final LogoutCommandHandler logoutHandler = new LogoutCommandHandler(tokenVerifier, accessTokenRevocationStore);
 
         // --- gRPC service ---
         final AuthGrpcService grpcService = new AuthGrpcService(
                 loginHandler, setupTotpHandler, enableTotpHandler,
-                verifyTotpHandler, disableTotpHandler, refreshTokenHandler);
+                verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler);
 
         // --- TLS (optional) ---
         final String keystorePath = props.get("grpc.tls.keystore.path");
