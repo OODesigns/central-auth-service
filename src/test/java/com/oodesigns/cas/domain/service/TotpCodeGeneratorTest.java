@@ -72,6 +72,8 @@ class TotpCodeGeneratorTest {
     void verifyAcceptsCodeForCurrentTimeStep() {
         final long now = 1234567890L;
         assertTrue(generatorAt(now).verify(rfcSecret(), "005924"));
+        assertEquals(now / TIME_STEP_SECONDS,
+            generatorAt(now).findMatchingCounter(rfcSecret(), "005924").orElseThrow());
     }
 
     @Test
@@ -111,6 +113,7 @@ class TotpCodeGeneratorTest {
     @Test
     void verifyRejectsNullCode() {
         assertFalse(generatorAt(1234567890L).verify(rfcSecret(), null));
+        assertTrue(generatorAt(1234567890L).findMatchingCounter(rfcSecret(), null).isEmpty());
     }
 
     @Test

@@ -51,6 +51,7 @@ central-auth-service/
 ### Start Here
 | Document | Description |
 |----------|-------------|
+| [SECURITY_ROLLOUT.md](project/SECURITY_ROLLOUT.md) | Production automation, migrations, TLS, secrets, rotation, scanning, backups, monitoring, and recovery runbook |
 | [DATABASE_SECURITY_QUICK_REFERENCE.md](database/DATABASE_SECURITY_QUICK_REFERENCE.md) | Quick reference card for DB security |
 | [DATABASE_SECURITY_HARDENING.md](database/DATABASE_SECURITY_HARDENING.md) | Technical database security reference |
 | [Migration history index](database/migration-history/INDEX_SECURITY_HARDENING.md) | Historical security-hardening documentation set |

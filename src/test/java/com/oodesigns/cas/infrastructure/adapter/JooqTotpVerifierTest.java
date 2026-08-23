@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @SuppressWarnings("SqlResolve")
@@ -37,6 +36,7 @@ class JooqTotpVerifierTest {
     private static final String ENCRYPTION_KEY_ID = "TOTP_ENCRYPTION_KEY";
     private static final String SECRET = "JBSWY3DPEHPK3PXP";
     private static final Instant FIXED_NOW = Instant.parse("2026-08-10T12:00:00Z");
+    private static final long FIXED_COUNTER = FIXED_NOW.getEpochSecond() / 30;
 
     @Mock
     private DSLContext dslContext;
@@ -73,9 +73,37 @@ class JooqTotpVerifierTest {
         when(keySupplier.getPassword(ENCRYPTION_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_KEY)));
         when(dslContext.fetchOptional("SELECT * FROM api_schema.get_totp_secret(?)", userId))
             .thenReturn(Optional.of(secretRecord()));
+        when(dslContext.fetchOne("SELECT api_schema.consume_totp_counter(?, ?)", userId, FIXED_COUNTER))
+            .thenReturn(trueRecord());
 
         assertTrue(verifier.verifyCode(UserId.of(userId), TotpCode.of(code)));
         verify(dslContext).fetchOptional("SELECT * FROM api_schema.get_totp_secret(?)", userId);
+        verify(dslContext).fetchOne("SELECT api_schema.consume_totp_counter(?, ?)", userId, FIXED_COUNTER);
+    }
+
+    @Test
+    void verifyCodeRejectsAReplayedCounter() {
+        final UUID userId = UUID.randomUUID();
+        final String code = totpCodeGenerator.generate(SecretFor2FA.of(SECRET));
+        when(keySupplier.getPassword(ENCRYPTION_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_KEY)));
+        when(dslContext.fetchOptional("SELECT * FROM api_schema.get_totp_secret(?)", userId))
+            .thenReturn(Optional.of(secretRecord()));
+        when(dslContext.fetchOne("SELECT api_schema.consume_totp_counter(?, ?)", userId, FIXED_COUNTER))
+            .thenReturn(falseRecord());
+
+        assertFalse(verifier.verifyCode(UserId.of(userId), TotpCode.of(code)));
+    }
+
+    @Test
+    void verifyCodeDoesNotConsumeCounterForInvalidCode() {
+        final UUID userId = UUID.randomUUID();
+        when(keySupplier.getPassword(ENCRYPTION_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_KEY)));
+        when(dslContext.fetchOptional("SELECT * FROM api_schema.get_totp_secret(?)", userId))
+            .thenReturn(Optional.of(secretRecord()));
+
+        assertFalse(verifier.verifyCode(UserId.of(userId), TotpCode.of("000000")));
+        verify(dslContext, never()).fetchOne(
+            "SELECT api_schema.consume_totp_counter(?, ?)", userId, FIXED_COUNTER);
     }
 
     @Test

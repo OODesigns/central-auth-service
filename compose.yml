@@ -23,7 +23,7 @@ services:
       start_period: 10s
 
   flyway:
-    image: flyway/flyway:11.8.2
+    image: redgate/flyway:11.8.2
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -31,6 +31,9 @@ services:
       API_USER: ${API_USER:-app_user}
       API_PASSWORD: ${API_PASSWORD:?API_PASSWORD is required}
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH is required}
+      LOAD_TEST_DATA: "false"
+      TOTP_TEST_SECRET: disabled
+      TOTP_TEST_ENCRYPTION_KEY: disabled
     volumes:
       - ./.devcontainer/flyway/conf/flyway.conf:/flyway/conf/flyway.conf:ro
       - ./.devcontainer/flyway/sql:/flyway/sql:ro
@@ -60,10 +63,16 @@ services:
       GRPC_PORT: "50051"
       TOTP_ISSUER: ${TOTP_ISSUER:-CentralAuthService}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
+      JWT_ACTIVE_KEY_ID: ${JWT_ACTIVE_KEY_ID:-JWT_SECRET}
+      JWT_PREVIOUS_KEY_IDS: ${JWT_PREVIOUS_KEY_IDS:-}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?TOTP_ENCRYPTION_KEY is required}
       KEYSTORE_PASSWORD: ${KEYSTORE_PASSWORD:?KEYSTORE_PASSWORD is required}
       TRUSTSTORE_PASSWORD: ${TRUSTSTORE_PASSWORD:?TRUSTSTORE_PASSWORD is required}
       KEYSTORE_PATH: ${KEYSTORE_PATH:-}
       TRUSTSTORE_PATH: ${TRUSTSTORE_PATH:-}
+      ALLOW_PLAINTEXT: ${ALLOW_PLAINTEXT:-false}
+      RATE_LIMIT_BACKEND: ${RATE_LIMIT_BACKEND:-database}
     ports:
       - "${GRPC_HOST_PORT:-50051}:50051"
     depends_on:

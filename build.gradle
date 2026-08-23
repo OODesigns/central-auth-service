@@ -24,6 +24,10 @@ repositories {
     mavenCentral()
 }
 
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 dependencies {
     // Testing
     testImplementation platform('org.junit:junit-bom:6.1.0-M1')
@@ -36,28 +40,28 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers:2.0.3'
     testImplementation 'org.testcontainers:testcontainers-postgresql:2.0.3'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.3'
-    testImplementation 'io.grpc:grpc-testing:1.68.0'
+    testImplementation 'io.grpc:grpc-testing:1.75.0'
 
     // Logging - SLF4J with Logback implementation for tests
-    testImplementation 'ch.qos.logback:logback-classic:1.5.23'
+    testImplementation 'ch.qos.logback:logback-classic:1.5.34'
 
     // Database
     implementation 'org.jooq:jooq:3.20.10'
-    implementation 'org.postgresql:postgresql:42.7.8'
+    implementation 'org.postgresql:postgresql:42.7.12'
 
     // gRPC / Protobuf
-    implementation 'io.grpc:grpc-netty-shaded:1.68.0'
-    implementation 'io.grpc:grpc-protobuf:1.68.0'
-    implementation 'io.grpc:grpc-stub:1.68.0'
+    implementation 'io.grpc:grpc-netty-shaded:1.75.0'
+    implementation 'io.grpc:grpc-protobuf:1.75.0'
+    implementation 'io.grpc:grpc-stub:1.75.0'
     implementation 'com.google.protobuf:protobuf-java:3.25.5'
     implementation 'javax.annotation:javax.annotation-api:1.3.2'
 
     // Main dependencies
     implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.9'
     implementation 'com.bucket4j:bucket4j_jdk17-core:8.15.0'
     implementation 'org.springframework.security:spring-security-crypto:7.0.2'
-    implementation 'commons-logging:commons-logging:1.2'
+    implementation 'org.springframework:spring-jcl:6.2.19'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.1'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.1'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.1'
@@ -69,7 +73,7 @@ configurations {
 }
 
 dependencies {
-    mockitoAgent('org.mockito:mockito-core:5.14.1') { transitive = false }
+    mockitoAgent('org.mockito:mockito-core:5.21.0') { transitive = false }
 }
 
 // NOTE: The "multi-string dependency notation ... deprecated (Gradle 10)" warning during
@@ -84,7 +88,7 @@ protobuf {
     }
     plugins {
         grpc {
-            artifact = 'io.grpc:protoc-gen-grpc-java:1.68.0'
+            artifact = 'io.grpc:protoc-gen-grpc-java:1.75.0'
         }
     }
     generateProtoTasks {

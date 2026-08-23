@@ -1,5 +1,7 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.KeyPassword;
 import com.oodesigns.cas.domain.value.Payload;
@@ -11,6 +13,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,8 +39,10 @@ import java.util.logging.Logger;
  */
 public final class JwtTokenSigner implements Ports.TokenSigner {
     private static final Logger logger = Logger.getLogger(JwtTokenSigner.class.getName());
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
     private final KeySupplier keySupplier;
     private final String keyId;
+    private final ObjectMapper objectMapper;
 
     /**
      * Construct a JWT token signer that fetches passwords on-demand.
@@ -49,6 +54,7 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
     public JwtTokenSigner(final KeySupplier keySupplier, final String keyId) {
         this.keySupplier = Objects.requireNonNull(keySupplier, "Key supplier cannot be null");
         this.keyId = Objects.requireNonNull(keyId, "Key ID cannot be null");
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -89,15 +95,19 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
             // JJWT's Keys.hmacShaKeyFor() constructs the SecretKey from byte array
             // and manages the internal bytes securely
             final SecretKey secretKey = Keys.hmacShaKeyFor(password.toUtf8Bytes());
+                final Map<String, Object> claims = objectMapper.readValue(payload.value(), MAP_TYPE);
 
             final String token = Jwts.builder()
-                    .claim("payload", payload.toString())
+                    .header().keyId(keyId).and()
+                    .claims(claims)
+                    .claim("ver", 2)
+                    .claim("payload", payload.value())
                     .expiration(Date.from(expiresAt))
                     .signWith(secretKey, Jwts.SIG.HS256)
                     .compact();
 
             return Optional.of(token);
-        } catch (final RuntimeException _) {
+        } catch (final Exception _) {
             // Log the error for debugging/auditing (at debug level to avoid sensitive info exposure)
             // Use lambda to defer string formatting until log level is enabled
             logger.log(Level.FINE, () -> String.format("JWT signing failed for key ID: %s", keyId));

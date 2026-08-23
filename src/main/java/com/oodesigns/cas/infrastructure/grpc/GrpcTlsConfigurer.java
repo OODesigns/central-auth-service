@@ -15,7 +15,6 @@ import java.security.KeyStore;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -23,16 +22,13 @@ import java.util.logging.Logger;
  * <p>
  * Behaviour:
  * <ul>
- *   <li>If {@code keystorePath} is blank / null → returns {@link Optional#empty()};
- *       the caller starts the server in plaintext mode (suitable for local dev
- *       or when TLS is terminated by a sidecar / load-balancer).</li>
- *   <li>If {@code KEYSTORE_PASSWORD} cannot be retrieved from the {@link KeySupplier}
- *       → {@link Optional#empty()}.</li>
+ *   <li>If {@code keystorePath} is blank / null, plaintext mode is available only
+ *       when the caller explicitly opts in.</li>
+ *   <li>If TLS is configured but its key material cannot be loaded, startup fails.</li>
  *   <li>If a non-blank {@code truststorePath} is also provided and
  *       {@code TRUSTSTORE_PASSWORD} is available, mutual TLS is configured
  *       (client certificates required).</li>
- *   <li>Any I/O or SSL exception during setup → logged at WARNING level,
- *       {@link Optional#empty()} returned.</li>
+ *   <li>Any I/O or SSL exception during configured setup fails closed.</li>
  * </ul>
  * <p>
  * Keystore format is inferred from the file extension:
@@ -64,24 +60,33 @@ public final class GrpcTlsConfigurer {
      *                       blank / null → plaintext mode
      * @param truststorePath optional path to a truststore for mTLS;
      *                       blank / null → no client authentication
-     * @return configured {@link SslContext}, or empty if TLS is disabled or setup fails
+    * @param allowPlaintext whether plaintext transport has been explicitly permitted
+    * @return configured {@link SslContext}, or empty only when plaintext is explicitly allowed
+    * @throws IllegalStateException if TLS is configured but cannot be initialized
      */
     public Optional<SslContext> buildServerSslContext(
             final String keystorePath,
-            final String truststorePath) {
+            final String truststorePath,
+            final boolean allowPlaintext) {
         if (keystorePath == null || keystorePath.isBlank()) {
+            if (!allowPlaintext) {
+                throw new IllegalStateException(
+                        "KEYSTORE_PATH is required unless ALLOW_PLAINTEXT is explicitly true");
+            }
             LOGGER.info("No keystore path configured; gRPC TLS disabled (plaintext mode)");
             return Optional.empty();
         }
-        return keySupplier.getPassword(KEYSTORE_PASSWORD_KEY)
-                .flatMap(password -> loadSslContext(keystorePath, truststorePath, password));
+        final KeyPassword password = keySupplier.getPassword(KEYSTORE_PASSWORD_KEY)
+            .orElseThrow(() -> new IllegalStateException(
+                "TLS is configured but KEYSTORE_PASSWORD is unavailable"));
+        return Optional.of(loadSslContext(keystorePath, truststorePath, password));
     }
 
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private Optional<SslContext> loadSslContext(
+    private SslContext loadSslContext(
             final String keystorePath,
             final String truststorePath,
             final KeyPassword keystorePassword) {
@@ -95,20 +100,18 @@ public final class GrpcTlsConfigurer {
                 final SslContextBuilder builder =
                         GrpcSslContexts.configure(SslContextBuilder.forServer(kmf));
                 applyTruststore(builder, truststorePath);
-                return Optional.of(builder.build());
+                return builder.build();
             } finally {
                 Arrays.fill(pw, '\0');
             }
         } catch (final Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to load gRPC TLS context", e);
-            return Optional.empty();
+            throw new IllegalStateException("Failed to initialize configured gRPC TLS", e);
         }
     }
 
     /**
      * Optionally configures mTLS by loading a truststore and requiring client certs.
-     * Throws if the truststore path is set but the file cannot be loaded; the caller
-     * catches this and falls back to plaintext.
+    * Throws if the truststore path is set but its password or file cannot be loaded.
      */
     private void applyTruststore(
             final SslContextBuilder builder,
@@ -116,13 +119,11 @@ public final class GrpcTlsConfigurer {
         if (truststorePath == null || truststorePath.isBlank()) {
             return;
         }
-        final Optional<KeyPassword> tsPasswordOpt = keySupplier.getPassword(TRUSTSTORE_PASSWORD_KEY);
-        if (tsPasswordOpt.isEmpty()) {
-            LOGGER.warning("Truststore path set but TRUSTSTORE_PASSWORD unavailable; mTLS skipped");
-            return;
-        }
-        try (final KeyPassword tsPassword = tsPasswordOpt.get()) {
-            final char[] pw = tsPassword.chars();
+        final KeyPassword truststorePassword = keySupplier.getPassword(TRUSTSTORE_PASSWORD_KEY)
+                .orElseThrow(() -> new IllegalStateException(
+                        "mTLS is configured but TRUSTSTORE_PASSWORD is unavailable"));
+        try (truststorePassword) {
+            final char[] pw = truststorePassword.chars();
             try {
                 final KeyStore ts = loadKeyStore(truststorePath, pw);
                 final TrustManagerFactory tmf = TrustManagerFactory.getInstance(

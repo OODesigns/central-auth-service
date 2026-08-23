@@ -4,9 +4,8 @@
 -- This migration adds test users with and without TOTP enabled to support
 -- testing the 2FA implementation during development.
 --
--- NOTE: This file is for development/testing only and should NOT be used in production.
---       Remove this migration before deploying to production environments.
--- NOTE: Secret key is stored encrypted in production. For testing, we use a test key.
+-- Disabled by default. LOAD_TEST_DATA must be explicitly true and test-only secret
+-- placeholders must be supplied by an isolated test environment.
 
 -- ============================================================================
 -- TEST DATA: Users with 2FA
@@ -30,8 +29,8 @@ INSERT INTO private_schema.totp_secrets (
   gen_random_uuid(),
   user_id,
   api_schema.encrypt_totp_secret(
-    'JBSWY3DPEBLW64TMMQ======',
-    'test-encryption-key-dev-only'
+    '${TOTP_TEST_SECRET}',
+    '${TOTP_TEST_ENCRYPTION_KEY}'
   ),
   'SHA1',
   30,
@@ -42,6 +41,7 @@ INSERT INTO private_schema.totp_secrets (
   now()
 FROM private_schema.users
 WHERE username = 'admin'
+AND '${LOAD_TEST_DATA}'::boolean
 AND NOT EXISTS (
   SELECT 1 FROM private_schema.totp_secrets WHERE user_id = private_schema.users.user_id
 );
@@ -68,6 +68,7 @@ FROM private_schema.users u
 -- Generate 10 backup codes (cross join to duplicate rows)
 CROSS JOIN generate_series(1, 10)
 WHERE u.username = 'admin'
+AND '${LOAD_TEST_DATA}'::boolean
 AND EXISTS (
   SELECT 1 FROM private_schema.totp_secrets ts WHERE ts.user_id = u.user_id
 )
@@ -100,42 +101,18 @@ SELECT
   'totp_secrets',
   ts.id,
   jsonb_build_object(
-    'test_secret', 'JBSWY3DPEBLW64TMMQ======',
+    'test_data', true,
     'note', 'Test data for 2FA development/testing only'
   ),
   now()
 FROM private_schema.users u
 JOIN private_schema.totp_secrets ts ON u.user_id = ts.user_id
 WHERE u.username = 'admin'
+AND '${LOAD_TEST_DATA}'::boolean
 LIMIT 1;
 
--- ============================================================================
--- TEST REFERENCE: TOTP Secret Information
--- ============================================================================
---
--- IMPORTANT: For testing 2FA with the test secret below, use a TOTP app or
--- generate codes with the following information:
---
--- Secret (Base32):     JBSWY3DPEBLW64TMMQ======
--- Algorithm:           SHA1
--- Period:              30 seconds
--- Digits:              6
---
--- To generate test codes:
--- 1. Use https://totp.dcode.fr/ or any TOTP generator
--- 2. Input the base32 secret above
--- 3. Match algorithm and period settings
--- 4. Generate 6-digit codes
---
--- Sample test codes (valid for 30-second windows):
--- - These codes change every 30 seconds
--- - Use current time-based codes during testing
---
--- Backup Codes:
--- - 10 single-use backup codes are generated automatically
--- - Query: SELECT code_hash FROM private_schema.backup_codes WHERE user_id = <admin_user_id>
---
--- WARNING: This is FOR TESTING ONLY - never use in production
+-- Test credentials are supplied only through explicit Flyway placeholders in an
+-- isolated test environment. No reusable secret is stored in this migration.
 --
 
 -- ============================================================================

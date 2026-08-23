@@ -72,24 +72,32 @@ class GrpcTlsConfigurerTest {
 
     @Test
     void buildServerSslContext_ReturnsEmpty_WhenKeystorePathIsNull() {
-        assertTrue(configurer.buildServerSslContext(null, null).isEmpty());
+        assertTrue(configurer.buildServerSslContext(null, null, true).isEmpty());
         verify(keySupplier, never()).getPassword(any());
     }
 
     @Test
     void buildServerSslContext_ReturnsEmpty_WhenKeystorePathIsBlank() {
-        assertTrue(configurer.buildServerSslContext("   ", null).isEmpty());
+                assertTrue(configurer.buildServerSslContext("   ", null, true).isEmpty());
         verify(keySupplier, never()).getPassword(any());
     }
+
+        @Test
+        void buildServerSslContext_Throws_WhenPlaintextIsNotExplicitlyAllowed() {
+                assertThrows(IllegalStateException.class,
+                                () -> configurer.buildServerSslContext(null, null, false));
+                verify(keySupplier, never()).getPassword(any());
+        }
 
     // =========================================================================
     // Keystore password unavailable
     // =========================================================================
 
     @Test
-    void buildServerSslContext_ReturnsEmpty_WhenKeystorePasswordNotAvailable() {
+    void buildServerSslContext_Throws_WhenKeystorePasswordNotAvailable() {
         when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY)).thenReturn(Optional.empty());
-        assertTrue(configurer.buildServerSslContext(jksPath, null).isEmpty());
+        assertThrows(IllegalStateException.class,
+                () -> configurer.buildServerSslContext(jksPath, null, false));
     }
 
     // =========================================================================
@@ -100,7 +108,7 @@ class GrpcTlsConfigurerTest {
     void buildServerSslContext_ReturnsSslContext_ForValidJksKeystore() {
         when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
-        final Optional<SslContext> result = configurer.buildServerSslContext(jksPath, null);
+        final Optional<SslContext> result = configurer.buildServerSslContext(jksPath, null, false);
         assertTrue(result.isPresent());
     }
 
@@ -108,7 +116,7 @@ class GrpcTlsConfigurerTest {
     void buildServerSslContext_ReturnsSslContext_ForValidPkcs12Keystore() {
         when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
-        final Optional<SslContext> result = configurer.buildServerSslContext(p12Path, null);
+        final Optional<SslContext> result = configurer.buildServerSslContext(p12Path, null, false);
         assertTrue(result.isPresent());
     }
 
@@ -117,15 +125,16 @@ class GrpcTlsConfigurerTest {
         // Exercises the .pfx extension branch in loadKeyStore (same PKCS12 format as .p12)
         when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
-        final Optional<SslContext> result = configurer.buildServerSslContext(pfxPath, null);
+        final Optional<SslContext> result = configurer.buildServerSslContext(pfxPath, null, false);
         assertTrue(result.isPresent());
     }
 
     @Test
-    void buildServerSslContext_ReturnsEmpty_WhenKeystoreFileNotFound() {
+    void buildServerSslContext_Throws_WhenKeystoreFileNotFound() {
         when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
-        assertTrue(configurer.buildServerSslContext("nonexistent-keystore.jks", null).isEmpty());
+        assertThrows(IllegalStateException.class,
+                () -> configurer.buildServerSslContext("nonexistent-keystore.jks", null, false));
     }
 
     @Test
@@ -133,7 +142,7 @@ class GrpcTlsConfigurerTest {
         // Blank truststore → server-only TLS, no mTLS
         when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
-        final Optional<SslContext> result = configurer.buildServerSslContext(jksPath, "  ");
+        final Optional<SslContext> result = configurer.buildServerSslContext(jksPath, "  ", false);
         assertTrue(result.isPresent());
     }
 
@@ -142,14 +151,13 @@ class GrpcTlsConfigurerTest {
     // =========================================================================
 
     @Test
-    void buildServerSslContext_ReturnsSslContext_WhenTruststorePasswordMissing() {
-        // Truststore path is set but TRUSTSTORE_PASSWORD absent → mTLS skipped, server TLS OK
+        void buildServerSslContext_Throws_WhenTruststorePasswordMissing() {
         when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
         when(keySupplier.getPassword(TRUSTSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.empty());
-        final Optional<SslContext> result = configurer.buildServerSslContext(jksPath, jksPath);
-        assertTrue(result.isPresent());
+        assertThrows(IllegalStateException.class,
+            () -> configurer.buildServerSslContext(jksPath, jksPath, false));
     }
 
     // =========================================================================
@@ -162,7 +170,7 @@ class GrpcTlsConfigurerTest {
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
         when(keySupplier.getPassword(TRUSTSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
-        final Optional<SslContext> result = configurer.buildServerSslContext(jksPath, jksPath);
+        final Optional<SslContext> result = configurer.buildServerSslContext(jksPath, jksPath, false);
         assertTrue(result.isPresent());
     }
 
@@ -171,16 +179,13 @@ class GrpcTlsConfigurerTest {
     // =========================================================================
 
     @Test
-    void buildServerSslContext_ReturnsEmpty_WhenTruststoreFileNotFound() {
-        // Valid keystore but nonexistent truststore → applyTruststore throws →
-        // outer catch returns empty
+        void buildServerSslContext_Throws_WhenTruststoreFileNotFound() {
         when(keySupplier.getPassword(KEYSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
         when(keySupplier.getPassword(TRUSTSTORE_PASSWORD_KEY))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_PASSWORD)));
-        final Optional<SslContext> result =
-                configurer.buildServerSslContext(jksPath, "nonexistent-truststore.jks");
-        assertTrue(result.isEmpty());
+        assertThrows(IllegalStateException.class,
+            () -> configurer.buildServerSslContext(jksPath, "nonexistent-truststore.jks", false));
     }
 }
 

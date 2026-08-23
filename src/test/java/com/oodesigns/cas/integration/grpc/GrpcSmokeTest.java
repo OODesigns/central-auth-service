@@ -115,6 +115,7 @@ class GrpcSmokeTest {
         }
         System.setProperty("DB_HOST", System.getProperty("DB_HOST", DEFAULT_DB_HOST));
         System.setProperty("JWT_SECRET", System.getProperty("JWT_SECRET", DEFAULT_JWT_SECRET));
+        System.setProperty("TOTP_ENCRYPTION_KEY", System.getProperty("TOTP_ENCRYPTION_KEY", DEFAULT_TOTP_ENCRYPTION_KEY));
         System.setProperty("KEYSTORE_PASSWORD", System.getProperty("KEYSTORE_PASSWORD", DEFAULT_TOTP_ENCRYPTION_KEY));
         System.setProperty("TRUSTSTORE_PASSWORD", System.getProperty("TRUSTSTORE_PASSWORD", DEFAULT_TOTP_ENCRYPTION_KEY));
         System.setProperty("POSTGRES_USER", System.getProperty("POSTGRES_USER", DEFAULT_POSTGRES_USER));
@@ -154,8 +155,8 @@ class GrpcSmokeTest {
         final UserCredentialReader credentialReader = new UserCredentialReader(appDsl);
         final UserRepository userRepository = new UserRepository(appDsl);
         final JooqTotpStatusReader totpStatusReader = new JooqTotpStatusReader(appDsl);
-        final JooqTotpVerifier totpVerifier = new JooqTotpVerifier(appDsl, new SystemClock(), keySupplier, "KEYSTORE_PASSWORD");
-        final JooqTotpSetupProvider totpSetupProvider = new JooqTotpSetupProvider(appDsl, keySupplier, "KEYSTORE_PASSWORD");
+        final JooqTotpVerifier totpVerifier = new JooqTotpVerifier(appDsl, new SystemClock(), keySupplier, "TOTP_ENCRYPTION_KEY");
+        final JooqTotpSetupProvider totpSetupProvider = new JooqTotpSetupProvider(appDsl, keySupplier, "TOTP_ENCRYPTION_KEY");
         final JooqUserCredentialByIdReader credentialByIdReader = new JooqUserCredentialByIdReader(appDsl);
         final JooqRefreshTokenStore refreshTokenStore = new JooqRefreshTokenStore(appDsl);
         final JooqAccessTokenRevocationStore accessTokenRevocationStore = new JooqAccessTokenRevocationStore(appDsl);
@@ -171,7 +172,8 @@ class GrpcSmokeTest {
         );
         final SetupTotpCommandHandler setupTotpHandler = new SetupTotpCommandHandler(totpSetupProvider, "CentralAuthService");
         final EnableTotpCommandHandler enableTotpHandler = new EnableTotpCommandHandler(totpVerifier, totpSetupProvider);
-        tokenVerifier = new JwtTokenVerifier(keySupplier, "JWT_SECRET", new com.fasterxml.jackson.databind.ObjectMapper(), accessTokenRevocationStore);
+        tokenVerifier = new JwtTokenVerifier(
+                keySupplier, "JWT_SECRET", accessTokenRevocationStore);
         final VerifyTotpCommandHandler verifyTotpHandler = new VerifyTotpCommandHandler(
                 tokenVerifier,
                 totpVerifier,

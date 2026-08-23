@@ -98,7 +98,7 @@ class LogoutCommandHandlerTest {
             return null;
         }).orElse(failure -> {
             assertEquals("INTERNAL_ERROR", failure.errorCode());
-            assertEquals("Logout failed: database unavailable", failure.errorMessage());
+            assertEquals("Logout could not be completed.", failure.errorMessage());
             return null;
         });
     }

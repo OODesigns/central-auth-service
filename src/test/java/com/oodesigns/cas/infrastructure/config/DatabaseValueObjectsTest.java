@@ -74,6 +74,13 @@ class DatabaseValueObjectsTest {
     }
 
     @Test
+    void databasePasswordTrimsSurroundingWhitespace() {
+        try (final DatabasePassword password = DatabasePassword.of("  SecureP@ss1  ")) {
+            assertArrayEquals("SecureP@ss1".toCharArray(), password.chars());
+        }
+    }
+
+    @Test
     void databasePasswordReturnsDefensiveCopiesAndClearsOnClose() {
         final DatabasePassword password = DatabasePassword.of("SecureP@ss1");
         final char[] firstCopy = password.chars();
@@ -83,6 +90,15 @@ class DatabaseValueObjectsTest {
 
         password.close();
         assertArrayEquals(new char[11], password.chars());
+    }
+
+    @Test
+    void databasePasswordCopyHasIndependentLifecycle() {
+        final DatabasePassword password = DatabasePassword.of("SecureP@ss1");
+        try (final DatabasePassword copy = password.copy()) {
+            password.close();
+            assertArrayEquals("SecureP@ss1".toCharArray(), copy.chars());
+        }
     }
 
     @Test

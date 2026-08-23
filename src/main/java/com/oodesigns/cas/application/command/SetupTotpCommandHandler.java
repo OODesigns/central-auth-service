@@ -73,7 +73,7 @@ public final class SetupTotpCommandHandler {
                     "SetupTotpCommand cannot be null"));
         } catch (final RuntimeException e) {
             LOGGER.log(Level.SEVERE, INTERNAL_ERROR, e);
-            return SetupTotpResult.failure(INTERNAL_ERROR, "Failed to set up TOTP: " + e.getMessage());
+            return SetupTotpResult.failure(INTERNAL_ERROR, "TOTP setup could not be completed.");
         }
     }
 

@@ -6,7 +6,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jooq.DSLContext;
-import org.jooq.Record;
 
 /**
  * JOOQ-based implementation of {@link Ports.TotpStatusReader}.

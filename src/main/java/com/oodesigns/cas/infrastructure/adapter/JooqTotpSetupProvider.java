@@ -11,7 +11,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jooq.DSLContext;
-import org.jooq.Record;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 

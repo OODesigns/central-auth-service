@@ -31,17 +31,20 @@ public final class LogoutCommandHandler {
                     .orElseGet(() -> LogoutResult.failure("INVALID_REQUEST", "LogoutCommand cannot be null"));
         } catch (final RuntimeException e) {
             LOGGER.log(Level.SEVERE, INTERNAL_ERROR, e);
-            return LogoutResult.failure(INTERNAL_ERROR, "Logout failed: " + e.getMessage());
+            return LogoutResult.failure(INTERNAL_ERROR, "Logout could not be completed.");
         }
     }
 
     private LogoutResult logout(final LogoutCommand command) {
-        final Optional<Ports.AccessTokenClaims> claimsOpt = tokenVerifier.verifyAccessToken(command.accessToken());
-        if (claimsOpt.isEmpty()) {
-            return LogoutResult.failure("INVALID_ACCESS_TOKEN",
-                    "The access token is expired, revoked, or invalid. Please log in again.");
-        }
-        revocationStore.invalidate(claimsOpt.get(), command.accessToken(), "logout");
+        return tokenVerifier.verifyAccessToken(command.accessToken())
+                .<LogoutResult>map(claims -> invalidate(command, claims))
+                .orElseGet(() -> LogoutResult.failure("INVALID_ACCESS_TOKEN",
+                        "The access token is expired, revoked, or invalid. Please log in again."));
+    }
+
+    private LogoutResult invalidate(final LogoutCommand command,
+                                    final Ports.AccessTokenClaims claims) {
+        revocationStore.invalidate(claims, command.accessToken(), "logout");
         return LogoutResult.success();
     }
 }

@@ -17,6 +17,10 @@ The Compose stack starts PostgreSQL, waits for it to become healthy, applies
 Flyway migrations, and then starts the Java 25 gRPC service on host port 50051.
 Override the host port with `GRPC_HOST_PORT` in `.env`.
 
+`V1_2_0` was corrected before the first production release to disable legacy
+test credentials. Existing development database volumes created by an older
+revision must be recreated with `docker compose down --volumes` before startup.
+
 ```bash
 docker compose down
 # Also delete database data only when intentionally resetting the environment:
@@ -53,6 +57,7 @@ The following environment variables are required to run the Central Auth Service
 - `DATABASE_URL` - JDBC connection string (format: `jdbc:postgresql://localhost:5432/{POSTGRES_DB}`)
 - `NODE_ENV` - Environment type (e.g., `development`, `production`)
 - `JWT_SECRET` - Secret key for JWT token signing
+- `TOTP_ENCRYPTION_KEY` - Independent key for encrypting TOTP secrets at rest
 
 ### Security Configuration
 - `KEYSTORE_PASSWORD` - Password for the application's keystore file (.jks or .p12) containing the private key and certificate

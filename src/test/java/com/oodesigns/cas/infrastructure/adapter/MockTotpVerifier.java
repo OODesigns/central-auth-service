@@ -5,7 +5,6 @@ import com.oodesigns.cas.domain.value.BackupCode;
 import com.oodesigns.cas.domain.value.TotpCode;
 import com.oodesigns.cas.domain.value.UserId;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;

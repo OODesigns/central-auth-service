@@ -183,7 +183,7 @@ class EnableTotpCommandHandlerTest {
             result.mapTo(s -> { fail("Expected INTERNAL_ERROR"); return null; })
                 .orElse(f -> {
                     assertEquals("INTERNAL_ERROR", f.errorCode());
-                    assertTrue(f.errorMessage().contains("db error"));
+                    assertEquals("TOTP could not be enabled.", f.errorMessage());
                     return null;
                 });
         } finally {

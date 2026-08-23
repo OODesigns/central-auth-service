@@ -61,7 +61,7 @@ public final class TokenService {
                                                        final String permissionsList,
                                                        final Instant issuedAt,
                                                        final Instant expiresAt){
-        return Optional.of(Payload.of(String.format("{\"sub\":\"%s\",\"jti\":\"%s\",\"permissions\":%s,\"iat\":%d,\"exp\":%d}",
+        return Optional.of(Payload.of(String.format("{\"sub\":\"%s\",\"aud\":\"access_token\",\"jti\":\"%s\",\"permissions\":%s,\"iat\":%d,\"exp\":%d}",
                 userId.toString(), jti.toString(), permissionsList, issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
     }
 

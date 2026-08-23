@@ -9,6 +9,7 @@ import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 /**
  * Domain service implementing RFC 6238 (TOTP) on top of RFC 4226 (HOTP).
@@ -32,9 +33,8 @@ import java.util.Objects;
  *       windows without short-circuiting, so neither the code value nor which window
  *       matched can be inferred from response timing.</li>
  *   <li>The decoded secret key material is zeroed immediately after each HMAC.</li>
- *   <li>Accepting ±1 step means a code is valid for at most 90 seconds. Replay protection
- *       (rejecting a code that was already used in the current window) is the caller's
- *       responsibility.</li>
+ *   <li>{@link #findMatchingCounter} exposes the matched RFC 6238 counter so an adapter can
+ *       atomically reject replay without moving persistence into the domain.</li>
  * </ul>
  *
  * @see <a href="https://datatracker.ietf.org/doc/html/rfc6238">RFC 6238</a>
@@ -92,18 +92,28 @@ public final class TotpCodeGenerator {
      * @return true if the code is valid within the accepted window
      */
     public boolean verify(final SecretFor2FA secret, final String candidateCode) {
+        return findMatchingCounter(secret, candidateCode).isPresent();
+    }
+
+    /**
+     * Return the newest accepted RFC 6238 counter matching a candidate code.
+     * Every accepted window is evaluated even after a match.
+     */
+    public OptionalLong findMatchingCounter(final SecretFor2FA secret, final String candidateCode) {
         Objects.requireNonNull(secret, "TOTP secret is required");
         if (candidateCode == null) {
-            return false;
+            return OptionalLong.empty();
         }
 
         final long currentStep = currentTimeStep();
-        boolean matched = false;
+        long matchedCounter = -1;
         for (int offset = -SKEW_STEPS; offset <= SKEW_STEPS; offset++) {
-            // |= (not ||=) — no short-circuit, so timing does not reveal the matching window
-            matched |= constantTimeEquals(generateForTimeStep(secret, currentStep + offset), candidateCode);
+            final long candidateCounter = currentStep + offset;
+            if (constantTimeEquals(generateForTimeStep(secret, candidateCounter), candidateCode)) {
+                matchedCounter = candidateCounter;
+            }
         }
-        return matched;
+        return matchedCounter < 0 ? OptionalLong.empty() : OptionalLong.of(matchedCounter);
     }
 
     /**

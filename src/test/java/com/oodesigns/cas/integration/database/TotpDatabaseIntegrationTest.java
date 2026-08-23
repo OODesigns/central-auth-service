@@ -111,6 +111,7 @@ class TotpDatabaseIntegrationTest {
         assertTrue(functionExists("disable_totp"));
         assertTrue(functionExists("insert_backup_codes"));
         assertTrue(functionExists("consume_backup_code"));
+        assertTrue(functionExists("consume_totp_counter"));
     }
 
     @Test
@@ -140,6 +141,8 @@ class TotpDatabaseIntegrationTest {
         assertTrue(statusReader.check2FAStatus(userId).isPresent());
         assertTrue(verifier.isTotpEnabled(userId));
         assertTrue(verifier.verifyCode(userId, TotpCode.of(otp)));
+        assertFalse(verifier.verifyCode(userId, TotpCode.of(otp)),
+            "The same TOTP counter must not be accepted twice");
 
         final List<BackupCode> backupCodes = setupProvider.generateBackupCodes(userId);
         assertEquals(backupCodeGeneratorDefaultCount(), backupCodes.size());

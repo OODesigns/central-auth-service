@@ -7,7 +7,6 @@ import com.oodesigns.cas.domain.value.KeyPassword;
 import com.oodesigns.cas.domain.value.SecretFor2FA;
 import com.oodesigns.cas.domain.value.TotpCode;
 import com.oodesigns.cas.domain.value.UserId;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -51,7 +50,13 @@ public final class JooqTotpVerifier implements Ports.TotpVerifier {
 
     @Override
     public boolean verifyCode(final UserId userId, final TotpCode totpCode) {
-        return verifyAgainst(userId, totpCode, Routines::getTotpSecret);
+        return Optional.ofNullable(userId)
+            .flatMap(id -> Optional.ofNullable(totpCode)
+                .flatMap(code -> loadSecret(id, Routines::getTotpSecret)
+                    .map(secret -> totpCodeGenerator.findMatchingCounter(secret, code.value())
+                        .stream()
+                        .anyMatch(counter -> Routines.consumeTotpCounter(dsl, id.value(), counter)))))
+            .orElse(false);
     }
 
     @Override
@@ -149,6 +154,13 @@ public final class JooqTotpVerifier implements Ports.TotpVerifier {
 
         static boolean markTotpLastUsed(final DSLContext ctx, final UUID userId) {
             return Optional.ofNullable(ctx.fetchOne("SELECT api_schema.mark_totp_last_used(?)", userId))
+                .map(record -> record.get(0, Boolean.class))
+                .orElse(false);
+        }
+
+        static boolean consumeTotpCounter(final DSLContext ctx, final UUID userId, final long counter) {
+            return Optional.ofNullable(ctx.fetchOne(
+                    "SELECT api_schema.consume_totp_counter(?, ?)", userId, counter))
                 .map(record -> record.get(0, Boolean.class))
                 .orElse(false);
         }

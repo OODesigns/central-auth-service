@@ -9,9 +9,10 @@ RUN chmod +x gradlew
 COPY src ./src
 RUN ./gradlew --no-daemon installDist
 
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25-jre-alpine
 
-RUN useradd --system --uid 10001 --user-group --create-home --home-dir /opt/cas cas
+RUN addgroup -S -g 10001 cas \
+	&& adduser -S -D -u 10001 -G cas -h /opt/cas cas
 WORKDIR /opt/cas
 
 COPY --from=build --chown=cas:cas /workspace/build/install/central-auth-service/ ./

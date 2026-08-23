@@ -95,7 +95,7 @@ public final class LoginCommandHandler {
                 .orElseGet(() -> LoginResult.failure("INVALID_REQUEST", "LoginCommand cannot be null"));
         } catch (final RuntimeException e) {
             LOGGER.log(Level.SEVERE, INTERNAL_ERROR, e);
-            return LoginResult.failure(INTERNAL_ERROR, e.getMessage());
+            return LoginResult.failure(INTERNAL_ERROR, "Login could not be completed.");
         }
     }
 
@@ -175,13 +175,12 @@ public final class LoginCommandHandler {
         }
 
         // Step 6: Full token issuance
-        final Optional<TokenService.TokenPair> tokens = tokenService.generateTokens(user);
-        if (tokens.isPresent()) {
-            // Record the refresh token so it can later be rotated / reuse-detected.
-            refreshTokenStore.issue(user.userId(), tokens.get().refreshToken());
-            return LoginResult.success(tokens.get(), user.userId(), user.permissions());
-        }
-        return LoginResult.failure(INTERNAL_ERROR, "Failed to generate tokens");
+        return tokenService.generateTokens(user)
+            .<LoginResult>map(tokens -> {
+                refreshTokenStore.issue(user.userId(), tokens.refreshToken());
+                return LoginResult.success(tokens, user.userId(), user.permissions());
+            })
+            .orElseGet(() -> LoginResult.failure(INTERNAL_ERROR, "Failed to generate tokens"));
     }
 }
 

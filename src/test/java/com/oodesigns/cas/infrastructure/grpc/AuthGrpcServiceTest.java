@@ -63,19 +63,12 @@ class AuthGrpcServiceTest {
     @Mock private RefreshTokenCommandHandler refreshTokenHandler;
         @Mock private LogoutCommandHandler logoutHandler;
 
-    @SuppressWarnings("unchecked")
     @Mock private StreamObserver<LoginResponse> loginObserver;
-    @SuppressWarnings("unchecked")
     @Mock private StreamObserver<SetupTotpResponse> setupTotpObserver;
-    @SuppressWarnings("unchecked")
     @Mock private StreamObserver<EnableTotpResponse> enableTotpObserver;
-    @SuppressWarnings("unchecked")
     @Mock private StreamObserver<VerifyTotpResponse> verifyTotpObserver;
-    @SuppressWarnings("unchecked")
     @Mock private StreamObserver<DisableTotpResponse> disableTotpObserver;
-    @SuppressWarnings("unchecked")
     @Mock private StreamObserver<RefreshResponse> refreshObserver;
-        @SuppressWarnings("unchecked")
         @Mock private StreamObserver<LogoutResponse> logoutObserver;
 
     private AuthGrpcService service;

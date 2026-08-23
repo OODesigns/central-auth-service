@@ -143,6 +143,11 @@ class JwtTokenSignerTest {
         assertNotNull(claims, "Parsed claims should not be null");
         assertEquals(payload.value(), claims.get("payload", String.class),
             "Token should contain the original payload");
+        assertEquals(2, claims.get("ver", Integer.class));
+        assertEquals("user123", claims.getSubject());
+        assertEquals("test-key", Jwts.parser()
+            .verifyWith(Keys.hmacShaKeyFor(TEST_SECRET.getBytes(StandardCharsets.UTF_8)))
+            .build().parseSignedClaims(token).getHeader().getKeyId());
     }
 
     @Test

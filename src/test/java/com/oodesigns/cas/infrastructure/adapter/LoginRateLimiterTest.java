@@ -10,7 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -140,6 +143,14 @@ class LoginRateLimiterTest {
     }
 
     @Test
+    void testConstructorThrowsForInvalidCapacityOrClock() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new LoginRateLimiter(5, Duration.ofMinutes(1), 0, System::nanoTime));
+        assertThrows(NullPointerException.class,
+            () -> new LoginRateLimiter(5, Duration.ofMinutes(1), 10, null));
+    }
+
+    @Test
     void testResetClearsAllBuckets() {
         // Exhaust the limit
         for (int i = 0; i < 3; i++) {
@@ -205,6 +216,53 @@ class LoginRateLimiterTest {
         assertTrue(limiter.checkLimit(cmdA).mapTo(_ -> true).orElse(b -> false));
         // Second attempt from different IP but same username should be blocked at username level
         assertFalse(limiter.checkLimit(cmdB).mapTo(_ -> true).orElse(b -> false));
+    }
+
+    @Test
+    void testCapacityBlocksNewKeysUntilIdleEntriesExpire() {
+        final AtomicLong nanoTime = new AtomicLong();
+        final LoginRateLimiter limiter = new LoginRateLimiter(
+            5, Duration.ofMinutes(1), 3, nanoTime::get);
+
+        assertTrue(isAllowed(limiter.checkLimit(command1)));
+        assertFalse(isAllowed(limiter.checkLimit(command2)));
+        assertEquals(3, limiter.getTrackedKeyCount());
+
+        nanoTime.addAndGet(Duration.ofMinutes(1).toNanos() + 1);
+
+        assertTrue(isAllowed(limiter.checkLimit(command2)));
+        assertEquals(3, limiter.getTrackedKeyCount());
+    }
+
+    @Test
+    void testExpiredExistingKeysReceiveFreshBuckets() {
+        final AtomicLong nanoTime = new AtomicLong();
+        final LoginRateLimiter limiter = new LoginRateLimiter(
+            1, Duration.ofMinutes(1), 10, nanoTime::get);
+
+        assertTrue(isAllowed(limiter.checkLimit(command1)));
+        assertFalse(isAllowed(limiter.checkLimit(command1)));
+
+        nanoTime.addAndGet(Duration.ofMinutes(1).toNanos() + 1);
+
+        assertTrue(isAllowed(limiter.checkLimit(command1)));
+        assertEquals(3, limiter.getTrackedKeyCount());
+    }
+
+    @Test
+    void testConcurrentChecksShareOneBucketSet() throws Exception {
+        final LoginRateLimiter limiter = new LoginRateLimiter(100, Duration.ofMinutes(1));
+        try (final var executor = Executors.newFixedThreadPool(8)) {
+            final var tasks = IntStream.range(0, 50)
+                .<java.util.concurrent.Callable<Boolean>>mapToObj(
+                    ignored -> () -> isAllowed(limiter.checkLimit(command1)))
+                .toList();
+
+            for (final var result : executor.invokeAll(tasks)) {
+                assertTrue(result.get());
+            }
+        }
+        assertEquals(3, limiter.getTrackedKeyCount());
     }
 }
 

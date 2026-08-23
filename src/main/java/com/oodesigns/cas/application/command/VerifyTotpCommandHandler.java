@@ -88,28 +88,21 @@ public final class VerifyTotpCommandHandler {
                     "VerifyTotpCommand cannot be null"));
         } catch (final RuntimeException e) {
             LOGGER.log(Level.SEVERE, INTERNAL_ERROR, e);
-            return VerifyTotpResult.failure(INTERNAL_ERROR, "2FA verification failed: " + e.getMessage());
+            return VerifyTotpResult.failure(INTERNAL_ERROR, "2FA verification could not be completed.");
         }
     }
 
     private VerifyTotpResult verify(final VerifyTotpCommand command) {
-        // Step 1: Validate the 2FA verification JWT
-        final Optional<UserId> userIdOpt =
-            tokenVerifier.verify2FAVerificationToken(command.verificationToken());
-        if (userIdOpt.isEmpty()) {
-            return VerifyTotpResult.failure("INVALID_VERIFICATION_TOKEN",
-                "The 2FA verification token is expired or invalid. Please log in again.");
-        }
-        final UserId userId = userIdOpt.get();
+        return tokenVerifier.verify2FAVerificationToken(command.verificationToken())
+            .map(userId -> totpRateLimiter.checkLimit(userId)
+                .mapTo(allowed -> verifyCodeAndIssue(command, userId))
+                .orElse(blocked -> VerifyTotpResult.failure(
+                    "RATE_LIMIT_EXCEEDED", "Too many 2FA attempts. Try again later.")))
+            .orElseGet(() -> VerifyTotpResult.failure("INVALID_VERIFICATION_TOKEN",
+                "The 2FA verification token is expired or invalid. Please log in again."));
+    }
 
-        // Step 2: Rate limit 2FA verification attempts for this user
-        final Ports.RateLimitResult rateLimitResult = totpRateLimiter.checkLimit(userId);
-        final boolean allowed = rateLimitResult.mapTo(a -> true).orElse(b -> false);
-        if (!allowed) {
-            return VerifyTotpResult.failure("RATE_LIMIT_EXCEEDED", "Too many 2FA attempts. Try again later.");
-        }
-
-        // Step 3: Verify OTP code or (single-use) backup code
+    private VerifyTotpResult verifyCodeAndIssue(final VerifyTotpCommand command, final UserId userId) {
         final boolean codeValid = command.isOtpCode()
             ? totpVerifier.verifyCode(userId, TotpCode.of(command.code()))
             : totpVerifier.verifyBackupCode(userId, BackupCode.of(command.code()));
@@ -118,20 +111,19 @@ public final class VerifyTotpCommandHandler {
                 "The submitted code is invalid. Please try again.");
         }
 
-        // Step 3: Load user (needed for permission claims in the access token)
-        final Optional<com.oodesigns.cas.domain.entity.User> userOpt = userRetriever.findById(userId);
-        if (userOpt.isEmpty()) {
-            return VerifyTotpResult.failure("USER_NOT_FOUND",
-                "User account could not be located.");
-        }
+        return userRetriever.findById(userId)
+            .map(user -> issueTokens(userId, user))
+            .orElseGet(() -> VerifyTotpResult.failure("USER_NOT_FOUND",
+                "User account could not be located."));
+    }
 
-        // Step 4: Issue full access + refresh tokens
-        return tokenService.generateTokens(userOpt.get())
-            .map(tokens -> {
-                // Record the refresh token so it can later be rotated / reuse-detected.
+    private VerifyTotpResult issueTokens(
+            final UserId userId,
+            final com.oodesigns.cas.domain.entity.User user) {
+        return tokenService.generateTokens(user)
+            .<VerifyTotpResult>map(tokens -> {
                 refreshTokenStore.issue(userId, tokens.refreshToken());
-                return (VerifyTotpResult) VerifyTotpResult.success(
-                    tokens, userId, userOpt.get().permissions());
+                return VerifyTotpResult.success(tokens, userId, user.permissions());
             })
             .orElseGet(() -> VerifyTotpResult.failure(INTERNAL_ERROR,
                 "Failed to generate tokens."));

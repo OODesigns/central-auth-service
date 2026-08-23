@@ -6,7 +6,11 @@ import io.github.bucket4j.Bucket;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.function.LongSupplier;
 
 /**
  * Rate limiter implementation using Bucket4j.
@@ -14,11 +18,18 @@ import java.util.concurrent.ConcurrentHashMap;
  * - IP address rate limit
  * - Username rate limit
  * - Combined IP + username rate limit
+ * State is bounded and expires after inactivity. New keys fail closed at capacity;
+ * clustered deployments should replace this adapter with a shared distributed store.
  */
 public class LoginRateLimiter implements Ports.RateLimiter {
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private static final int DEFAULT_MAX_TRACKED_KEYS = 100_000;
+
+    private final Map<String, TrackedBucket> buckets = new ConcurrentHashMap<>();
     private final int maxAttempts;
     private final Duration duration;
+    private final int maxTrackedKeys;
+    private final LongSupplier nanoTime;
+    private final Semaphore availableSlots;
 
     /**
      * Create a rate limiter with default limits (5 attempts per minute per key).
@@ -33,14 +44,27 @@ public class LoginRateLimiter implements Ports.RateLimiter {
      * @param duration time window for the limit
      */
     public LoginRateLimiter(final int maxAttempts, final Duration duration) {
+        this(maxAttempts, duration, DEFAULT_MAX_TRACKED_KEYS, System::nanoTime);
+    }
+
+    LoginRateLimiter(final int maxAttempts,
+                     final Duration duration,
+                     final int maxTrackedKeys,
+                     final LongSupplier nanoTime) {
         if (maxAttempts <= 0) {
             throw new IllegalArgumentException("maxAttempts must be positive");
         }
         if (duration == null || duration.isNegative() || duration.isZero()) {
             throw new IllegalArgumentException("duration must be positive");
         }
+        if (maxTrackedKeys <= 0) {
+            throw new IllegalArgumentException("maxTrackedKeys must be positive");
+        }
         this.maxAttempts = maxAttempts;
         this.duration = duration;
+        this.maxTrackedKeys = maxTrackedKeys;
+        this.nanoTime = Objects.requireNonNull(nanoTime, "Nano time supplier cannot be null");
+        this.availableSlots = new Semaphore(maxTrackedKeys);
     }
 
     @Override
@@ -54,20 +78,11 @@ public class LoginRateLimiter implements Ports.RateLimiter {
         final String idKey = "login:id:" + command.username().value();
         final String comboKey = "login:ip+id:" + command.ipAddress().value() + ":" + command.username().value();
 
-        // Check IP limit
-        final Ports.RateLimitResult ipLimit = checkLimitForKey(ipKey);
-        if (ipLimit instanceof Ports.RateLimitResult.Blocked) {
-            return ipLimit;
-        }
-
-        // Check username limit
-        final Ports.RateLimitResult idLimit = checkLimitForKey(idKey);
-        if (idLimit instanceof Ports.RateLimitResult.Blocked) {
-            return idLimit;
-        }
-
-        // Check combined limit
-        return checkLimitForKey(comboKey);
+        return checkLimitForKey(ipKey)
+            .mapTo(allowedIp -> checkLimitForKey(idKey)
+                .mapTo(allowedId -> checkLimitForKey(comboKey))
+                .orElse(blocked -> blocked))
+            .orElse(blocked -> blocked);
     }
 
     /**
@@ -78,15 +93,48 @@ public class LoginRateLimiter implements Ports.RateLimiter {
      */
     private Ports.RateLimitResult checkLimitForKey(final String key) {
 
-        final Bucket bucket = buckets.computeIfAbsent(key, k -> createBucket());
+        return getOrCreateBucket(key)
+            .map(bucket -> bucket.tryConsume(1)
+                ? Ports.RateLimitResult.allowed()
+                : blocked())
+            .orElseGet(this::blocked);
+    }
 
-        if (bucket.tryConsume(1)) {
-            return Ports.RateLimitResult.allowed();
+    private Optional<Bucket> getOrCreateBucket(final String key) {
+        final long now = nanoTime.getAsLong();
+        return Optional.ofNullable(buckets.compute(key, (ignored, existing) -> {
+            if (existing != null) {
+                return existing.expiresAtNanos() > now
+                    ? existing.touch(expiresAt(now))
+                    : new TrackedBucket(createBucket(), expiresAt(now));
+            }
+            return reserveSlot(now)
+                ? new TrackedBucket(createBucket(), expiresAt(now))
+                : null;
+        })).map(tracked -> tracked.bucket());
+    }
+
+    private boolean reserveSlot(final long now) {
+        if (availableSlots.availablePermits() == 0) {
+            evictExpired(now);
         }
+        return availableSlots.tryAcquire();
+    }
 
-        return Ports.RateLimitResult.blocked(
-            String.format("Rate limit exceeded. Try again later.")
-        );
+    private void evictExpired(final long now) {
+        buckets.forEach((key, tracked) -> {
+            if (tracked.expiresAtNanos() <= now && buckets.remove(key, tracked)) {
+                availableSlots.release();
+            }
+        });
+    }
+
+    private long expiresAt(final long now) {
+        return now + duration.toNanos();
+    }
+
+    private Ports.RateLimitResult blocked() {
+        return Ports.RateLimitResult.blocked("Rate limit exceeded. Try again later.");
     }
 
     /**
@@ -103,6 +151,8 @@ public class LoginRateLimiter implements Ports.RateLimiter {
      */
     public void reset() {
         buckets.clear();
+        availableSlots.drainPermits();
+        availableSlots.release(maxTrackedKeys);
     }
 
     /**
@@ -110,5 +160,11 @@ public class LoginRateLimiter implements Ports.RateLimiter {
      */
     public int getTrackedKeyCount() {
         return buckets.size();
+    }
+
+    private record TrackedBucket(Bucket bucket, long expiresAtNanos) {
+        private TrackedBucket touch(final long newExpiryNanos) {
+            return new TrackedBucket(bucket, newExpiryNanos);
+        }
     }
 }

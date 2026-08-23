@@ -142,14 +142,11 @@ class CredentialsTest {
     }
 
     @Test
-    void testCredentialsCloseHandlesPasswordCloseException() {
-        // Create a mock Password that throws an exception when closed
+    void testCredentialsClosePropagatesPasswordCloseException() {
         final Password mockPassword = mock(Password.class);
         doThrow(new RuntimeException("Simulated password close failure")).when(mockPassword).close();
+        final Credentials credentials = Credentials.of(testCredential, mockPassword);
 
-        try (final var credentials = Credentials.of(testCredential, mockPassword)) {
-            // Should not throw even though password.close() throws an exception
-            assertDoesNotThrow(credentials::close);
-        }
+        assertThrows(RuntimeException.class, credentials::close);
     }
 }

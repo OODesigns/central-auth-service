@@ -75,38 +75,37 @@ public final class RefreshTokenCommandHandler {
                     "RefreshTokenCommand cannot be null"));
         } catch (final RuntimeException e) {
             LOGGER.log(Level.SEVERE, INTERNAL_ERROR, e);
-            return RefreshTokenResult.failure(INTERNAL_ERROR, "Refresh failed: " + e.getMessage());
+            return RefreshTokenResult.failure(INTERNAL_ERROR, "Token refresh could not be completed.");
         }
     }
 
     private RefreshTokenResult rotate(final RefreshTokenCommand command) {
-        // Step 1: Validate the refresh token JWT (signature, expiry, audience).
-        final Optional<UserId> userIdOpt = tokenVerifier.verifyRefreshToken(command.refreshToken());
-        if (userIdOpt.isEmpty()) {
-            return RefreshTokenResult.failure(INVALID_REFRESH_TOKEN,
-                "The refresh token is expired or invalid. Please log in again.");
-        }
-        final UserId userId = userIdOpt.get();
+        return tokenVerifier.verifyRefreshToken(command.refreshToken())
+            .map(userId -> rotateForUser(command, userId))
+            .orElseGet(() -> RefreshTokenResult.failure(INVALID_REFRESH_TOKEN,
+                "The refresh token is expired or invalid. Please log in again."));
+    }
 
-        // Step 2: Load user (needed for permission claims in the new access token).
-        final Optional<User> userOpt = userRetriever.findById(userId);
-        if (userOpt.isEmpty()) {
-            return RefreshTokenResult.failure("USER_NOT_FOUND", "User account could not be located.");
-        }
-        final User user = userOpt.get();
+    private RefreshTokenResult rotateForUser(final RefreshTokenCommand command, final UserId userId) {
+        return userRetriever.findById(userId)
+            .map(user -> generateAndRotate(command, user))
+            .orElseGet(() -> RefreshTokenResult.failure(
+                "USER_NOT_FOUND", "User account could not be located."));
+    }
 
-        // Step 3: Generate the replacement token pair (not yet persisted).
-        final Optional<TokenService.TokenPair> tokensOpt = tokenService.generateTokens(user);
-        if (tokensOpt.isEmpty()) {
-            return RefreshTokenResult.failure(INTERNAL_ERROR, "Failed to generate tokens.");
-        }
-        final TokenService.TokenPair tokens = tokensOpt.get();
+    private RefreshTokenResult generateAndRotate(final RefreshTokenCommand command, final User user) {
+        return tokenService.generateTokens(user)
+            .map(tokens -> rotateStoredToken(command, user, tokens))
+            .orElseGet(() -> RefreshTokenResult.failure(INTERNAL_ERROR, "Failed to generate tokens."));
+    }
 
-        // Step 4: Atomically rotate — the store decides if the presented token is still current.
+    private RefreshTokenResult rotateStoredToken(final RefreshTokenCommand command,
+                                                 final User user,
+                                                 final TokenService.TokenPair tokens) {
         final Ports.RefreshTokenStore.RotationStatus status =
             refreshTokenStore.rotate(command.refreshToken(), tokens.refreshToken());
         return switch (status) {
-            case ROTATED -> RefreshTokenResult.success(tokens, userId, user.permissions());
+            case ROTATED -> RefreshTokenResult.success(tokens, user.userId(), user.permissions());
             case REUSE_DETECTED -> RefreshTokenResult.failure("REFRESH_TOKEN_REUSE_DETECTED",
                 "Refresh token reuse detected. All sessions in this family have been revoked. Please log in again.");
             case EXPIRED -> RefreshTokenResult.failure("REFRESH_TOKEN_EXPIRED",

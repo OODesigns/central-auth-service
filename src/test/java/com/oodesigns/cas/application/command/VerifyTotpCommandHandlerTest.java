@@ -45,7 +45,6 @@ class VerifyTotpCommandHandlerTest {
     private TokenService tokenService;
     private UserId userId;
     private User user;
-    private TokenService.TokenPair tokenPair;
 
     @BeforeEach
     void setUp() {
@@ -55,7 +54,6 @@ class VerifyTotpCommandHandlerTest {
         handler = new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRetriever, tokenService, totpRateLimiter, refreshTokenStore);
         userId = UserId.of(UUID.randomUUID());
         user = new User(userId, Username.of("alice"), Set.of(Permission.of("read")), null, null);
-        tokenPair = new TokenService.TokenPair("access.token", "refresh.token");
     }
 
     private void mockSuccessfulTokenGeneration() {

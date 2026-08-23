@@ -12,6 +12,7 @@ import io.jsonwebtoken.security.Keys;
 
 import javax.crypto.SecretKey;
 import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Date;
@@ -41,10 +42,12 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
     private static final Logger LOGGER = Logger.getLogger(JwtTokenVerifier.class.getName());
     private static final String AUDIENCE_2FA = "2fa_verification";
     private static final String AUDIENCE_REFRESH = "refresh_token";
+    private static final String AUDIENCE_ACCESS = "access_token";
+    private static final int TOKEN_VERSION = 2;
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     private final KeySupplier keySupplier;
-    private final String keyId;
+    private final List<String> keyIds;
     private final ObjectMapper objectMapper;
     private final Ports.AccessTokenRevocationStore accessTokenRevocationStore;
 
@@ -52,25 +55,39 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
      * @param keySupplier supplies the signing key (same key used by {@link JwtTokenSigner})
      * @param keyId       environment variable / key identifier for the signing key
      */
-    public JwtTokenVerifier(final KeySupplier keySupplier, final String keyId) {
-        this(keySupplier, keyId, new ObjectMapper(), new NoopAccessTokenRevocationStore());
-    }
-
-    /**
-     * @param keySupplier  supplies the signing key
-     * @param keyId        key identifier
-     * @param objectMapper Jackson mapper for parsing the nested payload JSON
-     */
-    JwtTokenVerifier(final KeySupplier keySupplier, final String keyId, final ObjectMapper objectMapper) {
-        this(keySupplier, keyId, objectMapper, new NoopAccessTokenRevocationStore());
+    public JwtTokenVerifier(final KeySupplier keySupplier,
+                            final String keyId,
+                            final Ports.AccessTokenRevocationStore accessTokenRevocationStore) {
+        this(keySupplier, List.of(keyId), new ObjectMapper(), accessTokenRevocationStore);
     }
 
     public JwtTokenVerifier(final KeySupplier keySupplier,
-                            final String keyId,
-                            final ObjectMapper objectMapper,
+                            final List<String> keyIds,
                             final Ports.AccessTokenRevocationStore accessTokenRevocationStore) {
+        this(keySupplier, keyIds, new ObjectMapper(), accessTokenRevocationStore);
+    }
+
+    JwtTokenVerifier(final KeySupplier keySupplier,
+                     final String keyId,
+                     final ObjectMapper objectMapper,
+                     final Ports.AccessTokenRevocationStore accessTokenRevocationStore) {
+        this(keySupplier, List.of(keyId), objectMapper, accessTokenRevocationStore);
+    }
+
+    private JwtTokenVerifier(final KeySupplier keySupplier,
+                     final List<String> keyIds,
+                     final ObjectMapper objectMapper,
+                     final Ports.AccessTokenRevocationStore accessTokenRevocationStore) {
         this.keySupplier = Objects.requireNonNull(keySupplier, "KeySupplier cannot be null");
-        this.keyId = Objects.requireNonNull(keyId, "Key ID cannot be null");
+        Objects.requireNonNull(keyIds, "Key IDs cannot be null");
+        this.keyIds = keyIds.stream()
+            .map(keyId -> Objects.requireNonNull(keyId, "Key ID cannot be null"))
+            .filter(keyId -> !keyId.isBlank())
+            .distinct()
+            .toList();
+        if (this.keyIds.isEmpty()) {
+            throw new IllegalArgumentException("At least one verification key ID is required");
+        }
         this.objectMapper = Objects.requireNonNull(objectMapper, "ObjectMapper cannot be null");
         this.accessTokenRevocationStore = Objects.requireNonNull(accessTokenRevocationStore, "AccessTokenRevocationStore cannot be null");
     }
@@ -80,8 +97,12 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
         if (token == null || token.isBlank()) {
             return Optional.empty();
         }
-        return keySupplier.getPassword(keyId)
-                .flatMap(password -> parseAndVerifyAccessToken(token, password));
+        return keyIds.stream()
+            .map(keySupplier::getPassword)
+                .flatMap(password -> password.stream())
+            .map(password -> parseAndVerifyAccessToken(token, password))
+                .flatMap(claims -> claims.stream())
+            .findFirst();
     }
 
     /**
@@ -111,8 +132,12 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
         if (token == null || token.isBlank()) {
             return Optional.empty();
         }
-        return keySupplier.getPassword(keyId)
-                .flatMap(password -> parseAndVerify(token, password, expectedAudience));
+        return keyIds.stream()
+            .map(keySupplier::getPassword)
+                .flatMap(password -> password.stream())
+            .map(password -> parseAndVerify(token, password, expectedAudience))
+                .flatMap(userId -> userId.stream())
+            .findFirst();
     }
 
     private Optional<Ports.AccessTokenClaims> parseAndVerifyAccessToken(final String token, final KeyPassword password) {
@@ -123,10 +148,13 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
+            if (isVersionTwo(claims)) {
+                return extractVersionTwoAccessTokenClaims(claims);
+            }
             final String payloadJson = claims.get("payload", String.class);
             return extractAccessTokenClaims(payloadJson, claims.getExpiration());
         } catch (final RuntimeException e) {
-            LOGGER.log(Level.FINE, () -> "Failed to verify access token: " + e.getMessage());
+            LOGGER.log(Level.FINE, "Failed to verify access token", e);
             return Optional.empty();
         }
     }
@@ -140,6 +168,9 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
+            if (isVersionTwo(claims)) {
+                return extractVersionTwoUserId(claims, expectedAudience);
+            }
             final String payloadJson = claims.get("payload", String.class);
             return extractUserId(payloadJson, expectedAudience);
         } catch (final RuntimeException e) {
@@ -169,6 +200,53 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
         }
     }
 
+    private boolean isVersionTwo(final Claims claims) {
+        final Number version = claims.get("ver", Number.class);
+        return version != null && version.intValue() == TOKEN_VERSION;
+    }
+
+    private Optional<UserId> extractVersionTwoUserId(final Claims claims, final String expectedAudience) {
+        if (!hasAudience(claims, expectedAudience)) {
+            return Optional.empty();
+        }
+        final String subject = claims.getSubject();
+        return subject == null || subject.isBlank()
+            ? Optional.empty()
+            : Optional.of(UserId.of(subject));
+    }
+
+    private Optional<Ports.AccessTokenClaims> extractVersionTwoAccessTokenClaims(final Claims claims) {
+        if (!hasAudience(claims, AUDIENCE_ACCESS)
+                || claims.getSubject() == null || claims.getSubject().isBlank()
+                || claims.getId() == null || claims.getId().isBlank()
+                || claims.getExpiration() == null) {
+            return Optional.empty();
+        }
+        final Ports.AccessTokenClaims accessClaims = new Ports.AccessTokenClaims(
+            UserId.of(claims.getSubject()), Jti.of(claims.getId()), claims.getExpiration().toInstant());
+        return accessTokenRevocationStore.isInvalidated(accessClaims.jti())
+            ? Optional.empty()
+            : Optional.of(accessClaims);
+    }
+
+    private boolean hasAudience(final Claims claims, final String expectedAudience) {
+        return hasAudienceValue(claims.get("aud"), expectedAudience);
+    }
+
+    static boolean hasAudienceValue(final Object audience, final String expectedAudience) {
+        if (audience instanceof String value) {
+            return expectedAudience.equals(value);
+        }
+        if (audience instanceof Iterable<?> values) {
+            for (final Object value : values) {
+                if (expectedAudience.equals(value)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private Optional<Ports.AccessTokenClaims> extractAccessTokenClaims(final String payloadJson, final Date expiration) {
         if (payloadJson == null || payloadJson.isBlank() || expiration == null) {
             return Optional.empty();
@@ -189,21 +267,10 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
                     expiration.toInstant());
             return accessTokenRevocationStore.isInvalidated(claims.jti()) ? Optional.empty() : Optional.of(claims);
         } catch (final Exception e) {
-            LOGGER.log(Level.FINE, () -> "Failed to parse access token payload: " + e.getMessage());
+            LOGGER.log(Level.FINE, "Failed to parse access token payload", e);
             return Optional.empty();
         }
     }
 
-    private static final class NoopAccessTokenRevocationStore implements Ports.AccessTokenRevocationStore {
-        @Override
-        public void invalidate(final Ports.AccessTokenClaims claims, final String token, final String reason) {
-            // no-op
-        }
-
-        @Override
-        public boolean isInvalidated(final Jti jti) {
-            return false;
-        }
-    }
 }
 

@@ -63,7 +63,7 @@ public final class EnableTotpCommandHandler {
                     "EnableTotpCommand cannot be null"));
         } catch (final RuntimeException e) {
             LOGGER.log(Level.SEVERE, INTERNAL_ERROR, e);
-            return EnableTotpResult.failure(INTERNAL_ERROR, "Failed to enable TOTP: " + e.getMessage());
+            return EnableTotpResult.failure(INTERNAL_ERROR, "TOTP could not be enabled.");
         }
     }
 

@@ -8,8 +8,10 @@ import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
 import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
 import com.oodesigns.cas.application.command.VerifyTotpCommandHandler;
 import com.oodesigns.cas.domain.service.AuthenticationService;
+import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.infrastructure.adapter.BcryptPasswordVerifier;
+import com.oodesigns.cas.infrastructure.adapter.DatabaseLoginRateLimiter;
 import com.oodesigns.cas.infrastructure.adapter.EnvironmentKeySupplier;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpSetupProvider;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpStatusReader;
@@ -37,6 +39,8 @@ import org.jooq.DSLContext;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
 /**
  * Application entry point.
@@ -53,8 +57,7 @@ import java.util.logging.Logger;
 public final class Main {
 
     private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
-    private static final String JWT_KEY_ID = "JWT_SECRET";
-    private static final String TOTP_ENCRYPTION_KEY_ID = "KEYSTORE_PASSWORD";
+        private static final String TOTP_ENCRYPTION_KEY_ID = "TOTP_ENCRYPTION_KEY";
 
     private Main() { /* utility class */ }
 
@@ -73,10 +76,23 @@ public final class Main {
         final EnvironmentKeySupplier keySupplier = new EnvironmentKeySupplier();
         final SystemClock clock = new SystemClock();
         final JooqAccessTokenRevocationStore accessTokenRevocationStore = new JooqAccessTokenRevocationStore(dsl);
-        final JwtTokenSigner tokenSigner = new JwtTokenSigner(keySupplier, JWT_KEY_ID);
-        final JwtTokenVerifier tokenVerifier = new JwtTokenVerifier(keySupplier, JWT_KEY_ID, new com.fasterxml.jackson.databind.ObjectMapper(), accessTokenRevocationStore);
+        final String activeJwtKeyId = props.get("jwt.active-key-id");
+        final java.util.List<String> jwtVerificationKeyIds = Stream.concat(
+                Stream.of(activeJwtKeyId),
+                Arrays.stream(props.get("jwt.previous-key-ids").split(",")))
+            .map(keyId -> keyId.trim())
+            .filter(keyId -> !keyId.isEmpty())
+            .distinct()
+            .toList();
+        final JwtTokenSigner tokenSigner = new JwtTokenSigner(keySupplier, activeJwtKeyId);
+        final JwtTokenVerifier tokenVerifier =
+                new JwtTokenVerifier(keySupplier, jwtVerificationKeyIds, accessTokenRevocationStore);
         final BcryptPasswordVerifier passwordVerifier = new BcryptPasswordVerifier();
-        final LoginRateLimiter rateLimiter = new LoginRateLimiter();
+                final Ports.RateLimiter rateLimiter = switch (props.get("rate-limit.backend")) {
+                        case "database" -> new DatabaseLoginRateLimiter(dsl);
+                        case "memory" -> new LoginRateLimiter();
+                        default -> throw new IllegalArgumentException("Unsupported rate-limit backend");
+                };
         final com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter totpRateLimiter = new com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter();
         final UserCredentialReader credentialReader = new UserCredentialReader(dsl);
         final UserRepository userRepository = new UserRepository(dsl);
@@ -117,9 +133,10 @@ public final class Main {
         // --- TLS (optional) ---
         final String keystorePath = props.get("grpc.tls.keystore.path");
         final String truststorePath = props.get("grpc.tls.truststore.path");
+        final boolean allowPlaintext = Boolean.parseBoolean(props.get("grpc.tls.allow-plaintext"));
         final GrpcTlsConfigurer tlsConfigurer = new GrpcTlsConfigurer(keySupplier);
         final java.util.Optional<SslContext> tlsContext =
-                tlsConfigurer.buildServerSslContext(keystorePath, truststorePath);
+                tlsConfigurer.buildServerSslContext(keystorePath, truststorePath, allowPlaintext);
 
         // --- Server ---
         final NettyServerBuilder serverBuilder = NettyServerBuilder.forPort(grpcPort)

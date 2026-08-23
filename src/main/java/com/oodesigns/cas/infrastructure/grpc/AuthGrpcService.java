@@ -133,32 +133,31 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
     }
 
     private LoginResponse toLoginResponse(final LoginResult result) {
-        return switch (result) {
-            case LoginResult.SuccessResult s -> LoginResponse.newBuilder()
+        return result.fold(
+            success -> LoginResponse.newBuilder()
                     .setSuccess(LoginSuccess.newBuilder()
-                            .setAccessToken(s.tokenPair().accessToken())
-                            .setRefreshToken(s.tokenPair().refreshToken())
-                            .setUserId(s.userId().asUUID().toString())
-                            .addAllPermissions(s.permissions().stream()
+                    .setAccessToken(success.tokenPair().accessToken())
+                    .setRefreshToken(success.tokenPair().refreshToken())
+                    .setUserId(success.userId().asUUID().toString())
+                    .addAllPermissions(success.permissions().stream()
                                     .map(p -> p.value())
                                     .toList())
                             .build())
-                    .build();
-            case LoginResult.Required2FAResult r -> LoginResponse.newBuilder()
+                .build(),
+            required2FA -> LoginResponse.newBuilder()
                     .setTotpRequired(Login2FARequired.newBuilder()
-                            .setVerificationToken(r.verificationToken())
-                            .setUserId(r.userId().asUUID().toString())
+                    .setVerificationToken(required2FA.verificationToken())
+                    .setUserId(required2FA.userId().asUUID().toString())
                             .build())
-                    .build();
-            case LoginResult.PasswordResetRequiredResult p -> LoginResponse.newBuilder()
+                .build(),
+            passwordReset -> LoginResponse.newBuilder()
                     .setPasswordResetRequired(LoginPasswordResetRequired.newBuilder()
-                            .setUserId(p.userId().asUUID().toString())
+                    .setUserId(passwordReset.userId().asUUID().toString())
                             .build())
-                    .build();
-            case LoginResult.FailureResult f -> LoginResponse.newBuilder()
-                    .setError(errorMessage(f.errorCode(), f.errorMessage()))
-                    .build();
-        };
+                .build(),
+            failure -> LoginResponse.newBuilder()
+                .setError(errorMessage(failure.errorCode(), failure.errorMessage()))
+                .build());
     }
 
     private LoginResponse invalidRequestLoginResponse(final String message) {

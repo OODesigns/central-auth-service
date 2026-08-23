@@ -32,6 +32,11 @@ public sealed interface LoginResult
      */
     <T> Mapper<T> mapTo(Function<SuccessResult, T> successMapper);
 
+    <T> T fold(Function<SuccessResult, T> successMapper,
+               Function<Required2FAResult, T> required2FAMapper,
+               Function<PasswordResetRequiredResult, T> passwordResetMapper,
+               Function<FailureResult, T> failureMapper);
+
     static SuccessResult success(final TokenService.TokenPair tokenPair, final UserId userId, final Set<Permission> permissions) {
         return new SuccessResult(tokenPair, userId, permissions);
     }
@@ -70,6 +75,14 @@ public sealed interface LoginResult
         @Override
         public <T> Mapper<T> mapTo(final Function<SuccessResult, T> successMapper) {
             return new MapperSuccess<>(successMapper.apply(this));
+        }
+
+        @Override
+        public <T> T fold(final Function<SuccessResult, T> successMapper,
+                          final Function<Required2FAResult, T> required2FAMapper,
+                          final Function<PasswordResetRequiredResult, T> passwordResetMapper,
+                          final Function<FailureResult, T> failureMapper) {
+            return successMapper.apply(this);
         }
 
         /**
@@ -111,14 +124,20 @@ public sealed interface LoginResult
             return new Mapper2FARequired<>(this);
         }
 
+        @Override
+        public <T> T fold(final Function<SuccessResult, T> successMapper,
+                          final Function<Required2FAResult, T> required2FAMapper,
+                          final Function<PasswordResetRequiredResult, T> passwordResetMapper,
+                          final Function<FailureResult, T> failureMapper) {
+            return required2FAMapper.apply(this);
+        }
+
         /**
          * Mapper returned when 2FA verification is required.
          */
         static final class Mapper2FARequired<T> implements Mapper<T> {
-            private final Required2FAResult required2FA;
-
             Mapper2FARequired(final Required2FAResult required2FA) {
-                this.required2FA = required2FA;
+                Objects.requireNonNull(required2FA, "Required2FAResult is required");
             }
 
             @Override
@@ -144,14 +163,20 @@ public sealed interface LoginResult
             return new MapperPasswordResetRequired<>(this);
         }
 
+        @Override
+        public <T> T fold(final Function<SuccessResult, T> successMapper,
+                          final Function<Required2FAResult, T> required2FAMapper,
+                          final Function<PasswordResetRequiredResult, T> passwordResetMapper,
+                          final Function<FailureResult, T> failureMapper) {
+            return passwordResetMapper.apply(this);
+        }
+
         /**
          * Mapper returned when password reset is required.
          */
         static final class MapperPasswordResetRequired<T> implements Mapper<T> {
-            private final PasswordResetRequiredResult result;
-
             MapperPasswordResetRequired(final PasswordResetRequiredResult result) {
-                this.result = result;
+                Objects.requireNonNull(result, "PasswordResetRequiredResult is required");
             }
 
             @Override
@@ -179,6 +204,14 @@ public sealed interface LoginResult
         @Override
         public <T> Mapper<T> mapTo(final Function<SuccessResult, T> successMapper) {
             return new MapperFailure<>(this);
+        }
+
+        @Override
+        public <T> T fold(final Function<SuccessResult, T> successMapper,
+                          final Function<Required2FAResult, T> required2FAMapper,
+                          final Function<PasswordResetRequiredResult, T> passwordResetMapper,
+                          final Function<FailureResult, T> failureMapper) {
+            return failureMapper.apply(this);
         }
 
         /**

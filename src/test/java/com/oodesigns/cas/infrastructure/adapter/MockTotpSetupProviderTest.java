@@ -4,7 +4,6 @@ import com.oodesigns.cas.application.command.DisableReason;
 import com.oodesigns.cas.domain.value.BackupCode;
 import com.oodesigns.cas.domain.value.UserId;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 

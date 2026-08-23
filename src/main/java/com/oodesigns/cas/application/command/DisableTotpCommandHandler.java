@@ -63,8 +63,7 @@ public final class DisableTotpCommandHandler {
             return disableTotpForUser(command);
         } catch (final RuntimeException e) {
             LOGGER.log(Level.SEVERE, INTERNAL_ERROR, e);
-            return DisableTotpResult.failure(INTERNAL_ERROR,
-                "Failed to disable 2FA: " + e.getMessage());
+            return DisableTotpResult.failure(INTERNAL_ERROR, "2FA could not be disabled.");
         }
     }
 

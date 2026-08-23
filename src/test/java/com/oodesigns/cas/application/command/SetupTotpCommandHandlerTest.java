@@ -170,7 +170,7 @@ class SetupTotpCommandHandlerTest {
             result.mapTo(s -> { fail("Expected internal error"); return null; })
                 .orElse(f -> {
                     assertEquals("INTERNAL_ERROR", f.errorCode());
-                    assertTrue(f.errorMessage().contains("db down"));
+                    assertEquals("TOTP setup could not be completed.", f.errorMessage());
                     return null;
                 });
         } finally {

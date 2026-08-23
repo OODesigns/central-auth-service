@@ -68,12 +68,19 @@ services:
       GRPC_PORT: 50051
       # JWT secret key for signing tokens.
       JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
+      JWT_ACTIVE_KEY_ID: ${JWT_ACTIVE_KEY_ID:-JWT_SECRET}
+      JWT_PREVIOUS_KEY_IDS: ${JWT_PREVIOUS_KEY_IDS:-}
+      # Dedicated key for encrypting TOTP secrets at rest.
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY}
       # Used by your Java app to load its own private key (for mTLS or TLS client/server authentication).
       # This password protects the .jks or .p12 file that contains the app’s private key and certificate.
       KEYSTORE_PASSWORD: ${KEYSTORE_PASSWORD}
       # Used to verify the identity of the remote service (machine-to-machine).
       # This unlocks the truststore file that holds trusted Certificate Authorities (CAs) or specific server certificates.
       TRUSTSTORE_PASSWORD: ${TRUSTSTORE_PASSWORD}
+      ALLOW_PLAINTEXT: ${ALLOW_PLAINTEXT:-true}
+      RATE_LIMIT_BACKEND: ${RATE_LIMIT_BACKEND:-memory}
     depends_on:
       - db  # Ensures db service is started before app
 
@@ -123,7 +130,7 @@ services:
   # The Flyway service: invokes your migrations against the “db” service
   # =======================
   flyway:
-      image: flyway/flyway:latest
+      image: redgate/flyway:11.8.2
       container_name: flyway-migrations
       environment:
         POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -132,6 +139,9 @@ services:
         API_USER: ${API_USER}
         API_PASSWORD: ${API_PASSWORD}
         ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
+        LOAD_TEST_DATA: "false"
+        TOTP_TEST_SECRET: disabled
+        TOTP_TEST_ENCRYPTION_KEY: disabled
       depends_on:
         db:
          condition: service_healthy
