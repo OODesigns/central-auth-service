@@ -1,5 +1,33 @@
 # Central Auth Service
 
+## Docker
+
+The devcontainer is an editor environment and intentionally has no application
+entry point. Production-style local deployment uses the root `Dockerfile` and
+`compose.yml` instead.
+
+```bash
+cp .env.example .env
+# Replace every placeholder in .env with a real secret.
+docker compose up --build -d
+docker compose logs -f app
+```
+
+The Compose stack starts PostgreSQL, waits for it to become healthy, applies
+Flyway migrations, and then starts the Java 25 gRPC service on host port 50051.
+Override the host port with `GRPC_HOST_PORT` in `.env`.
+
+```bash
+docker compose down
+# Also delete database data only when intentionally resetting the environment:
+docker compose down --volumes
+```
+
+The application image is multi-stage: Gradle builds the distribution with a
+Java 25 JDK, while the final non-root runtime contains only a Java 25 JRE and
+the application distribution. PostgreSQL is not published to the host by the
+deployment Compose file.
+
 ## Environment Parameters
 
 The following environment variables are required to run the Central Auth Service:

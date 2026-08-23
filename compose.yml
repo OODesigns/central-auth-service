@@ -1,0 +1,74 @@
+name: central-auth-service
+
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      APP_DB: ${APP_DB:-auth_db}
+      API_USER: ${API_USER:-app_user}
+      API_PASSWORD: ${API_PASSWORD:?API_PASSWORD is required}
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C.utf8
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./.devcontainer/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  flyway:
+    image: flyway/flyway:11.8.2
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      APP_DB: ${APP_DB:-auth_db}
+      API_USER: ${API_USER:-app_user}
+      API_PASSWORD: ${API_PASSWORD:?API_PASSWORD is required}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH is required}
+    volumes:
+      - ./.devcontainer/flyway/conf/flyway.conf:/flyway/conf/flyway.conf:ro
+      - ./.devcontainer/flyway/sql:/flyway/sql:ro
+    command: ["migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    image: central-auth-service:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      APP_DB: ${APP_DB:-auth_db}
+      APP_USER: ${API_USER:-app_user}
+      DB_USER: ${API_USER:-app_user}
+      APP_PASSWORD: ${API_PASSWORD:?API_PASSWORD is required}
+      GRPC_PORT: "50051"
+      TOTP_ISSUER: ${TOTP_ISSUER:-CentralAuthService}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      KEYSTORE_PASSWORD: ${KEYSTORE_PASSWORD:?KEYSTORE_PASSWORD is required}
+      TRUSTSTORE_PASSWORD: ${TRUSTSTORE_PASSWORD:?TRUSTSTORE_PASSWORD is required}
+      KEYSTORE_PATH: ${KEYSTORE_PATH:-}
+      TRUSTSTORE_PATH: ${TRUSTSTORE_PATH:-}
+    ports:
+      - "${GRPC_HOST_PORT:-50051}:50051"
+    depends_on:
+      flyway:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:

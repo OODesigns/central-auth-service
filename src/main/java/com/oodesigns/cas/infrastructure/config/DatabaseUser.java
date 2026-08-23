@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 import com.oodesigns.cas.util.validation.ValidatedValue;
 
 /** Typed, validated database user value. */
-final class DatabaseUser extends ValidatedValue<String> {
+public final class DatabaseUser extends ValidatedValue<String> {
 
     private static final Pattern USER_PATTERN = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_-]*$");
 
@@ -27,7 +27,7 @@ final class DatabaseUser extends ValidatedValue<String> {
         return value;
     }
 
-    static DatabaseUser of(final String raw) {
+    public static DatabaseUser of(final String raw) {
         return new DatabaseUser(parseAndValidate(raw));
     }
 }

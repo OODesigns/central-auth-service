@@ -47,14 +47,14 @@ public final class DatabaseConfig {
     /**
      * Get database username.
      */
-    public String getUsername() {
-        return username.value();
+    public DatabaseUser getUsername() {
+        return username;
     }
 
     /**
-     * Get database password.
+     * Get an independently clearable copy of the database password.
      */
-    public String getPassword() {
-        return password.value();
-    }    
+    public DatabasePassword getPassword() {
+        return password.copy();
+    }
 }

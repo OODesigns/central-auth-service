@@ -1,6 +1,7 @@
 package com.oodesigns.cas.application.command;
 
 import com.oodesigns.cas.domain.service.Ports;
+import com.oodesigns.cas.domain.value.Username;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -78,7 +79,7 @@ public final class SetupTotpCommandHandler {
 
     private SetupTotpResult generateSetup(final SetupTotpCommand command) {
         final String secret = totpSetupProvider.generateSecret(command.userId());
-        final String otpauthUri = buildOtpauthUri(secret, command.username().value());
+        final String otpauthUri = buildOtpauthUri(secret, command.username());
         return SetupTotpResult.success(secret, otpauthUri);
     }
 
@@ -90,13 +91,13 @@ public final class SetupTotpCommandHandler {
      * &digits={d}&period={p}}
      * where {@code label} is {@code issuer:account} (both URL-encoded, spaces as {@code %20}).
      *
-     * @param secret  Base32-encoded TOTP secret
-     * @param account the account name (typically the username)
+    * @param secret  Base32-encoded TOTP secret
+    * @param account the account username
      * @return the complete {@code otpauth://totp/} URI
      */
-    private String buildOtpauthUri(final String secret, final String account) {
+    private String buildOtpauthUri(final String secret, final Username account) {
         final String encodedIssuer = urlEncode(issuerName);
-        final String encodedAccount = urlEncode(account);
+        final String encodedAccount = urlEncode(account.value());
         final String label = encodedIssuer + ":" + encodedAccount;
 
         return "otpauth://totp/" + label

@@ -8,6 +8,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -57,8 +58,15 @@ public final class DatabaseContextFactory {
         dataSource.setServerNames(new String[]{config.getHost()});
         dataSource.setPortNumbers(new int[]{config.getPort()});
         dataSource.setDatabaseName(config.getDatabaseName());
-        dataSource.setUser(config.getUsername());
-        dataSource.setPassword(config.getPassword());
+        dataSource.setUser(config.getUsername().value());
+        try (final DatabasePassword password = config.getPassword()) {
+            final char[] passwordChars = password.chars();
+            try {
+                dataSource.setPassword(new String(passwordChars));
+            } finally {
+                Arrays.fill(passwordChars, '\0');
+            }
+        }
         dataSource.setConnectTimeout(CONNECTION_TIMEOUT_SECONDS);
         dataSource.setLoginTimeout(CONNECTION_TIMEOUT_SECONDS);
         return dataSource;

@@ -1,0 +1,12 @@
+.git
+.github
+.gradle
+.idea
+.vscode
+build
+docs
+design
+*.iml
+*.log
+.env
+.devcontainer/.env

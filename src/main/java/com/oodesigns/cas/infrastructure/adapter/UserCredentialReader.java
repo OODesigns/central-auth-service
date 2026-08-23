@@ -28,7 +28,7 @@ public final class UserCredentialReader implements Ports.UserCredentialRetriever
     @Override
     public Optional<UserCredential> findCredentialsByUsername(final Username username) {
         return Optional.ofNullable(username)
-                .flatMap(u -> Routines.findUserCredentials(dsl, u.value())
+                .flatMap(u -> Routines.findUserCredentials(dsl, u)
                         .map(r -> UserCredential.of(
                                 UserId.of(r.userId()),
                                 PasswordHash.of(r.passwordHash())
@@ -40,8 +40,8 @@ public final class UserCredentialReader implements Ports.UserCredentialRetriever
      * This mimics the structure of jOOQ's generated code.
      */
     private static final class Routines {
-        static Optional<UserCredentialsRecord> findUserCredentials(final DSLContext ctx, final String username) {
-            return ctx.fetchOptional("SELECT * FROM api_schema.find_user_credentials(?)", username)
+        static Optional<UserCredentialsRecord> findUserCredentials(final DSLContext ctx, final Username username) {
+            return ctx.fetchOptional("SELECT * FROM api_schema.find_user_credentials(?)", username.value())
                     .map(r -> new UserCredentialsRecord(
                             r.get("user_id", UUID.class),
                             r.get("password_hash", String.class)

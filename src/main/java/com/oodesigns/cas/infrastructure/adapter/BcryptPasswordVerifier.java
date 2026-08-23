@@ -6,6 +6,7 @@ import com.oodesigns.cas.domain.value.UserId;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 /**
@@ -63,16 +64,17 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
      * Uses Spring Security BCryptPasswordEncoder for constant-time comparison.
      */
     private Optional<UserId> performBcryptCheck(final Credentials credentials) {
-        // Convert char[] to String with minimal lifetime for BCrypt verification
-        String providedPassword = new String(credentials.password().chars());
-        final String storedHash = credentials.credential().passwordHash().value();
+        final char[] passwordChars = credentials.password().chars();
+        try {
+            final String storedHash = credentials.credential().passwordHash().value();
+            final boolean matches = encoder.matches(new String(passwordChars), storedHash);
 
-        // Spring Security's matches() performs constant-time comparison
-        final boolean matches = encoder.matches(providedPassword, storedHash);
-        
-        if (matches) {
-            return Optional.of(credentials.credential().userId());
+            if (matches) {
+                return Optional.of(credentials.credential().userId());
+            }
+            return Optional.empty();
+        } finally {
+            Arrays.fill(passwordChars, '\0');
         }
-        return Optional.empty();
     }
 }

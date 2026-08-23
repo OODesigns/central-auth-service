@@ -2,6 +2,7 @@ import java.awt.Desktop
 
 plugins {
     id 'java'
+    id 'application'
     id 'jacoco'
     id 'com.google.protobuf' version '0.9.5'
 }
@@ -11,8 +12,12 @@ version = '1.0-SNAPSHOT'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(26)
+        languageVersion = JavaLanguageVersion.of(25)
     }
+}
+
+application {
+    mainClass = 'com.oodesigns.cas.Main'
 }
 
 repositories {

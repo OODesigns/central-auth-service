@@ -17,6 +17,7 @@ import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
 import com.oodesigns.cas.infrastructure.adapter.SystemClock;
 import com.oodesigns.cas.infrastructure.config.DatabaseConfig;
 import com.oodesigns.cas.infrastructure.config.DatabaseContextFactory;
+import com.oodesigns.cas.infrastructure.config.DatabasePassword;
 import com.oodesigns.cas.util.file.FileLoaderProviderFactory;
 import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
 import com.oodesigns.cas.util.properties.PropertiesReader;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.sql.*;
+import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -47,21 +49,38 @@ class AdminLoginDatabaseIntegrationTest {
     private DSLContext dslContext;
     private DatabaseConfig databaseConfig;
 
-    private static final String ADMIN_USERNAME = "admin";
-    private static final String ADMIN_PASSWORD = getAdminPasswordPlain(); // Plain password from environment
+    private static final Username ADMIN_USERNAME = Username.of("admin");
+    private static final char[] ADMIN_PASSWORD = getAdminPasswordPlain();
 
     /**
      * Get plain ADMIN_PASSWORD from environment or .env file.
      * This is the plain text password to use for login tests.
      * Defaults to "admin_initial_password" if not set.
      */
-    private static String getAdminPasswordPlain() {
+    private static char[] getAdminPasswordPlain() {
         final String envPassword = System.getenv("ADMIN_PASSWORD_PLAIN");
         if (envPassword != null && !envPassword.isEmpty()) {
-            return envPassword;
+            return envPassword.toCharArray();
         }
         // Fallback: default initial password
-        return "admin_initial_password";
+        return "admin_initial_password".toCharArray();
+    }
+
+    private Connection openDatabaseConnection() throws SQLException {
+        final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s",
+            databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
+        try (final DatabasePassword password = databaseConfig.getPassword()) {
+            final char[] passwordChars = password.chars();
+            try {
+                return DriverManager.getConnection(
+                    jdbcUrl,
+                    databaseConfig.getUsername().value(),
+                    new String(passwordChars)
+                );
+            } finally {
+                Arrays.fill(passwordChars, '\0');
+            }
+        }
     }
 
     @BeforeEach
@@ -142,8 +161,7 @@ class AdminLoginDatabaseIntegrationTest {
         // Ensure the admin user has a valid bcrypt hash in the database
         final String actualHash;
         try {
-            final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
-            final Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
+            final Connection conn = openDatabaseConnection();
             
             // Check if admin user exists and has valid password hash.
             // Uses the api_schema SECURITY DEFINER function because the restricted
@@ -155,15 +173,10 @@ class AdminLoginDatabaseIntegrationTest {
                 fail("Admin user not found in database");
             }
             actualHash = rs.getString("password_hash");
-            System.out.printf("""
-                    DEBUG: Password hash in DB: %s
-                    DEBUG: Plain password to test: %s
-                    %n""", actualHash, ADMIN_PASSWORD);
-            
             // Test bcrypt directly
             final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder =
                 new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
-            final boolean directMatch = encoder.matches(ADMIN_PASSWORD, actualHash);
+            final boolean directMatch = encoder.matches(new String(ADMIN_PASSWORD), actualHash);
             System.out.printf("""
                     DEBUG: Direct BCrypt match: %s
                     %n""", directMatch);
@@ -191,8 +204,8 @@ class AdminLoginDatabaseIntegrationTest {
         
         // Arrange: Admin credentials (use plain password for login)
         final LoginCommand loginCmd = new LoginCommand(
-            Username.of(ADMIN_USERNAME),
-            Password.of(ADMIN_PASSWORD.toCharArray()),
+            ADMIN_USERNAME,
+            Password.of(ADMIN_PASSWORD),
             IpAddress.of("192.168.1.50")
         );
 
@@ -227,7 +240,7 @@ class AdminLoginDatabaseIntegrationTest {
     void testAdminLoginFailsWithWrongPassword() {
         // Arrange: Wrong password
         final LoginCommand loginCmd = new LoginCommand(
-            Username.of(ADMIN_USERNAME),
+            ADMIN_USERNAME,
             Password.of("WrongPassword123456".toCharArray()),  // 18 chars
             IpAddress.of("192.168.1.50")
         );
@@ -262,7 +275,7 @@ class AdminLoginDatabaseIntegrationTest {
         final var userCredentialReader = new UserCredentialReader(dslContext);
         
         // Act: Query admin credentials using JOOQ
-        final var credentials = userCredentialReader.findCredentialsByUsername(Username.of(ADMIN_USERNAME));
+        final var credentials = userCredentialReader.findCredentialsByUsername(ADMIN_USERNAME);
 
         // Assert: Credentials found and have correct data
         assertTrue(credentials.isPresent(), 
@@ -281,7 +294,7 @@ class AdminLoginDatabaseIntegrationTest {
     void testJooqUserRepositoryQueries() {
         // First, get admin ID from credentials
         final var userCredentialReader = new UserCredentialReader(dslContext);
-        final var credentials = userCredentialReader.findCredentialsByUsername(Username.of(ADMIN_USERNAME));
+        final var credentials = userCredentialReader.findCredentialsByUsername(ADMIN_USERNAME);
         
         assertTrue(credentials.isPresent(), "Admin credentials should exist");
         
@@ -293,7 +306,7 @@ class AdminLoginDatabaseIntegrationTest {
 
         // Assert: User found with correct data
         assertTrue(user.isPresent(), "JOOQ should retrieve user from database");
-        assertEquals(ADMIN_USERNAME, user.get().username().value(),
+        assertEquals(ADMIN_USERNAME, user.get().username(),
             "Username should match from database");
         // Admin should have permissions loaded from database (admin role permissions)
         assertFalse(user.get().permissions().isEmpty(),
@@ -310,8 +323,7 @@ class AdminLoginDatabaseIntegrationTest {
     @Test
     void testDatabaseSchemaCreatedByFlyway() {
         try {
-            final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
-            final Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
+            final Connection conn = openDatabaseConnection();
             final Statement stmt = conn.createStatement();
             
             // Check required tables via pg_catalog (information_schema hides tables
@@ -363,8 +375,7 @@ stmt.close();
     @Test
     void testFlywayMigrationHistoryTracked() {
         try {
-            final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
-            final Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
+            final Connection conn = openDatabaseConnection();
             final Statement stmt = conn.createStatement();
 
             //noinspection SqlResolve
@@ -395,8 +406,7 @@ stmt.close();
     @Test
     void testAdminUserExistsInDatabaseWithRole() {
         try {
-            final String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", databaseConfig.getHost(), databaseConfig.getPort(), databaseConfig.getDatabaseName());
-            final Connection conn = DriverManager.getConnection(jdbcUrl, databaseConfig.getUsername(), databaseConfig.getPassword());
+            final Connection conn = openDatabaseConnection();
             final Statement stmt = conn.createStatement();
             
             // Check admin user exists (via api_schema — restricted role cannot

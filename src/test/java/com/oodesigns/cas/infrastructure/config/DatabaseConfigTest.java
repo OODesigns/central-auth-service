@@ -57,7 +57,7 @@ class DatabaseConfigTest {
         final DatabaseConfig config = createConfig();
         
         assertEquals("auth_db", config.getDatabaseName());
-        assertEquals("app_user", config.getUsername());
+        assertEquals(DatabaseUser.of("app_user"), config.getUsername());
     }
     
     @Test
@@ -117,7 +117,9 @@ class DatabaseConfigTest {
         System.setProperty("APP_PASSWORD", "ValidP@ss1");
         
         final DatabaseConfig config = createConfig();
-        assertEquals("ValidP@ss1", config.getPassword());
+        try (final DatabasePassword password = config.getPassword()) {
+            assertArrayEquals("ValidP@ss1".toCharArray(), password.chars());
+        }
     }
 
     @Test

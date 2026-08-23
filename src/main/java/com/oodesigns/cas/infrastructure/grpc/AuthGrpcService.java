@@ -54,6 +54,7 @@ import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpSuccess;
 import io.grpc.stub.StreamObserver;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -112,12 +113,17 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                       final StreamObserver<LoginResponse> responseObserver) {
         final LoginResponse response;
         try {
-            final LoginCommand command = new LoginCommand(
+            final char[] passwordChars = request.getPassword().toCharArray();
+            try {
+                final LoginCommand command = new LoginCommand(
                     Username.of(request.getUsername()),
-                    Password.of(request.getPassword()),
+                    Password.of(passwordChars),
                     IpAddress.of(request.getIpAddress())
-            );
-            response = toLoginResponse(loginHandler.handle(command));
+                );
+                response = toLoginResponse(loginHandler.handle(command));
+            } finally {
+                Arrays.fill(passwordChars, '\0');
+            }
         } catch (final RuntimeException e) {
             LOGGER.log(Level.WARNING, "Login request validation failed", e);
             respond(responseObserver, invalidRequestLoginResponse(e.getMessage()));
@@ -370,18 +376,23 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                             final StreamObserver<DisableTotpResponse> responseObserver) {
         final DisableTotpResponse response;
         try {
-            final DisableReason reason = toDomainReason(request.getReason());
-            if (reason == null) {
-                respond(responseObserver, invalidRequestDisableTotpResponse(
+            final char[] passwordChars = request.getPassword().toCharArray();
+            try {
+                final DisableReason reason = toDomainReason(request.getReason());
+                if (reason == null) {
+                    respond(responseObserver, invalidRequestDisableTotpResponse(
                         "Disable reason must be specified"));
-                return;
+                    return;
+                }
+                final DisableTotpCommand command = new DisableTotpCommand(
+                        UserId.of(request.getUserId()),
+                        Password.of(passwordChars),
+                        reason
+                );
+                response = toDisableTotpResponse(disableTotpHandler.handle(command));
+            } finally {
+                Arrays.fill(passwordChars, '\0');
             }
-            final DisableTotpCommand command = new DisableTotpCommand(
-                    UserId.of(request.getUserId()),
-                    Password.of(request.getPassword()),
-                    reason
-            );
-            response = toDisableTotpResponse(disableTotpHandler.handle(command));
         } catch (final RuntimeException e) {
             LOGGER.log(Level.WARNING, "DisableTotp request validation failed", e);
             respond(responseObserver, invalidRequestDisableTotpResponse(e.getMessage()));

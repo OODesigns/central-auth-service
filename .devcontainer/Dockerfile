@@ -1,7 +1,7 @@
 ##############################################
 # Development container configuration
 ##############################################
-FROM eclipse-temurin:22-jdk
+FROM eclipse-temurin:25-jdk
 
 ##############################################
 # Install development tools & dependencies
@@ -45,9 +45,7 @@ RUN chmod +x gradlew && \
 # Expose ports for development
 ##############################################
 # gRPC default port
-EXPOSE 6565
-# Common web application ports
-EXPOSE 8080 8081
+EXPOSE 50051
 
 # Note: No ENTRYPOINT or CMD is specified for a dev container
 # This allows the container to be used flexibly for various development tasks

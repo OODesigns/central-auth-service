@@ -2,6 +2,8 @@ package com.oodesigns.cas.infrastructure.config;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class DatabaseValueObjectsTest {
@@ -63,12 +65,30 @@ class DatabaseValueObjectsTest {
 
     @Test
     void databasePasswordAllowsValidValue() {
-        assertEquals("SecureP@ss1", DatabasePassword.of("SecureP@ss1").value());
+        final char[] source = "SecureP@ss1".toCharArray();
+        try (final DatabasePassword password = DatabasePassword.of(source)) {
+            Arrays.fill(source, 'x');
+            assertArrayEquals("SecureP@ss1".toCharArray(), password.chars());
+            assertEquals("DatabasePassword{***}", password.toString());
+        }
+    }
+
+    @Test
+    void databasePasswordReturnsDefensiveCopiesAndClearsOnClose() {
+        final DatabasePassword password = DatabasePassword.of("SecureP@ss1");
+        final char[] firstCopy = password.chars();
+        Arrays.fill(firstCopy, 'x');
+
+        assertArrayEquals("SecureP@ss1".toCharArray(), password.chars());
+
+        password.close();
+        assertArrayEquals(new char[11], password.chars());
     }
 
     @Test
     void databasePasswordRejectsNull() {
-        assertThrows(IllegalArgumentException.class, () -> DatabasePassword.of(null));
+        assertThrows(IllegalArgumentException.class, () -> DatabasePassword.of((String) null));
+        assertThrows(IllegalArgumentException.class, () -> DatabasePassword.of((char[]) null));
     }
 
     @Test

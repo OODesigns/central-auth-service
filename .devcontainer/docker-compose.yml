@@ -45,7 +45,7 @@ services:
     # docker-entrypoint-initdb.d is a magic folder that the official postgres Docker image watches at container
     # startup — specifically, during the first-time initialization of the database volume.
     volumes:
-      - ../..:/workspaces:cached
+      - ..:/workspaces/central-auth-service:cached
     # Keeps the container running indefinitely, suitable for dev containers.
     command: sleep infinity
     # Shares the network stack with the db container, allowing 'localhost' to reach the DB.
@@ -59,12 +59,13 @@ services:
       - default
       - pg-network
     environment:
-      # Auth service specific environment variables
-      # JDBC-style connection string for the database.
-      # Use 'db' as hostname - Docker Compose automatically resolves it to the db container's IP
-      DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
-      # Indicates development environment.
-      NODE_ENV: development
+      DB_HOST: db
+      DB_PORT: 5432
+      APP_DB: ${APP_DB}
+      APP_USER: ${API_USER}
+      DB_USER: ${API_USER}
+      APP_PASSWORD: ${API_PASSWORD}
+      GRPC_PORT: 50051
       # JWT secret key for signing tokens.
       JWT_SECRET: ${JWT_SECRET}
       # Used by your Java app to load its own private key (for mTLS or TLS client/server authentication).
