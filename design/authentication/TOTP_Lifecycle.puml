@@ -1,108 +1,147 @@
-@startuml TotpLifecycle
+@startuml TotpEnrollmentSetup
 !include ../themes/dark-theme.puml
-title TOTP Enrollment, Login Verification, and Disable
+title TOTP Enrollment Setup
+hide footbox
 
 actor User
-participant "gRPC AuthService" as Grpc
-participant "SetupTotpCommandHandler" as Setup
-participant "EnableTotpCommandHandler" as Enable
-participant "VerifyTotpCommandHandler" as Verify
-participant "DisableTotpCommandHandler" as Disable
-participant "TokenVerifier" as TokenVerifier
-participant "TotpRateLimiter" as Limiter
-participant "TotpVerifier" as TotpVerifier
-participant "TotpSetupProvider" as Provider
-participant "CredentialByIdReader" as Credentials
-participant "AuthenticationService" as Auth
-participant "UserRetriever" as Users
-participant "TokenService" as Tokens
-participant "RefreshTokenStore" as RefreshStore
-database "api_schema functions" as Db
+participant "gRPC" as Grpc
+participant "Setup Handler" as Setup
+participant "TOTP Provider" as Provider
+database "TOTP API" as Db
 
-== Enrollment setup ==
+group #064e3b OK
 User -> Grpc: SetupTotp(user_id, username)
 Grpc -> Setup: handle(SetupTotpCommand)
 Setup -> Provider: generateSecret(user_id)
-Provider -> Db: store_totp_secret(encrypted pending secret)
+Provider -> Db: store encrypted pending secret
 Db -->> Provider: stored
 Provider -->> Setup: Base32 secret
 Setup -> Setup: build otpauth URI
 Setup -->> Grpc: secret + URI
 Grpc -->> User: SetupTotpSuccess
+end
+@enduml
 
-== Enrollment activation ==
+@startuml TotpEnrollmentActivation
+!include ../themes/dark-theme.puml
+title TOTP Enrollment Activation
+hide footbox
+
+actor User
+participant "gRPC" as Grpc
+participant "Enable Handler" as Enable
+participant "TOTP Verifier" as Verifier
+participant "TOTP Provider" as Provider
+database "TOTP API" as Db
+
 User -> Grpc: EnableTotp(user_id, code)
 Grpc -> Enable: handle(EnableTotpCommand)
-Enable -> TotpVerifier: verifySetupCode(user_id, code)
-TotpVerifier -> Db: get_pending_totp_secret(user_id)
-alt Invalid setup code
-  TotpVerifier -->> Enable: false
+Enable -> Verifier: verifySetupCode(user_id, code)
+Verifier -> Db: get pending secret
+alt #7f1d1d INVALID CODE
+  Verifier -->> Enable: false
   Enable -->> Grpc: INVALID_TOTP_CODE
-else Valid setup code
-  TotpVerifier -->> Enable: true
+  Grpc -->> User: error
+else #064e3b CODE OK
+  Verifier -->> Enable: true
   Enable -> Provider: enableTotp(user_id)
-  Provider -> Db: enable_totp; verified_at = now
-  alt Already active
+  Provider -> Db: set verified_at
+  alt #7f1d1d ALREADY ENABLED
     Provider -->> Enable: false
     Enable -->> Grpc: TOTP_ALREADY_ENABLED
-  else Activated
+    Grpc -->> User: error
+  else #064e3b ENABLED
     Provider -->> Enable: true
     Enable -> Provider: generateBackupCodes(user_id)
-    Provider -> Db: replace BCrypt backup-code hashes
+    Provider -> Db: replace backup-code hashes
     Provider -->> Enable: plaintext codes
     Enable -->> Grpc: EnableTotpSuccess
-    Grpc -->> User: backup codes (one-time display)
+    Grpc -->> User: backup codes\none-time display
   end
 end
+@enduml
 
-== Login challenge completion ==
-User -> Grpc: VerifyTotp(verification_token, code)
+@startuml TotpLoginChallenge
+!include ../themes/dark-theme.puml
+title TOTP Login Challenge
+hide footbox
+
+actor User
+participant "gRPC" as Grpc
+participant "Verify Handler" as Verify
+participant "Token Verifier" as TokenVerifier
+participant "TOTP Limiter" as Limiter
+participant "TOTP Verifier" as TotpVerifier
+participant "Users" as Users
+participant "Tokens" as Tokens
+participant "Refresh Store" as RefreshStore
+database "TOTP API" as Db
+
+User -> Grpc: VerifyTotp(token, factor)
 Grpc -> Verify: handle(VerifyTotpCommand)
-Verify -> TokenVerifier: verify2FAVerificationToken(token)
-alt Invalid or expired challenge token
+Verify -> TokenVerifier: verify challenge token
+alt #7f1d1d INVALID TOKEN
   TokenVerifier -->> Verify: empty
   Verify -->> Grpc: INVALID_VERIFICATION_TOKEN
-else Valid challenge token
+  Grpc -->> User: error
+else #064e3b TOKEN OK
   TokenVerifier -->> Verify: user_id
   Verify -> Limiter: checkLimit(user_id)
-  alt Rate limited
+  alt #7f1d1d BLOCKED
     Limiter -->> Verify: blocked
     Verify -->> Grpc: RATE_LIMIT_EXCEEDED
-  else Allowed
-    Verify -> TotpVerifier: verify active TOTP or consume backup code
-    TotpVerifier -> Db: active secret / unused backup hashes
-    alt Invalid factor
+    Grpc -->> User: error
+  else #064e3b ALLOWED
+    Verify -> TotpVerifier: verify TOTP or backup code
+    TotpVerifier -> Db: active secret or unused hashes
+    alt #7f1d1d INVALID FACTOR
       TotpVerifier -->> Verify: false
       Verify -->> Grpc: INVALID_TOTP_CODE
-    else Valid factor
+      Grpc -->> User: error
+    else #064e3b OK
       TotpVerifier -->> Verify: true
       Verify -> Users: findById(user_id)
       Verify -> Tokens: generateTokens(user)
-      Verify -> RefreshStore: issue(user_id, refresh token hash)
-      RefreshStore -> Db: store_refresh_token
+      Verify -> RefreshStore: issue refresh token hash
+      RefreshStore -> Db: store refresh token
       Verify -->> Grpc: VerifyTotpSuccess
       Grpc -->> User: access + refresh tokens
     end
   end
 end
+@enduml
 
-== Disable ==
+@startuml TotpDisable
+!include ../themes/dark-theme.puml
+title Disable TOTP
+hide footbox
+
+actor User
+participant "gRPC" as Grpc
+participant "Disable Handler" as Disable
+participant "Credentials" as Credentials
+participant "Password Check" as Auth
+participant "TOTP Provider" as Provider
+database "TOTP API" as Db
+
 User -> Grpc: DisableTotp(user_id, password, reason)
 Grpc -> Disable: handle(DisableTotpCommand)
-Disable -> Credentials: findCredentialsByUserId(user_id)
-Credentials -> Db: find_user_credentials_by_id
-Disable -> Auth: verify password and matching user_id
-alt Password invalid
+Disable -> Credentials: find by user_id
+Credentials -> Db: find credential hash
+Disable -> Auth: verify password and user_id
+alt #7f1d1d INVALID PASSWORD
   Auth -->> Disable: empty
   Disable -->> Grpc: INVALID_PASSWORD
-else Password valid
+  Grpc -->> User: error
+else #064e3b PASSWORD OK
   Auth -->> Disable: verified user_id
   Disable -> Provider: disableTotp(user_id, reason)
-  Provider -> Db: disable_totp; cascade backup codes
-  alt TOTP not enabled
+  Provider -> Db: delete TOTP and backup codes
+  alt #7f1d1d NOT ENABLED
     Provider -->> Disable: false
     Disable -->> Grpc: TOTP_NOT_ENABLED
-  else Disabled
+    Grpc -->> User: error
+  else #064e3b OK
     Provider -->> Disable: true
     Disable -->> Grpc: DisableTotpSuccess
     Grpc -->> User: success

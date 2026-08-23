@@ -1,56 +1,57 @@
 @startuml LoginSequenceDiagram
 !include ../themes/dark-theme.puml
 title Complete Login and MFA Branching
+hide footbox
 
 actor Client
-participant "gRPC AuthService" as Grpc
-participant "LoginCommandHandler" as Login
-participant "LoginRateLimiter" as Limits
-participant "CredentialReader" as Credentials
-participant "AuthenticationService" as Auth
-participant "TotpStatusReader" as TotpStatus
-participant "TokenService" as Tokens
-participant "RefreshTokenStore" as RefreshStore
-participant "UserRetriever" as Users
+participant "gRPC" as Grpc
+participant "Login Handler" as Login
+participant "Rate Limiter" as Limits
+participant "Credentials" as Credentials
+participant "Password Check" as Auth
+participant "TOTP Status" as TotpStatus
+participant "Tokens" as Tokens
+participant "Refresh Store" as RefreshStore
+participant "Users" as Users
 
-Client -> Grpc: Login(username, password, ip_address)
+Client -> Grpc: Login\nusername, password, IP
 Grpc -> Login: handle(LoginCommand)
-Login -> Limits: checkLimit(IP, username, IP+username)
-alt Any bucket blocked
+Login -> Limits: check IP, username, and combined limits
+alt #7f1d1d BLOCKED
     Limits -->> Login: Blocked
     Login -->> Grpc: RATE_LIMITED
     Grpc -->> Client: LoginResponse.error(RATE_LIMITED)
-else Allowed
+else #064e3b OK
     Login -> Credentials: findCredentialsByUsername(username)
     Credentials -->> Login: credentials or empty
-    alt Unknown user or bad password
+    alt #7f1d1d INVALID CREDENTIALS
         Login -> Auth: verify(credentials, password)
         Auth -->> Login: empty
         Login -->> Grpc: INVALID_CREDENTIALS
         Grpc -->> Client: LoginResponse.error(INVALID_CREDENTIALS)
-    else Password valid
+    else #064e3b PASSWORD OK
         Login -> Auth: getAuthenticatedUser(credentials)
         Auth -->> Login: userId
         Login -> Users: findById(userId)
         Users -->> Login: User(policy, permissions)
         Login -> TotpStatus: check2FAStatus(userId)
         TotpStatus -->> Login: enabled or disabled
-        alt MFA required but not enrolled
+        alt #7f1d1d MFA SETUP REQUIRED
             Login -->> Grpc: MFA_SETUP_REQUIRED
             Grpc -->> Client: LoginResponse.error(MFA_SETUP_REQUIRED)
-        else TOTP enrolled
+        else #064e3b TOTP ENROLLED
             Login -> Tokens: generate2FAVerificationToken(userId)
             Tokens -->> Login: short-lived verification token
             Login -->> Grpc: Required2FA
             Grpc -->> Client: LoginResponse.totp_required
-            Client -> Grpc: VerifyTotp(token, OTP or backup code)
+            Client -> Grpc: VerifyTotp\ntoken and factor
             Grpc -> Grpc: VerifyTotpCommandHandler
             Grpc -->> Client: access + refresh tokens
-        else TOTP disabled
-            alt Password reset required
+        else #78350f TOTP DISABLED
+            alt #78350f PASSWORD RESET REQUIRED
                 Login -->> Grpc: PASSWORD_RESET_REQUIRED
                 Grpc -->> Client: LoginResponse.password_reset_required
-            else Ready for session
+            else #064e3b OK
                 Login -> Tokens: generateTokens(user)
                 Tokens -->> Login: access + refresh pair
                 Login -> RefreshStore: issue(userId, refresh token)

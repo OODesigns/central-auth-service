@@ -12,9 +12,14 @@ skinparam activityEndBorderColor #94a3b8
 ' ===============================
 skinparam backgroundColor #12161c
 skinparam defaultFontColor #e5e7eb
-skinparam shadowing true
+skinparam defaultFontSize 16
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam maxMessageSize 110
+skinparam sequenceMessageAlign center
 
 skinparam ArrowColor #93c5fd
+skinparam ArrowFontSize 15
 skinparam BorderColor #4b5563
 
 ' ===============================
@@ -24,12 +29,14 @@ skinparam Participant {
   BackgroundColor #1f2937
   BorderColor #94a3b8
   FontColor #f9fafb
+  FontSize 16
 }
 
 skinparam Actor {
   BackgroundColor #1f2937
   BorderColor #94a3b8
   FontColor #f9fafb
+  FontSize 16
 }
 
 skinparam Component {
@@ -67,6 +74,7 @@ skinparam SequenceGroupBorderColor #38bdf8
 skinparam SequenceGroupBodyBackgroundColor #0b1220
 skinparam SequenceGroupHeaderBackgroundColor #1f2937
 skinparam SequenceGroupHeaderFontColor #111827
+skinparam SequenceGroupFontSize 16
 skinparam SequenceDividerBackgroundColor #1f2937
 skinparam SequenceDividerBorderColor #94a3b8
 skinparam SequenceDividerFontColor #f9fafb
