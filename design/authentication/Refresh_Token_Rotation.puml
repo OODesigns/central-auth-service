@@ -15,44 +15,44 @@ database "Refresh Tokens" as Db
 Client -> Grpc: Refresh(presented refresh token)
 Grpc -> Handler: RefreshTokenCommand
 Handler -> Verifier: verifyRefreshToken(signature, exp, aud)
-alt #7f1d1d INVALID TOKEN
+alt #7a454d INVALID TOKEN
   Verifier -->> Handler: empty
   Handler -->> Grpc: INVALID_REFRESH_TOKEN
   Grpc -->> Client: error
-else #064e3b TOKEN OK
+else #426b55 TOKEN OK
   Handler -> Users: findById(subject)
-  alt #7f1d1d USER NOT FOUND
+  alt #7a454d USER NOT FOUND
     Users -->> Handler: empty
     Handler -->> Grpc: USER_NOT_FOUND
     Grpc -->> Client: error
-  else #064e3b USER OK
+  else #426b55 USER OK
     Users -->> Handler: user + permissions
     Handler -> Tokens: generate replacement pair
-    alt #7f1d1d TOKEN ERROR
+    alt #7a454d TOKEN ERROR
       Tokens -->> Handler: empty
       Handler -->> Grpc: INTERNAL_ERROR
       Grpc -->> Client: error
-    else #064e3b PAIR OK
+    else #426b55 PAIR OK
       Tokens -->> Handler: access + refresh pair
       Handler -> Store: rotate(old token, new refresh token)
       Store -> Store: SHA-256 both compact tokens
       Store -> Db: api_schema.rotate_refresh_token(old hash, new hash)
-      alt #064e3b ROTATED
+      alt #426b55 ROTATED
         Db -->> Store: ROTATED
         Store -->> Handler: ROTATED
         Handler -->> Grpc: fresh access + refresh tokens
         Grpc -->> Client: RefreshSuccess
-      else #7f1d1d REUSED
+      else #7a454d REUSED
         Db -> Db: revoke active token family\nreason: reuse_detected
         Db -->> Store: REUSE_DETECTED
         Store -->> Handler: REUSE_DETECTED
         Handler -->> Grpc: REFRESH_TOKEN_REUSE_DETECTED
         Grpc -->> Client: error; login required
-      else #7f1d1d EXPIRED
+      else #7a454d EXPIRED
         Db -->> Store: EXPIRED
         Handler -->> Grpc: REFRESH_TOKEN_EXPIRED
         Grpc -->> Client: error
-      else #7f1d1d NOT FOUND
+      else #7a454d NOT FOUND
         Db -->> Store: NOT_FOUND
         Handler -->> Grpc: INVALID_REFRESH_TOKEN
         Grpc -->> Client: error

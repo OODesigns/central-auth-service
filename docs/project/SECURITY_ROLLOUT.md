@@ -2,12 +2,6 @@
 
 This runbook describes the production automation and operational controls required after the application security work is complete. GitHub-hosted CI is intentionally disabled for this repository. Run these stages from an approved internal runner such as Jenkins, GitLab CI, Argo Workflows, or the deployment platform's native pipeline.
 
-## Coding Status
-
-No additional application coding is required for the current production rollout. The remaining work is deployment configuration, secret provisioning, migration governance, monitoring, and operational validation.
-
-The server supports modern TLS through Java 25 and gRPC Netty, but it does not currently restrict negotiation to TLS 1.3 only. No code change is required when a trusted ingress, service mesh, or load balancer terminates TLS and enforces TLS 1.3. If policy requires the Java process itself to accept only TLS 1.3, add and test an explicit `TLSv1.3` protocol restriction in `GrpcTlsConfigurer` before deployment.
-
 ## Automated Pipeline
 
 The production pipeline must run these stages in order and stop on any failure:
@@ -54,18 +48,6 @@ The production job must:
 - Verify that `api_schema.consume_totp_counter` and `api_schema.consume_login_rate_limit` are executable by the application role.
 - Never use `validateOnMigrate=false` or automatically run `flyway repair`.
 - Use a forward corrective migration instead of destructive rollback whenever possible.
-
-### Existing V1_2_0 Checksum
-
-The development database contains a checksum mismatch for `V1_2_0`. Resolve it before migrating any existing production database:
-
-1. Retrieve the exact `V1_2_0` file that produced the applied checksum from source control or release artifacts.
-2. Compare it with the current file and document the differences.
-3. Restore the immutable historical migration file.
-4. Put every required change in a new migration.
-5. Run `flyway validate` against a restored production copy.
-
-Use `flyway repair` only after a reviewed, documented determination that the applied and resolved migrations are semantically identical. Require human approval. A new production database with no Flyway history can apply the reviewed migration set from the beginning and will not inherit the development database's mismatch.
 
 ## TLS and Certificates
 

@@ -96,7 +96,7 @@ Integration tests use hand-rolled mock adapters in `src/test/.../infrastructure/
 
 - PostgreSQL via docker-compose (`.devcontainer/docker-compose.yml`)
 - Flyway migrations in `.devcontainer/flyway/sql/`, naming: `V{major}_{minor}_{patch}__{description}.sql`
-- 2FA status is derived from `users.totp_verified_at`: `NULL` = disabled, `NOT NULL` = enabled (timestamp of verification). There is no separate boolean flag.
+- 2FA status is derived from `totp_secrets.verified_at`: a pending secret has `NULL`, and an active secret has its verification timestamp. There is no separate boolean flag.
 - Required env vars: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `APP_DB`, `APP_USER`, `APP_PASSWORD`, `ADMIN_PASSWORD_HASH`, `DATABASE_URL`, `JWT_SECRET`, `KEYSTORE_PASSWORD`, `TRUSTSTORE_PASSWORD`
 
 ### Migration conventions

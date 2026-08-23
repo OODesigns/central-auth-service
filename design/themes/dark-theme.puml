@@ -120,9 +120,9 @@ skinparam Diamond {
 ' ===============================
 
 skinparam Activity<<failure>> {
-  BackgroundColor #7f1d1d
-  BorderColor #ef4444
-  FontColor #fee2e2
+  BackgroundColor #7a454d
+  BorderColor #d99a9f
+  FontColor #fff1f2
 }
 
 skinparam Activity<<warning>> {
@@ -132,9 +132,9 @@ skinparam Activity<<warning>> {
 }
 
 skinparam Activity<<success>> {
-  BackgroundColor #064e3b
-  BorderColor #22c55e
-  FontColor #dcfce7
+  BackgroundColor #426b55
+  BorderColor #91c9a8
+  FontColor #f0fdf4
 }
 
 ' ===============================

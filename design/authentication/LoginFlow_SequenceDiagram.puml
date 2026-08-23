@@ -17,29 +17,29 @@ participant "Users" as Users
 Client -> Grpc: Login\nusername, password, IP
 Grpc -> Login: handle(LoginCommand)
 Login -> Limits: check IP, username, and combined limits
-alt #7f1d1d BLOCKED
+alt #7a454d BLOCKED
     Limits -->> Login: Blocked
     Login -->> Grpc: RATE_LIMITED
     Grpc -->> Client: LoginResponse.error(RATE_LIMITED)
-else #064e3b OK
+else #426b55 OK
     Login -> Credentials: findCredentialsByUsername(username)
     Credentials -->> Login: credentials or empty
-    alt #7f1d1d INVALID CREDENTIALS
+    alt #7a454d INVALID CREDENTIALS
         Login -> Auth: verify(credentials, password)
         Auth -->> Login: empty
         Login -->> Grpc: INVALID_CREDENTIALS
         Grpc -->> Client: LoginResponse.error(INVALID_CREDENTIALS)
-    else #064e3b PASSWORD OK
+    else #426b55 PASSWORD OK
         Login -> Auth: getAuthenticatedUser(credentials)
         Auth -->> Login: userId
         Login -> Users: findById(userId)
         Users -->> Login: User(policy, permissions)
         Login -> TotpStatus: check2FAStatus(userId)
         TotpStatus -->> Login: enabled or disabled
-        alt #7f1d1d MFA SETUP REQUIRED
+        alt #7a454d MFA SETUP REQUIRED
             Login -->> Grpc: MFA_SETUP_REQUIRED
             Grpc -->> Client: LoginResponse.error(MFA_SETUP_REQUIRED)
-        else #064e3b TOTP ENROLLED
+        else #426b55 TOTP ENROLLED
             Login -> Tokens: generate2FAVerificationToken(userId)
             Tokens -->> Login: short-lived verification token
             Login -->> Grpc: Required2FA
@@ -51,7 +51,7 @@ else #064e3b OK
             alt #78350f PASSWORD RESET REQUIRED
                 Login -->> Grpc: PASSWORD_RESET_REQUIRED
                 Grpc -->> Client: LoginResponse.password_reset_required
-            else #064e3b OK
+            else #426b55 OK
                 Login -> Tokens: generateTokens(user)
                 Tokens -->> Login: access + refresh pair
                 Login -> RefreshStore: issue(userId, refresh token)

@@ -12,26 +12,13 @@ PlantUML sources and their generated PNGs are grouped by purpose.
 ### Authentication
 
 - [Complete login and MFA branching PNG](authentication/LoginSequenceDiagram.png) ([source](authentication/LoginFlow_SequenceDiagram.puml))
-- TOTP lifecycle ([source](authentication/TOTP_Lifecycle.puml)):
-  - [Enrollment setup PNG](authentication/TotpEnrollmentSetup.png)
-  - [Enrollment activation PNG](authentication/TotpEnrollmentActivation.png)
-  - [Login challenge PNG](authentication/TotpLoginChallenge.png)
-  - [Disable TOTP PNG](authentication/TotpDisable.png)
+- [TOTP lifecycle PNG](authentication/TOTP_Lifecycle.png) ([source](authentication/TOTP_Lifecycle.puml))
 - [Refresh-token rotation PNG](authentication/RefreshRotation.png) ([source](authentication/Refresh_Token_Rotation.puml))
 - [Logout and access-token revocation PNG](authentication/LogoutRevocation.png) ([source](authentication/Logout_Access_Token_Revocation.puml))
 - [Request guardrails and rate limiting PNG](authentication/login/0%20-%20Request%20Guardrails%20%26%20Rate%20Limiting%20%28Multi-Key%29.png) ([source](authentication/login/0%20-%20Request%20Guardrails%20%26%20Rate%20Limiting%20%28Multi-Key%29.puml))
 - [Credential verification PNG](authentication/login/1%20-%20Credential%20Verification.png) ([source](authentication/login/1%20-%20Credential%20Verification.puml))
 - [MFA policy and challenge PNG](authentication/login/2%20-%20MFA%20Policy%20%26%20Challenge.png) ([source](authentication/login/2%20-%20MFA%20Policy%20%26%20Challenge.puml))
 - [MFA challenge execution PNG](authentication/login/mfa/Perform%20MFA%20challenge.png) ([source](authentication/login/mfa/Perform%20MFA%20challenge.puml))
-
-## Historical Diagrams
-
-The files under `history/login/` describe superseded REST-era or proposed behavior and are retained for design history:
-
-- [Post-authentication proposal](history/login/3%20-%20Post%20Authentication.puml)
-- [Authorization and token-issuance proposal](history/login/4%20-%20Authorization%20%26%20Token%20Issuance.puml)
-- [Historical login-flow guide](history/login/LOGIN_FLOW_DIAGRAMS_README.md)
-- [Historical token notes](history/login/TOKENS.md)
 
 ## Shared Theme
 
@@ -48,4 +35,4 @@ find design -type f -name '*.puml' ! -path 'design/themes/*' -print0 \
   | xargs -0 java -Djava.awt.headless=true -jar "$PLANTUML_JAR" -tpng
 ```
 
-Generated PNGs are stored beside their source files. A source containing multiple named `@startuml` blocks produces one PNG per name, as used by the four focused TOTP lifecycle diagrams.
+Generated PNGs are stored beside their source files. The current source-to-image names are listed above.
