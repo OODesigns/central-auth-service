@@ -119,7 +119,8 @@ class JooqTotpSetupProviderTest {
         final UUID userId = UUID.randomUUID();
         final Record record = mock(Record.class);
         when(record.get(0, Boolean.class)).thenReturn(Boolean.TRUE);
-        when(dslContext.fetchOne("SELECT api_schema.disable_totp(?)", userId)).thenReturn(record);
+        when(dslContext.fetchOne("SELECT api_schema.disable_totp(?, ?)", userId, "USER_REQUESTED"))
+            .thenReturn(record);
 
         assertTrue(provider.disableTotp(UserId.of(userId), DisableReason.USER_REQUESTED));
     }
@@ -127,7 +128,8 @@ class JooqTotpSetupProviderTest {
     @Test
     void disableTotpReturnsFalseWhenDatabaseDeletesNoRow() {
         final UUID userId = UUID.randomUUID();
-        when(dslContext.fetchOne("SELECT api_schema.disable_totp(?)", userId)).thenReturn(null);
+        when(dslContext.fetchOne("SELECT api_schema.disable_totp(?, ?)", userId, "USER_REQUESTED"))
+            .thenReturn(null);
 
         assertFalse(provider.disableTotp(UserId.of(userId), DisableReason.USER_REQUESTED));
     }

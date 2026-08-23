@@ -159,8 +159,16 @@ public final class LoginCommandHandler {
 
         // Step 3: MFA enrollment enforcement
         if (user.mfaRequiredAt() != null && !totpEnabled) {
-            return LoginResult.failure("MFA_SETUP_REQUIRED",
-                "MFA enrollment is required. Call SetupTotp to enroll.");
+            final String enrollmentToken;
+            try {
+                enrollmentToken = tokenService.generateMfaEnrollmentToken(user.userId());
+            } catch (final RuntimeException exception) {
+                LOGGER.log(Level.WARNING, "MFA enrollment token could not be generated", exception);
+                return LoginResult.failure("MFA_SETUP_REQUIRED", "MFA enrollment is required.");
+            }
+            return enrollmentToken == null || enrollmentToken.isBlank()
+                ? LoginResult.failure("MFA_SETUP_REQUIRED", "MFA enrollment is required.")
+                : LoginResult.mfaEnrollmentRequired(enrollmentToken, user.userId());
         }
 
         // Step 4: MFA challenge (enrolled users)

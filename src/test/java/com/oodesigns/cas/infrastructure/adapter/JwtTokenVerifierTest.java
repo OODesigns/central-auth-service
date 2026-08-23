@@ -164,6 +164,7 @@ class JwtTokenVerifierTest {
                 final String token = Jwts.builder()
                         .header().keyId(JWT_KEY_ID).and()
                         .subject(userId.toString())
+                        .issuer(com.oodesigns.cas.domain.service.TokenService.TOKEN_ISSUER)
                         .audience().add("other").add("2fa_verification").and()
                         .claim("ver", 2)
                         .expiration(Date.from(Instant.now().plusSeconds(300)))
@@ -345,9 +346,10 @@ class JwtTokenVerifierTest {
         }
 
         private String signVersionTwo(final String payload) {
+                final String payloadWithIssuer = payload.replace("{", "{\"iss\":\"central-auth-service\",");
                 return new JwtTokenSigner(
                         ignored -> Optional.of(KeyPassword.of(TEST_SECRET)), JWT_KEY_ID)
-                        .sign(Payload.of(payload), Instant.now().plusSeconds(300))
+                        .sign(Payload.of(payloadWithIssuer), Instant.now().plusSeconds(300))
                         .orElseThrow();
         }
 

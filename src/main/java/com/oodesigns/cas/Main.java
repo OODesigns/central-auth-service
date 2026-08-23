@@ -12,6 +12,7 @@ import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.infrastructure.adapter.BcryptPasswordVerifier;
 import com.oodesigns.cas.infrastructure.adapter.DatabaseLoginRateLimiter;
+import com.oodesigns.cas.infrastructure.adapter.DatabaseTotpRateLimiter;
 import com.oodesigns.cas.infrastructure.adapter.EnvironmentKeySupplier;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpSetupProvider;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpStatusReader;
@@ -23,12 +24,14 @@ import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenVerifier;
 import com.oodesigns.cas.infrastructure.adapter.LoginRateLimiter;
 import com.oodesigns.cas.infrastructure.adapter.SystemClock;
+import com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter;
 import com.oodesigns.cas.infrastructure.adapter.UserCredentialReader;
 import com.oodesigns.cas.infrastructure.adapter.UserRepository;
 import com.oodesigns.cas.infrastructure.config.DatabaseConfig;
 import com.oodesigns.cas.infrastructure.config.DatabaseContextFactory;
 import com.oodesigns.cas.infrastructure.grpc.AuthGrpcService;
 import com.oodesigns.cas.infrastructure.grpc.GrpcTlsConfigurer;
+import com.oodesigns.cas.infrastructure.grpc.GrpcAuthInterceptor;
 import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
 import com.oodesigns.cas.util.properties.PropertiesReader;
 import com.oodesigns.cas.util.properties.PropertiesReaderFactoryProvider;
@@ -93,7 +96,11 @@ public final class Main {
                         case "memory" -> new LoginRateLimiter();
                         default -> throw new IllegalArgumentException("Unsupported rate-limit backend");
                 };
-        final com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter totpRateLimiter = new com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter();
+                final Ports.TotpRateLimiter totpRateLimiter = switch (props.get("totp-rate-limit.backend")) {
+                        case "database" -> new DatabaseTotpRateLimiter(dsl);
+                        case "memory" -> new TotpRateLimiter();
+                        default -> throw new IllegalArgumentException("Unsupported TOTP rate-limit backend");
+                };
         final UserCredentialReader credentialReader = new UserCredentialReader(dsl);
         final UserRepository userRepository = new UserRepository(dsl);
         final JooqTotpStatusReader totpStatusReader = new JooqTotpStatusReader(dsl);
@@ -140,6 +147,7 @@ public final class Main {
 
         // --- Server ---
         final NettyServerBuilder serverBuilder = NettyServerBuilder.forPort(grpcPort)
+                .intercept(new GrpcAuthInterceptor(tokenVerifier))
                 .addService(grpcService);
         tlsContext.ifPresent(serverBuilder::sslContext);
         final Server server = serverBuilder.build().start();

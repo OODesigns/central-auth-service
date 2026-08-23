@@ -23,6 +23,8 @@ public final class TokenService {
     private static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
     private static final Duration TOTP_VERIFICATION_TOKEN_TTL = Duration.ofMinutes(5);
+    private static final Duration MFA_ENROLLMENT_TOKEN_TTL = Duration.ofMinutes(10);
+    public static final String TOKEN_ISSUER = "central-auth-service";
 
     public TokenService(final Ports.Clock clock, final Ports.TokenSigner tokenSigner) {
         this.clock = Objects.requireNonNull(clock);
@@ -61,8 +63,8 @@ public final class TokenService {
                                                        final String permissionsList,
                                                        final Instant issuedAt,
                                                        final Instant expiresAt){
-        return Optional.of(Payload.of(String.format("{\"sub\":\"%s\",\"aud\":\"access_token\",\"jti\":\"%s\",\"permissions\":%s,\"iat\":%d,\"exp\":%d}",
-                userId.toString(), jti.toString(), permissionsList, issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
+        return Optional.of(Payload.of(String.format("{\"iss\":\"%s\",\"sub\":\"%s\",\"aud\":\"access_token\",\"jti\":\"%s\",\"permissions\":%s,\"iat\":%d,\"exp\":%d}",
+            TOKEN_ISSUER, userId.toString(), jti.toString(), permissionsList, issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
     }
 
 
@@ -92,8 +94,8 @@ public final class TokenService {
         // aud:"refresh_token" distinguishes this from access tokens (no aud) and 2FA
         // verification tokens (aud:2fa_verification), preventing token-type confusion.
         return Optional.of(Payload.of(String.format(
-                "{\"sub\":\"%s\",\"aud\":\"refresh_token\",\"jti\":\"%s\",\"iat\":%d,\"exp\":%d}",
-                userId.toString(), jti.toString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
+                "{\"iss\":\"%s\",\"sub\":\"%s\",\"aud\":\"refresh_token\",\"jti\":\"%s\",\"iat\":%d,\"exp\":%d}",
+                TOKEN_ISSUER, userId.toString(), jti.toString(), issuedAt.getEpochSecond(), expiresAt.getEpochSecond())));
     }
 
 
@@ -112,8 +114,8 @@ public final class TokenService {
 
         // Minimal payload: sub (user ID), aud (audience for 2FA flow), iat, exp
         final String payloadJson = String.format(
-            "{\"sub\":\"%s\",\"aud\":\"2fa_verification\",\"iat\":%d,\"exp\":%d,\"jti\":\"%s\"}",
-            userId.toString(),
+            "{\"iss\":\"%s\",\"sub\":\"%s\",\"aud\":\"2fa_verification\",\"iat\":%d,\"exp\":%d,\"jti\":\"%s\"}",
+            TOKEN_ISSUER, userId.toString(),
             now.getEpochSecond(),
             expiresAt.getEpochSecond(),
             jti.value()
@@ -121,6 +123,17 @@ public final class TokenService {
 
         return tokenSigner.sign(Payload.of(payloadJson), expiresAt)
             .orElseThrow(() -> new IllegalStateException("Failed to sign 2FA verification token"));
+    }
+
+    /** Generate a short-lived token that can only initiate or complete MFA enrollment. */
+    public String generateMfaEnrollmentToken(final UserId userId) {
+        final Instant now = clock.now();
+        final Instant expiresAt = now.plus(MFA_ENROLLMENT_TOKEN_TTL);
+        final String payloadJson = String.format(
+            "{\"iss\":\"%s\",\"sub\":\"%s\",\"aud\":\"mfa_enrollment\",\"iat\":%d,\"exp\":%d,\"jti\":\"%s\"}",
+            TOKEN_ISSUER, userId.toString(), now.getEpochSecond(), expiresAt.getEpochSecond(), Jti.generate().value());
+        return tokenSigner.sign(Payload.of(payloadJson), expiresAt)
+            .orElseThrow(() -> new IllegalStateException("Failed to sign MFA enrollment token"));
     }
 
     /**

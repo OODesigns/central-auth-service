@@ -91,22 +91,24 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
      */
     private Optional<String> signWithPassword(final Payload payload, final Instant expiresAt, final KeyPassword password) {
         try (password) {
-            // Convert password bytes to SecretKey for cryptographic operations
-            // JJWT's Keys.hmacShaKeyFor() constructs the SecretKey from byte array
-            // and manages the internal bytes securely
-            final SecretKey secretKey = Keys.hmacShaKeyFor(password.toUtf8Bytes());
+            final byte[] keyBytes = password.toUtf8Bytes();
+            try {
+                final SecretKey secretKey = Keys.hmacShaKeyFor(keyBytes);
                 final Map<String, Object> claims = objectMapper.readValue(payload.value(), MAP_TYPE);
 
-            final String token = Jwts.builder()
-                    .header().keyId(keyId).and()
-                    .claims(claims)
-                    .claim("ver", 2)
-                    .claim("payload", payload.value())
-                    .expiration(Date.from(expiresAt))
-                    .signWith(secretKey, Jwts.SIG.HS256)
-                    .compact();
+                final String token = Jwts.builder()
+                        .header().keyId(keyId).and()
+                        .claims(claims)
+                        .claim("ver", 2)
+                        .claim("payload", payload.value())
+                        .expiration(Date.from(expiresAt))
+                        .signWith(secretKey, Jwts.SIG.HS256)
+                        .compact();
 
-            return Optional.of(token);
+                return Optional.of(token);
+            } finally {
+                java.util.Arrays.fill(keyBytes, (byte) 0);
+            }
         } catch (final Exception _) {
             // Log the error for debugging/auditing (at debug level to avoid sensitive info exposure)
             // Use lambda to defer string formatting until log level is enabled

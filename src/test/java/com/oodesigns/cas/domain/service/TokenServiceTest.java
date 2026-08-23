@@ -130,4 +130,24 @@ class TokenServiceTest {
         final com.oodesigns.cas.domain.value.UserId uid = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
         assertThrows(IllegalStateException.class, () -> tokenService.generate2FAVerificationToken(uid));
     }
+
+    @Test
+    void testGenerateMfaEnrollmentToken() {
+        when(clock.now()).thenReturn(Instant.ofEpochSecond(1_700_000_000L));
+        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+            .thenReturn(java.util.Optional.of("enrollment-token"));
+
+        final com.oodesigns.cas.domain.value.UserId uid = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
+        assertEquals("enrollment-token", tokenService.generateMfaEnrollmentToken(uid));
+    }
+
+    @Test
+    void testGenerateMfaEnrollmentTokenSignerFailureThrows() {
+        when(clock.now()).thenReturn(Instant.now());
+        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+            .thenReturn(java.util.Optional.empty());
+
+        final com.oodesigns.cas.domain.value.UserId uid = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
+        assertThrows(IllegalStateException.class, () -> tokenService.generateMfaEnrollmentToken(uid));
+    }
 }

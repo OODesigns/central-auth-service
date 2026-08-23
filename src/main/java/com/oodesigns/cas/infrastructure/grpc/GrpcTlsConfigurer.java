@@ -43,6 +43,15 @@ public final class GrpcTlsConfigurer {
     private static final Logger LOGGER = Logger.getLogger(GrpcTlsConfigurer.class.getName());
     private static final String KEYSTORE_PASSWORD_KEY   = "KEYSTORE_PASSWORD";
     private static final String TRUSTSTORE_PASSWORD_KEY = "TRUSTSTORE_PASSWORD";
+        private static final String[] TLS_PROTOCOLS = {"TLSv1.3", "TLSv1.2"};
+        private static final java.util.List<String> TLS_CIPHERS = java.util.List.of(
+            "TLS_AES_256_GCM_SHA384",
+            "TLS_AES_128_GCM_SHA256",
+            "TLS_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256");
 
     private final KeySupplier keySupplier;
 
@@ -99,6 +108,7 @@ public final class GrpcTlsConfigurer {
                 kmf.init(ks, pw);
                 final SslContextBuilder builder =
                         GrpcSslContexts.configure(SslContextBuilder.forServer(kmf));
+                builder.protocols(TLS_PROTOCOLS).ciphers(TLS_CIPHERS);
                 applyTruststore(builder, truststorePath);
                 return builder.build();
             } finally {

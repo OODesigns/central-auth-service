@@ -42,7 +42,7 @@ flyway info
 The production job must:
 
 - Back up PostgreSQL before migration.
-- Apply migrations through `V1_5_1`.
+- Apply migrations through `V1_5_2`.
 - Use a dedicated migration identity rather than the application identity.
 - Allow only one migration job to run; Flyway's schema-history lock provides additional protection.
 - Verify that `api_schema.consume_totp_counter` and `api_schema.consume_login_rate_limit` are executable by the application role.

@@ -17,7 +17,7 @@ The implementation and tests are authoritative. This overview does not claim tha
 | Database | Application access is constrained to `api_schema` functions over `private_schema` data, with `SECURITY DEFINER`, locked `search_path`, explicit ownership, and restricted grants. |
 | Transport and runtime | TLS is fail-closed unless plaintext is explicitly enabled. The production container runs as a non-root user with a read-only filesystem and reduced Linux privileges. |
 | Supply chain | Dependencies are locked; the local security gate runs tests, coverage, OSV, container build, and Trivy scanning. An approved internal runner must enforce that gate. |
-| Principal enforcement | Access-token verification exists, but this service has no general gRPC authorization interceptor. MFA management RPC authorization is therefore a material open control. |
+| Principal enforcement | A gRPC interceptor now verifies bearer tokens for protected RPCs, binds the principal to request context, and restricts MFA management to the authenticated user. Required-MFA bootstrap uses a short-lived enrollment token. Role-based authorization remains limited. |
 
 ## Trust boundaries
 
@@ -29,7 +29,7 @@ The service follows hexagonal architecture: domain and application code depend o
 4. PostgreSQL exposes approved functions rather than direct application table access.
 5. The deployment platform supplies TLS material, database credentials, signing keys, encryption keys, and pipeline enforcement.
 
-The current boundary does not authenticate every gRPC method. Network reachability, TLS client authentication, and upstream authorization must not be mistaken for application-level principal authorization unless the deployment explicitly provides and verifies them.
+Login, refresh, and TOTP challenge exchange remain credential-bearing public entry points; protected management methods require the interceptor's verified bearer or enrollment token. Network reachability, TLS client authentication, and upstream authorization must not be mistaken for application-level principal authorization unless the deployment explicitly provides and verifies them.
 
 ## Sensitive data in Java
 
@@ -69,7 +69,7 @@ Java cannot guarantee complete erasure of secrets from process memory. Current u
 - `Password.of(String)` and `KeyPassword.of(String)` remain available primarily for tests and compatibility; production call sites should prefer `char[]`.
 - JWTs, environment variables, JDBC configuration, Base32 TOTP material, and one-time backup codes cross APIs that use strings or bytes.
 
-Clearing arrays reduces exposure duration and prevents common accidental retention. It does not prove that garbage-collected memory, copied library buffers, heap dumps, crash dumps, swap, or debugger access contain no secret material. Production hardening should also restrict diagnostics, heap dumps, process inspection, and host access.
+JWT HMAC conversion and access/refresh-token hashing explicitly clear their temporary byte arrays after each operation. TOTP encryption already clears its temporary buffers. Clearing arrays reduces exposure duration and prevents common accidental retention. It does not prove that garbage-collected memory, copied library buffers, heap dumps, crash dumps, swap, or debugger access contain no secret material. Production hardening should also restrict diagnostics, heap dumps, process inspection, and host access.
 
 ## Login and password verification
 
@@ -103,11 +103,11 @@ Backup codes are generated from a cryptographic random source, stored as BCrypt 
 
 TOTP verification is rate-limited per user. Disabling TOTP requires password reauthentication before the secret and backup codes are removed.
 
-### MFA authorization gap
+### MFA authorization
 
-`SetupTotp`, `EnableTotp`, and `DisableTotp` accept caller-supplied user identifiers. [AuthGrpcService](../../src/main/java/com/oodesigns/cas/infrastructure/grpc/AuthGrpcService.java) does not install an authentication or authorization interceptor that binds those identifiers to an authenticated principal. `DisableTotp` verifies the target user's password, but setup and enable do not establish caller ownership inside this service.
+`GrpcAuthInterceptor` requires an access token for `DisableTotp` and `Logout`, and accepts either an access token or the dedicated short-lived MFA-enrollment token for `SetupTotp` and `EnableTotp`. [AuthGrpcService](../../src/main/java/com/oodesigns/cas/infrastructure/grpc/AuthGrpcService.java) checks that any supplied user identifier matches the verified principal. The enrollment token is issued only after password authentication when policy requires MFA but no active secret exists.
 
-Until principal-aware RPC authorization is implemented, deployment controls must tightly restrict access to MFA management methods. This is the highest-priority application security gap in the current state.
+The interceptor provides principal binding, but the current token claims do not carry roles or permissions, so this is self-service authorization rather than general administrative authorization. Authenticated self-service calls accept only `USER_REQUESTED`; `ADMIN_FORCED`, `SECURITY_INCIDENT`, and `RECOVERY_FLOW` require a separate role/permission policy before they can be safely exposed.
 
 ## Tokens and sessions
 
@@ -124,19 +124,19 @@ Version 2 tokens include subject, audience where applicable, JTI, issued-at, exp
 The active signing key is used for issuance, while an allowlisted active-plus-previous key set supports manual rotation. Current limitations are:
 
 - HS256 uses shared symmetric secrets; compromise of a verification key permits signing.
-- Tokens have no issuer claim.
+- Legacy tokens may have no issuer claim; new version-2 tokens use and require issuer `central-auth-service`.
 - Verification tries allowed keys rather than selecting by `kid`.
 - Key distribution, retirement, and emergency rotation are operational procedures rather than an integrated key-management service.
 
 Refresh tokens are stored as SHA-256 hashes, rotated atomically under database locking, and organized into token families. Reuse detection revokes the family. Logout records the access-token JTI as revoked.
 
-Access-token verification is a usable adapter, not a universal enforcement layer. This repository has no general gRPC access-token guard for protected methods; CAS invokes access verification for logout but does not use it to authorize every management RPC.
+`GrpcAuthInterceptor` is the central access-token guard for protected gRPC methods. It rejects missing, malformed, invalid, expired, wrong-purpose, and revoked bearer tokens before dispatch, and places the verified user ID in request context. Refresh and TOTP challenge exchange intentionally use their own body tokens and remain public entry points.
 
 ## Rate limiting
 
 Login uses independent IP, normalized-username, and combined-key limits. [DatabaseLoginRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/DatabaseLoginRateLimiter.java) delegates to an atomic PostgreSQL function, allowing limits to be shared across service instances. Database failures deny the login attempt rather than silently bypassing the limiter.
 
-TOTP verification uses process-local buckets in [TotpRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/TotpRateLimiter.java). This means TOTP limits are not shared across replicas, and the in-memory key map is not globally bounded. Database login-rate keys also have no hard cardinality cap and are cleaned during later consume operations. Capacity limits, retention, and abuse monitoring remain operational concerns.
+TOTP verification defaults to the distributed PostgreSQL limiter in [DatabaseTotpRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/DatabaseTotpRateLimiter.java), using the same atomic fixed-window function as login. The process-local [TotpRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/TotpRateLimiter.java) remains available only through explicit `TOTP_RATE_LIMIT_BACKEND=memory` configuration for local development. Database rate-limit keys have no hard cardinality cap and are cleaned during later consume operations. Capacity limits, retention, and abuse monitoring remain operational concerns.
 
 ## Database isolation
 
@@ -151,7 +151,7 @@ Flyway provides ordered, checksummed, single-application migration history. Foun
 
 ## Transport, runtime, and secrets
 
-[GrpcTlsConfigurer](../../src/main/java/com/oodesigns/cas/infrastructure/grpc/GrpcTlsConfigurer.java) fails startup when TLS material is absent unless plaintext is explicitly enabled. Configuring a truststore enables client-certificate authentication. TLS protocol and cipher selection currently rely on Netty defaults rather than an explicit service-level allowlist.
+[GrpcTlsConfigurer](../../src/main/java/com/oodesigns/cas/infrastructure/grpc/GrpcTlsConfigurer.java) fails startup when TLS material is absent unless plaintext is explicitly enabled. Configuring a truststore enables client-certificate authentication. The service now explicitly allows TLS 1.3 and TLS 1.2 with AEAD cipher suites rather than relying on Netty's default protocol/cipher selection.
 
 mTLS verifies trust chains but does not map certificates to application principals or enforce revocation through the currently unused `trusted_clients` table. Certificate identity authorization remains a deployment or future application concern.
 
@@ -179,22 +179,23 @@ GitHub-hosted CI is intentionally absent. The repository provides the gate but c
 
 Database triggers record security-relevant changes, but the current application does not consistently set database session actor context. Actor attribution can therefore fall back to trigger defaults.
 
-Some audit events serialize complete database records, which can include password hashes or token hashes. Audit storage must be treated as sensitive, access-controlled, retained for a defined period, and excluded from general application logging and analytics exports.
+Before `V1_5_2`, some audit triggers serialized complete database records, which could include password hashes or token hashes. `V1_5_2` replaces those payloads with allowlisted metadata and emits a reasoned TOTP-disable event on deletion. Audit storage must still be treated as sensitive, access-controlled, retained for a defined period, and excluded from general application logging and analytics exports.
 
-The current TOTP disable function deletes the row, while the available disabled-event trigger fires only on an update that clears `verified_at`. The delete bypasses that trigger, so no TOTP-disabled audit event is recorded. The supplied disable reason is also not passed into the SQL function. This is a material audit gap.
+The current TOTP disable function deletes the row and `V1_5_2` adds a DELETE-capable trigger that records `TOTP_DISABLED` with the supplied reason. Actor context is still not consistently set by application code, so attribution falls back to the trigger default unless the deployment supplies request-scoped actor context.
 
 Application logs must not contain plaintext passwords, TOTP secrets, backup codes, JWT signing keys, or complete tokens. Masked value objects reduce accidental disclosure, but logging policy and production log access remain operational controls.
 
 ## Priority residual risks
 
+The following table records the status of the findings from the original security review. Resolved items are implemented in the current source and migrations; residual items require additional authorization policy or deployment/operations work.
+
 | Priority | Risk | Required direction |
 | --- | --- | --- |
-| High | MFA management RPCs are not bound to an authenticated principal. | Add a gRPC authentication/authorization interceptor and derive user identity from verified credentials rather than caller-selected IDs. |
-| High | No universal access-token enforcement layer protects service methods. | Define protected RPCs and enforce signature, audience, expiry, JTI revocation, and authorization centrally. |
-| Medium | Audit records can contain sensitive hashes, actor attribution is weak, and TOTP disable emits no disabled event. | Redact trigger payloads, set actor context, persist disable reasons, define retention, and test attributable events. |
-| Medium | TOTP rate limits are process-local and unbounded. | Move to bounded distributed state or enforce equivalent limits at a trusted gateway. |
+| Resolved with limits | Protected MFA/logout RPCs lacked principal binding and central token enforcement. | `GrpcAuthInterceptor` now enforces bearer/enrollment token policy and user-ID matching; add role/permission claims for privileged administration. |
+| Medium | Actor attribution and audit retention still depend on application/deployment integration. | Set transaction-scoped actor context, define retention, and test attributable events and redaction. |
+| Medium | Distributed rate-limit storage has no hard cardinality cap or independent retention worker. | Bound keys, schedule cleanup, and monitor abuse and storage growth. |
 | Medium | JWT and TOTP key rotation is manual; legacy CBC TOTP values remain readable. | Define automated key lifecycle, previous-key retirement, emergency rotation, and re-encryption procedures. |
-| Medium | TLS identity and cipher policy are not mapped or pinned in application code. | Enforce approved protocol/cipher policy at the service or trusted ingress and bind client identity to authorization policy. |
+| Medium | mTLS certificates are not mapped to application principals; certificate revocation is not integrated. | Bind client identity to authorization policy and enforce certificate lifecycle/revocation at the service or trusted ingress. TLS protocol/cipher selection is pinned in the service. |
 | Low | Plaintext secrets cross immutable library/API boundaries. | Keep boundaries short, restrict diagnostics and host access, and prefer clearable APIs when dependencies permit. |
 
 ## Reviewer verification

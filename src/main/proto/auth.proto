@@ -47,6 +47,7 @@ message LoginResponse {
         Login2FARequired          totp_required          = 2;
         LoginPasswordResetRequired password_reset_required = 3;
         Error                     error                  = 4;
+        LoginMfaEnrollmentRequired mfa_enrollment_required = 5;
     }
 }
 
@@ -64,6 +65,11 @@ message Login2FARequired {
 
 message LoginPasswordResetRequired {
     string user_id = 1;
+}
+
+message LoginMfaEnrollmentRequired {
+    string enrollment_token = 1;
+    string user_id = 2;
 }
 
 // ============================================================================

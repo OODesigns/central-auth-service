@@ -19,7 +19,8 @@ import java.util.function.Function;
  */
 public sealed interface LoginResult
     permits LoginResult.SuccessResult, LoginResult.Required2FAResult,
-            LoginResult.PasswordResetRequiredResult, LoginResult.FailureResult {
+            LoginResult.PasswordResetRequiredResult, LoginResult.MfaEnrollmentRequiredResult,
+            LoginResult.FailureResult {
 
     /**
      * Fluent mapping API: map success, then provide fallback for failure.
@@ -35,6 +36,7 @@ public sealed interface LoginResult
     <T> T fold(Function<SuccessResult, T> successMapper,
                Function<Required2FAResult, T> required2FAMapper,
                Function<PasswordResetRequiredResult, T> passwordResetMapper,
+               Function<MfaEnrollmentRequiredResult, T> mfaEnrollmentMapper,
                Function<FailureResult, T> failureMapper);
 
     static SuccessResult success(final TokenService.TokenPair tokenPair, final UserId userId, final Set<Permission> permissions) {
@@ -47,6 +49,10 @@ public sealed interface LoginResult
 
     static PasswordResetRequiredResult passwordResetRequired(final UserId userId) {
         return new PasswordResetRequiredResult(userId);
+    }
+
+    static MfaEnrollmentRequiredResult mfaEnrollmentRequired(final String enrollmentToken, final UserId userId) {
+        return new MfaEnrollmentRequiredResult(enrollmentToken, userId);
     }
 
     static FailureResult failure(final String errorCode, final String errorMessage) {
@@ -81,6 +87,7 @@ public sealed interface LoginResult
         public <T> T fold(final Function<SuccessResult, T> successMapper,
                           final Function<Required2FAResult, T> required2FAMapper,
                           final Function<PasswordResetRequiredResult, T> passwordResetMapper,
+                          final Function<MfaEnrollmentRequiredResult, T> mfaEnrollmentMapper,
                           final Function<FailureResult, T> failureMapper) {
             return successMapper.apply(this);
         }
@@ -128,6 +135,7 @@ public sealed interface LoginResult
         public <T> T fold(final Function<SuccessResult, T> successMapper,
                           final Function<Required2FAResult, T> required2FAMapper,
                           final Function<PasswordResetRequiredResult, T> passwordResetMapper,
+                          final Function<MfaEnrollmentRequiredResult, T> mfaEnrollmentMapper,
                           final Function<FailureResult, T> failureMapper) {
             return required2FAMapper.apply(this);
         }
@@ -167,6 +175,7 @@ public sealed interface LoginResult
         public <T> T fold(final Function<SuccessResult, T> successMapper,
                           final Function<Required2FAResult, T> required2FAMapper,
                           final Function<PasswordResetRequiredResult, T> passwordResetMapper,
+                          final Function<MfaEnrollmentRequiredResult, T> mfaEnrollmentMapper,
                           final Function<FailureResult, T> failureMapper) {
             return passwordResetMapper.apply(this);
         }
@@ -183,6 +192,41 @@ public sealed interface LoginResult
             public T orElse(final Function<FailureResult, T> failureMapper) {
                 return failureMapper.apply(new FailureResult("PASSWORD_RESET_REQUIRED",
                     "Password reset is mandatory. Use /auth/reset-password endpoint."));
+            }
+        }
+    }
+
+    record MfaEnrollmentRequiredResult(String enrollmentToken, UserId userId) implements LoginResult {
+        public MfaEnrollmentRequiredResult {
+            if (enrollmentToken == null || enrollmentToken.isBlank()) {
+                throw new IllegalArgumentException("MFA enrollment token is required");
+            }
+            Objects.requireNonNull(userId, "User ID is required");
+        }
+
+        @Override
+        public <T> Mapper<T> mapTo(final Function<SuccessResult, T> successMapper) {
+            return new MapperMfaEnrollmentRequired<>(this);
+        }
+
+        @Override
+        public <T> T fold(final Function<SuccessResult, T> successMapper,
+                          final Function<Required2FAResult, T> required2FAMapper,
+                          final Function<PasswordResetRequiredResult, T> passwordResetMapper,
+                          final Function<MfaEnrollmentRequiredResult, T> mfaEnrollmentMapper,
+                          final Function<FailureResult, T> failureMapper) {
+            return mfaEnrollmentMapper.apply(this);
+        }
+
+        static final class MapperMfaEnrollmentRequired<T> implements Mapper<T> {
+            MapperMfaEnrollmentRequired(final MfaEnrollmentRequiredResult result) {
+                Objects.requireNonNull(result, "MfaEnrollmentRequiredResult is required");
+            }
+
+            @Override
+            public T orElse(final Function<FailureResult, T> failureMapper) {
+                return failureMapper.apply(new FailureResult("MFA_ENROLLMENT_REQUIRED",
+                    "MFA enrollment is required. Use the enrollment token to call SetupTotp."));
             }
         }
     }
@@ -210,6 +254,7 @@ public sealed interface LoginResult
         public <T> T fold(final Function<SuccessResult, T> successMapper,
                           final Function<Required2FAResult, T> required2FAMapper,
                           final Function<PasswordResetRequiredResult, T> passwordResetMapper,
+                          final Function<MfaEnrollmentRequiredResult, T> mfaEnrollmentMapper,
                           final Function<FailureResult, T> failureMapper) {
             return failureMapper.apply(this);
         }

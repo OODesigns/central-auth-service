@@ -6,6 +6,7 @@ import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.KeyPassword;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.service.TokenService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -41,6 +42,7 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
 
     private static final Logger LOGGER = Logger.getLogger(JwtTokenVerifier.class.getName());
     private static final String AUDIENCE_2FA = "2fa_verification";
+    private static final String AUDIENCE_MFA_ENROLLMENT = "mfa_enrollment";
     private static final String AUDIENCE_REFRESH = "refresh_token";
     private static final String AUDIENCE_ACCESS = "access_token";
     private static final int TOKEN_VERSION = 2;
@@ -116,6 +118,11 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
         return verifyWithAudience(token, AUDIENCE_2FA);
     }
 
+    @Override
+    public Optional<UserId> verifyMfaEnrollmentToken(final String token) {
+        return verifyWithAudience(token, AUDIENCE_MFA_ENROLLMENT);
+    }
+
     /**
      * {@inheritDoc}
      * <p>
@@ -142,17 +149,22 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
 
     private Optional<Ports.AccessTokenClaims> parseAndVerifyAccessToken(final String token, final KeyPassword password) {
         try (password) {
-            final SecretKey key = Keys.hmacShaKeyFor(password.toUtf8Bytes());
-            final Claims claims = Jwts.parser()
-                    .verifyWith(key)
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
-            if (isVersionTwo(claims)) {
-                return extractVersionTwoAccessTokenClaims(claims);
+            final byte[] keyBytes = password.toUtf8Bytes();
+            try {
+                final SecretKey key = Keys.hmacShaKeyFor(keyBytes);
+                final Claims claims = Jwts.parser()
+                        .verifyWith(key)
+                        .build()
+                        .parseSignedClaims(token)
+                        .getPayload();
+                if (isVersionTwo(claims) && hasIssuer(claims)) {
+                    return extractVersionTwoAccessTokenClaims(claims);
+                }
+                final String payloadJson = claims.get("payload", String.class);
+                return extractAccessTokenClaims(payloadJson, claims.getExpiration());
+            } finally {
+                java.util.Arrays.fill(keyBytes, (byte) 0);
             }
-            final String payloadJson = claims.get("payload", String.class);
-            return extractAccessTokenClaims(payloadJson, claims.getExpiration());
         } catch (final RuntimeException e) {
             LOGGER.log(Level.FINE, "Failed to verify access token", e);
             return Optional.empty();
@@ -162,17 +174,22 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
     private Optional<UserId> parseAndVerify(final String token, final KeyPassword password,
                                             final String expectedAudience) {
         try (password) {
-            final SecretKey key = Keys.hmacShaKeyFor(password.toUtf8Bytes());
-            final Claims claims = Jwts.parser()
-                    .verifyWith(key)
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
-            if (isVersionTwo(claims)) {
-                return extractVersionTwoUserId(claims, expectedAudience);
+            final byte[] keyBytes = password.toUtf8Bytes();
+            try {
+                final SecretKey key = Keys.hmacShaKeyFor(keyBytes);
+                final Claims claims = Jwts.parser()
+                        .verifyWith(key)
+                        .build()
+                        .parseSignedClaims(token)
+                        .getPayload();
+                if (isVersionTwo(claims) && hasIssuer(claims)) {
+                    return extractVersionTwoUserId(claims, expectedAudience);
+                }
+                final String payloadJson = claims.get("payload", String.class);
+                return extractUserId(payloadJson, expectedAudience);
+            } finally {
+                java.util.Arrays.fill(keyBytes, (byte) 0);
             }
-            final String payloadJson = claims.get("payload", String.class);
-            return extractUserId(payloadJson, expectedAudience);
         } catch (final RuntimeException e) {
             LOGGER.log(Level.FINE, () -> "Failed to verify token: " + e.getMessage());
             return Optional.empty();
@@ -203,6 +220,10 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
     private boolean isVersionTwo(final Claims claims) {
         final Number version = claims.get("ver", Number.class);
         return version != null && version.intValue() == TOKEN_VERSION;
+    }
+
+    private boolean hasIssuer(final Claims claims) {
+        return TokenService.TOKEN_ISSUER.equals(claims.getIssuer());
     }
 
     private Optional<UserId> extractVersionTwoUserId(final Claims claims, final String expectedAudience) {

@@ -74,6 +74,9 @@ public class Ports {
          */
         Optional<UserId> verify2FAVerificationToken(String token);
 
+        /** Verify the short-lived token used only to bootstrap required MFA enrollment. */
+        Optional<UserId> verifyMfaEnrollmentToken(String token);
+
         /**
          * Verify a refresh token and extract the subject user ID.
          * <p>

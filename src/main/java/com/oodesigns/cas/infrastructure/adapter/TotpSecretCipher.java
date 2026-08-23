@@ -42,16 +42,21 @@ final class TotpSecretCipher {
         final byte[] nonce = new byte[GCM_NONCE_LENGTH];
         random.nextBytes(nonce);
 
-        final byte[] encrypted = transformGcm(
-            Cipher.ENCRYPT_MODE, plaintext.getBytes(StandardCharsets.UTF_8), password, nonce);
+        final byte[] plaintextBytes = plaintext.getBytes(StandardCharsets.UTF_8);
         try {
-            return ByteBuffer.allocate(GCM_HEADER.length + nonce.length + encrypted.length)
-                .put(GCM_HEADER)
-                .put(nonce)
-                .put(encrypted)
-                .array();
+            final byte[] encrypted = transformGcm(
+                Cipher.ENCRYPT_MODE, plaintextBytes, password, nonce);
+            try {
+                return ByteBuffer.allocate(GCM_HEADER.length + nonce.length + encrypted.length)
+                    .put(GCM_HEADER)
+                    .put(nonce)
+                    .put(encrypted)
+                    .array();
+            } finally {
+                Arrays.fill(encrypted, (byte) 0);
+            }
         } finally {
-            Arrays.fill(encrypted, (byte) 0);
+            Arrays.fill(plaintextBytes, (byte) 0);
             Arrays.fill(nonce, (byte) 0);
         }
     }

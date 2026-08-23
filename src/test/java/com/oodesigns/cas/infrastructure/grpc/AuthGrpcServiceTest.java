@@ -33,6 +33,8 @@ import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpResponse;
 import io.grpc.stub.StreamObserver;
+import io.grpc.Context;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -72,6 +74,7 @@ class AuthGrpcServiceTest {
         @Mock private StreamObserver<LogoutResponse> logoutObserver;
 
     private AuthGrpcService service;
+        private Context previousContext;
 
     private static final String TEST_USER_ID = UUID.randomUUID().toString();
     private static final String TEST_ACCESS_TOKEN = "access.token.here";
@@ -79,10 +82,17 @@ class AuthGrpcServiceTest {
 
     @BeforeEach
     void setUp() {
+        previousContext = Context.current().withValue(
+                GrpcAuthInterceptor.PRINCIPAL, UserId.of(TEST_USER_ID)).attach();
         service = new AuthGrpcService(
                 loginHandler, setupTotpHandler, enableTotpHandler,
                 verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler);
     }
+
+        @AfterEach
+        void tearDown() {
+                Context.current().detach(previousContext);
+        }
 
     // =========================================================================
     // Constructor
@@ -635,8 +645,7 @@ class AuthGrpcServiceTest {
     }
 
     @Test
-    void disableTotp_AdminForcedReason_IsAccepted() {
-        when(disableTotpHandler.handle(any())).thenReturn(DisableTotpResult.success());
+        void disableTotp_AdminForcedReason_IsRejectedWithoutAdminAuthorization() {
         final DisableTotpRequest request = DisableTotpRequest.newBuilder()
                 .setUserId(TEST_USER_ID)
                 .setPassword("securepassword123")
@@ -647,12 +656,13 @@ class AuthGrpcServiceTest {
                 ArgumentCaptor.forClass(DisableTotpResponse.class);
         verify(disableTotpObserver).onNext(captor.capture());
         verify(disableTotpObserver).onCompleted();
-        assertTrue(captor.getValue().hasSuccess());
+        assertTrue(captor.getValue().hasError());
+        assertEquals("INVALID_REQUEST", captor.getValue().getError().getErrorCode());
+        verify(disableTotpHandler, never()).handle(any());
     }
 
     @Test
-    void disableTotp_SecurityIncidentReason_IsAccepted() {
-        when(disableTotpHandler.handle(any())).thenReturn(DisableTotpResult.success());
+        void disableTotp_SecurityIncidentReason_IsRejectedWithoutAdminAuthorization() {
         final DisableTotpRequest request = DisableTotpRequest.newBuilder()
                 .setUserId(TEST_USER_ID)
                 .setPassword("securepassword123")
@@ -663,12 +673,13 @@ class AuthGrpcServiceTest {
                 ArgumentCaptor.forClass(DisableTotpResponse.class);
         verify(disableTotpObserver).onNext(captor.capture());
         verify(disableTotpObserver).onCompleted();
-        assertTrue(captor.getValue().hasSuccess());
+        assertTrue(captor.getValue().hasError());
+        assertEquals("INVALID_REQUEST", captor.getValue().getError().getErrorCode());
+        verify(disableTotpHandler, never()).handle(any());
     }
 
     @Test
-    void disableTotp_RecoveryFlowReason_IsAccepted() {
-        when(disableTotpHandler.handle(any())).thenReturn(DisableTotpResult.success());
+        void disableTotp_RecoveryFlowReason_IsRejectedWithoutAdminAuthorization() {
         final DisableTotpRequest request = DisableTotpRequest.newBuilder()
                 .setUserId(TEST_USER_ID)
                 .setPassword("securepassword123")
@@ -679,7 +690,9 @@ class AuthGrpcServiceTest {
                 ArgumentCaptor.forClass(DisableTotpResponse.class);
         verify(disableTotpObserver).onNext(captor.capture());
         verify(disableTotpObserver).onCompleted();
-        assertTrue(captor.getValue().hasSuccess());
+        assertTrue(captor.getValue().hasError());
+        assertEquals("INVALID_REQUEST", captor.getValue().getError().getErrorCode());
+        verify(disableTotpHandler, never()).handle(any());
     }
 
     // =========================================================================

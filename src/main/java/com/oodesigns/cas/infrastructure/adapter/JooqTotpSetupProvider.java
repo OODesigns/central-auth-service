@@ -71,7 +71,7 @@ public final class JooqTotpSetupProvider implements Ports.TotpSetupProvider {
     public boolean disableTotp(final UserId userId, final com.oodesigns.cas.application.command.DisableReason reason) {
         final UserId id = Objects.requireNonNull(userId, "User ID cannot be null");
         Objects.requireNonNull(reason, "Disable reason cannot be null");
-        return fetchBoolean("SELECT api_schema.disable_totp(?)", id.value());
+        return fetchBoolean("SELECT api_schema.disable_totp(?, ?)", id.value(), reason.name());
     }
 
     @Override
@@ -80,7 +80,7 @@ public final class JooqTotpSetupProvider implements Ports.TotpSetupProvider {
         final UUID batchId = UUID.randomUUID();
         final List<BackupCode> codes = backupCodeGenerator.generateBatch();
         final String[] hashes = codes.stream()
-            .map(BackupCode::getCode)
+            .map(code -> code.getCode())
             .map(passwordEncoder::encode)
             .toArray(String[]::new);
 
@@ -100,8 +100,8 @@ public final class JooqTotpSetupProvider implements Ports.TotpSetupProvider {
         }
     }
 
-    private boolean fetchBoolean(final String sql, final UUID userId) {
-        return Optional.ofNullable(dsl.fetchOne(sql, userId))
+    private boolean fetchBoolean(final String sql, final Object... parameters) {
+        return Optional.ofNullable(dsl.fetchOne(sql, parameters))
             .map(record -> record.get(0, Boolean.class))
             .orElse(false);
     }

@@ -50,6 +50,8 @@ import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpResponse;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.Metadata;
+import io.grpc.stub.MetadataUtils;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import org.jooq.DSLContext;
@@ -196,6 +198,7 @@ class GrpcSmokeTest {
         final LogoutCommandHandler logoutHandler = new LogoutCommandHandler(tokenVerifier, accessTokenRevocationStore);
 
         server = NettyServerBuilder.forPort(0)
+                .intercept(new com.oodesigns.cas.infrastructure.grpc.GrpcAuthInterceptor(tokenVerifier))
                 .addService(new AuthGrpcService(
                         loginHandler,
                         setupTotpHandler,
@@ -255,16 +258,8 @@ class GrpcSmokeTest {
         assertFalse(initialLogin.getSuccess().getPermissionsList().isEmpty(), "Role permissions should be returned");
 
         final String accessToken = initialLogin.getSuccess().getAccessToken();
-        final LogoutResponse logout = stub.logout(LogoutRequest.newBuilder()
-                .setAccessToken(accessToken)
-                .build());
-        assertTrue(logout.hasSuccess(), "Logout should revoke the presented access token");
-        revokedAccessTokenHash = sha256Hex(accessToken);
-        assertEquals(1L, countInvalidatedTokens(revokedAccessTokenHash), "Logout should persist a revocation row");
-        assertTrue(tokenVerifier.verifyAccessToken(accessToken).isEmpty(),
-                "The same verifier must reject the revoked access token");
-
-        final SetupTotpResponse setup = stub.setupTotp(SetupTotpRequest.newBuilder()
+        final AuthServiceGrpc.AuthServiceBlockingStub authenticatedStub = authorizedStub(accessToken);
+        final SetupTotpResponse setup = authenticatedStub.setupTotp(SetupTotpRequest.newBuilder()
                 .setUserId(createdUserId.value().toString())
                 .setUsername(TEST_USERNAME)
                 .build());
@@ -274,7 +269,7 @@ class GrpcSmokeTest {
         final String otp = new TotpCodeGenerator(new SystemClock())
                 .generate(SecretFor2FA.of(setup.getSuccess().getSecret()));
 
-        final EnableTotpResponse enable = stub.enableTotp(EnableTotpRequest.newBuilder()
+        final EnableTotpResponse enable = authenticatedStub.enableTotp(EnableTotpRequest.newBuilder()
                 .setUserId(createdUserId.value().toString())
                 .setTotpCode(otp)
                 .build());
@@ -320,12 +315,23 @@ class GrpcSmokeTest {
                 .build());
         assertTrue(afterReuse.hasError(), "The whole family must be revoked after reuse detection");
 
-        final DisableTotpResponse disabled = stub.disableTotp(DisableTotpRequest.newBuilder()
+        final String verifiedAccessToken = verified.getSuccess().getAccessToken();
+        final AuthServiceGrpc.AuthServiceBlockingStub verifiedStub = authorizedStub(verifiedAccessToken);
+        final DisableTotpResponse disabled = verifiedStub.disableTotp(DisableTotpRequest.newBuilder()
                 .setUserId(createdUserId.value().toString())
                 .setPassword(TEST_PASSWORD)
                 .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.USER_REQUESTED)
                 .build());
         assertTrue(disabled.hasSuccess(), "DisableTotp should succeed after password re-authentication");
+
+        final LogoutResponse logout = verifiedStub.logout(LogoutRequest.newBuilder()
+                .setAccessToken(verifiedAccessToken)
+                .build());
+        assertTrue(logout.hasSuccess(), "Logout should revoke the presented access token");
+        revokedAccessTokenHash = sha256Hex(verifiedAccessToken);
+        assertEquals(1L, countInvalidatedTokens(revokedAccessTokenHash), "Logout should persist a revocation row");
+        assertTrue(tokenVerifier.verifyAccessToken(verifiedAccessToken).isEmpty(),
+                "The same verifier must reject the revoked access token");
 
         final LoginResponse afterDisable = stub.login(LoginRequest.newBuilder()
                 .setUsername(TEST_USERNAME)
@@ -334,6 +340,13 @@ class GrpcSmokeTest {
                 .build());
         assertTrue(afterDisable.hasSuccess(), "Login should succeed again once TOTP is disabled");
     }
+
+        private AuthServiceGrpc.AuthServiceBlockingStub authorizedStub(final String accessToken) {
+                final Metadata headers = new Metadata();
+                headers.put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER),
+                                "Bearer " + accessToken);
+                return stub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers));
+        }
 
     private UserId createSmokeUser() {
         final UUID userId = UUID.randomUUID();

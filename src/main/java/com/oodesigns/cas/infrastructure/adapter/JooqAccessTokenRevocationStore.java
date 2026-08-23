@@ -49,8 +49,17 @@ public final class JooqAccessTokenRevocationStore implements Ports.AccessTokenRe
     private static String hash(final String token) {
         try {
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            final byte[] hashed = digest.digest(token.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hashed);
+            final byte[] raw = token.getBytes(StandardCharsets.UTF_8);
+            try {
+                final byte[] hashed = digest.digest(raw);
+                try {
+                    return HexFormat.of().formatHex(hashed);
+                } finally {
+                    java.util.Arrays.fill(hashed, (byte) 0);
+                }
+            } finally {
+                java.util.Arrays.fill(raw, (byte) 0);
+            }
         } catch (final NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm unavailable", e);
         }

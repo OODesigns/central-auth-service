@@ -37,6 +37,7 @@ import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpSuccess;
 import com.oodesigns.cas.infrastructure.grpc.proto.Error;
 import com.oodesigns.cas.infrastructure.grpc.proto.Login2FARequired;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginPasswordResetRequired;
+import com.oodesigns.cas.infrastructure.grpc.proto.LoginMfaEnrollmentRequired;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginSuccess;
@@ -155,6 +156,12 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                     .setUserId(passwordReset.userId().asUUID().toString())
                             .build())
                 .build(),
+            enrollment -> LoginResponse.newBuilder()
+                    .setMfaEnrollmentRequired(LoginMfaEnrollmentRequired.newBuilder()
+                    .setEnrollmentToken(enrollment.enrollmentToken())
+                    .setUserId(enrollment.userId().asUUID().toString())
+                    .build())
+                .build(),
             failure -> LoginResponse.newBuilder()
                 .setError(errorMessage(failure.errorCode(), failure.errorMessage()))
                 .build());
@@ -175,6 +182,10 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                           final StreamObserver<SetupTotpResponse> responseObserver) {
         final SetupTotpResponse response;
         try {
+            if (!matchesPrincipal(request.getUserId())) {
+                respond(responseObserver, invalidRequestSetupTotpResponse("Authenticated user does not match user_id"));
+                return;
+            }
             final SetupTotpCommand command = new SetupTotpCommand(
                     UserId.of(request.getUserId()),
                     Username.of(request.getUsername())
@@ -215,6 +226,10 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                            final StreamObserver<EnableTotpResponse> responseObserver) {
         final EnableTotpResponse response;
         try {
+            if (!matchesPrincipal(request.getUserId())) {
+                respond(responseObserver, invalidRequestEnableTotpResponse("Authenticated user does not match user_id"));
+                return;
+            }
             final EnableTotpCommand command = new EnableTotpCommand(
                     UserId.of(request.getUserId()),
                     TotpCode.of(request.getTotpCode())
@@ -341,6 +356,11 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                        final StreamObserver<LogoutResponse> responseObserver) {
         final LogoutResponse response;
         try {
+            if (GrpcAuthInterceptor.bearerToken() != null
+                    && !GrpcAuthInterceptor.bearerToken().equals(request.getAccessToken())) {
+                respond(responseObserver, invalidRequestLogoutResponse("Access token does not match bearer token"));
+                return;
+            }
             final LogoutCommand command = new LogoutCommand(request.getAccessToken());
             response = toLogoutResponse(logoutHandler.handle(command));
         } catch (final RuntimeException e) {
@@ -375,12 +395,26 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                             final StreamObserver<DisableTotpResponse> responseObserver) {
         final DisableTotpResponse response;
         try {
+            if (GrpcAuthInterceptor.isEnrollmentToken()) {
+                respond(responseObserver, invalidRequestDisableTotpResponse("An access token is required"));
+                return;
+            }
+            if (!matchesPrincipal(request.getUserId())) {
+                respond(responseObserver, invalidRequestDisableTotpResponse("Authenticated user does not match user_id"));
+                return;
+            }
             final char[] passwordChars = request.getPassword().toCharArray();
             try {
                 final DisableReason reason = toDomainReason(request.getReason());
                 if (reason == null) {
                     respond(responseObserver, invalidRequestDisableTotpResponse(
                         "Disable reason must be specified"));
+                    return;
+                }
+                if (GrpcAuthInterceptor.principal() != null
+                        && reason != DisableReason.USER_REQUESTED) {
+                    respond(responseObserver, invalidRequestDisableTotpResponse(
+                        "Privileged disable reasons require administrative authorization"));
                     return;
                 }
                 final DisableTotpCommand command = new DisableTotpCommand(
@@ -424,6 +458,11 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
         return DisableTotpResponse.newBuilder()
                 .setError(errorMessage(INVALID_REQUEST, message))
                 .build();
+    }
+
+    private boolean matchesPrincipal(final String requestedUserId) {
+        final UserId principal = GrpcAuthInterceptor.principal();
+        return principal != null && principal.equals(UserId.of(requestedUserId));
     }
 
     // =========================================================================
