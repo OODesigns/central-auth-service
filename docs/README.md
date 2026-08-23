@@ -39,6 +39,7 @@ central-auth-service/
 
 | Document | Description |
 |----------|-------------|
+| [SECURITY_OVERVIEW.md](project/SECURITY_OVERVIEW.md) | Evidence-backed current security posture, Java secret handling, implemented controls, trust boundaries, and residual risks |
 | [SECURITY_ROLLOUT.md](project/SECURITY_ROLLOUT.md) | Production automation, migrations, TLS, secrets, rotation, scanning, backups, monitoring, and recovery runbook |
 
 ---
@@ -109,9 +110,9 @@ src/main/java/com/oodesigns/cas/
 5. `docs/mfa/2FA_QUICK_REFERENCE.md` → Current MFA behavior
 
 ### Security Reviewer
-1. `docs/architecture/ARCHITECTURE_DIAGRAMS.md` → Visual security architecture
-2. `docs/api/GRPC_API_REFERENCE.md` → Service contract and error model
-3. `docs/mfa/2FA_QUICK_REFERENCE.md` → Current MFA security properties
+1. `docs/project/SECURITY_OVERVIEW.md` → Current controls, evidence, trust boundaries, and residual risks
+2. `docs/architecture/ARCHITECTURE_DIAGRAMS.md` → Visual security architecture
+3. `docs/api/GRPC_API_REFERENCE.md` → Service contract and error model
 4. `docs/project/SECURITY_ROLLOUT.md` → Production security operations
 
 ### Architect

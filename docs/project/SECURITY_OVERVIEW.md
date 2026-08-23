@@ -1,0 +1,230 @@
+# Current-State Technical Security Overview
+
+## Purpose and evidence standard
+
+This document explains how Central Auth Service is hardened today for engineers, security reviewers, and operators. It describes controls that are present in the current Java code, tests, configuration, container definition, and Flyway migrations. It also identifies boundaries where security depends on deployment controls or where enforcement is not yet implemented.
+
+The implementation and tests are authoritative. This overview does not claim that sensitive values never enter immutable JVM objects, that every RPC is authenticated, or that operational controls are automatic when the repository only provides a script or runbook.
+
+## Current posture
+
+| Area | Current state |
+| --- | --- |
+| Password handling | Plaintext passwords are moved into clearable `char[]` value objects at the service boundary, cloned defensively, masked in logs, and cleared through `AutoCloseable`. Protobuf and BCrypt still impose short-lived immutable `String` boundaries. |
+| Authentication | Login rate limiting runs before credential lookup; missing users and bad passwords share the same public outcome; BCrypt verifies stored password hashes. |
+| MFA | TOTP secrets are encrypted, pending enrollment is separated from active state, accepted counters prevent replay, backup codes are hashed and single-use, and verification is rate-limited. |
+| Tokens | Access, refresh, and 2FA tokens have separate purposes and lifetimes. Refresh tokens rotate atomically, reuse revokes the family, and access-token JTIs can be revoked. |
+| Database | Application access is constrained to `api_schema` functions over `private_schema` data, with `SECURITY DEFINER`, locked `search_path`, explicit ownership, and restricted grants. |
+| Transport and runtime | TLS is fail-closed unless plaintext is explicitly enabled. The production container runs as a non-root user with a read-only filesystem and reduced Linux privileges. |
+| Supply chain | Dependencies are locked; the local security gate runs tests, coverage, OSV, container build, and Trivy scanning. An approved internal runner must enforce that gate. |
+| Principal enforcement | Access-token verification exists, but this service has no general gRPC authorization interceptor. MFA management RPC authorization is therefore a material open control. |
+
+## Trust boundaries
+
+The service follows hexagonal architecture: domain and application code depend on ports, while infrastructure adapters handle gRPC, PostgreSQL, BCrypt, JWT, encryption, and rate limiting. The principal boundaries are:
+
+1. The gRPC boundary converts wire values into validated domain values.
+2. Command handlers order security checks and decide which result can leave the application layer.
+3. Infrastructure adapters perform cryptography and external I/O behind domain ports.
+4. PostgreSQL exposes approved functions rather than direct application table access.
+5. The deployment platform supplies TLS material, database credentials, signing keys, encryption keys, and pipeline enforcement.
+
+The current boundary does not authenticate every gRPC method. Network reachability, TLS client authentication, and upstream authorization must not be mistaken for application-level principal authorization unless the deployment explicitly provides and verifies them.
+
+## Sensitive data in Java
+
+### Passwords use clearable character arrays
+
+[Password](../../src/main/java/com/oodesigns/cas/domain/value/Password.java) owns a private `char[]` rather than retaining a plaintext `String`:
+
+- `Password.of(char[])` validates and clones the caller's array, so later caller mutation cannot change the value object.
+- `chars()` returns another clone rather than exposing internal storage.
+- `close()` and `clear()` overwrite owned characters with null characters.
+- `toString()` returns `Password{***}` and cannot reveal the secret accidentally.
+- Password length is constrained to 14 through 128 characters, and whitespace-only values are rejected without imposing composition rules.
+
+[Credentials](../../src/main/java/com/oodesigns/cas/domain/value/Credentials.java) groups the stored credential record with the supplied password and implements `AutoCloseable`. [AuthenticationService](../../src/main/java/com/oodesigns/cas/domain/service/AuthenticationService.java) uses try-with-resources so password cleanup occurs on success, mismatch, or exception.
+
+At the gRPC boundary, [AuthGrpcService](../../src/main/java/com/oodesigns/cas/infrastructure/grpc/AuthGrpcService.java) converts the protobuf password into a temporary `char[]`, creates the domain password, and clears the temporary array in a `finally` block.
+
+### Signing and keystore passwords
+
+[KeyPassword](../../src/main/java/com/oodesigns/cas/domain/value/KeyPassword.java) extends the same clearable password model and requires at least 32 characters for HS256 key material. UTF-8 conversion clears its temporary character array and encoder buffer. Callers receiving the returned byte array are responsible for clearing it after cryptographic initialization.
+
+### Usernames are not treated as secrets
+
+[Username](../../src/main/java/com/oodesigns/cas/domain/value/Username.java) remains a validated, normalized `String`. This is deliberate: a username is a stable identity and lookup key, not a clearable authentication secret. Converting usernames to `char[]` would add lifecycle complexity without removing their necessary presence in requests, indexes, logs, and database lookups.
+
+The security distinction is therefore:
+
+- Plaintext passwords and key passwords use clearable arrays wherever the local API permits.
+- Usernames, token identifiers, stored password hashes, and other non-plaintext identity data use immutable value objects and validation.
+
+### Immutable-string boundaries remain
+
+Java cannot guarantee complete erasure of secrets from process memory. Current unavoidable or compatibility boundaries include:
+
+- Protobuf exposes the incoming password as an immutable Java `String` before conversion.
+- [BcryptPasswordVerifier](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/BcryptPasswordVerifier.java) must create a temporary `String` because Spring Security's `PasswordEncoder` API accepts `CharSequence`.
+- `Password.of(String)` and `KeyPassword.of(String)` remain available primarily for tests and compatibility; production call sites should prefer `char[]`.
+- JWTs, environment variables, JDBC configuration, Base32 TOTP material, and one-time backup codes cross APIs that use strings or bytes.
+
+Clearing arrays reduces exposure duration and prevents common accidental retention. It does not prove that garbage-collected memory, copied library buffers, heap dumps, crash dumps, swap, or debugger access contain no secret material. Production hardening should also restrict diagnostics, heap dumps, process inspection, and host access.
+
+## Login and password verification
+
+[LoginCommandHandler](../../src/main/java/com/oodesigns/cas/application/command/LoginCommandHandler.java) applies controls in security-sensitive order:
+
+1. Check IP, username, and combined IP-plus-username rate limits.
+2. Retrieve the minimal stored credential record.
+3. Verify the supplied password with BCrypt.
+4. Load the full user only after password verification.
+5. Evaluate MFA enrollment and policy.
+6. Evaluate password-reset requirements.
+7. Issue full tokens only after all applicable checks pass.
+
+Absent credentials and password mismatches both return `INVALID_CREDENTIALS`, reducing account-enumeration detail in the public result. [BcryptPasswordVerifier](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/BcryptPasswordVerifier.java) suppresses malformed-hash detail and returns an empty result instead of exposing verification internals.
+
+The service identifies `PASSWORD_RESET_REQUIRED`, but [auth.proto](../../src/main/proto/auth.proto) does not define a password-reset RPC or reset-scoped token. A complete reset workflow is outside the current service contract and must not be inferred from the login outcome.
+
+## MFA and TOTP
+
+### Enrollment and secret protection
+
+[JooqTotpSetupProvider](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/JooqTotpSetupProvider.java) generates TOTP secrets from `SecureRandom`. [TotpSecretCipher](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/TotpSecretCipher.java) writes versioned AES-GCM envelopes, providing confidentiality and integrity for new secrets. Legacy untagged AES-CBC values remain readable for compatibility and should be retired through an operational re-encryption plan.
+
+Pending and active secret retrieval are separate. A pending enrollment secret cannot satisfy login-time verification. Activation requires a valid setup code before `verified_at` is recorded and backup codes are returned for one-time display.
+
+### Verification and replay resistance
+
+[TotpCodeGenerator](../../src/main/java/com/oodesigns/cas/domain/service/TotpCodeGenerator.java) implements RFC 6238 verification with a bounded plus-or-minus-one time-step window and constant-time code comparison. The database atomically advances `last_accepted_counter`, so an accepted TOTP counter cannot be reused. See [V1_5_0__prevent_totp_replay.sql](../../.devcontainer/flyway/sql/V1_5_0__prevent_totp_replay.sql).
+
+Backup codes are generated from a cryptographic random source, stored as BCrypt hashes, replaced as a batch, and consumed atomically once. [JooqTotpVerifierTest](../../src/test/java/com/oodesigns/cas/infrastructure/adapter/JooqTotpVerifierTest.java) covers replay and concurrent backup-code consumption behavior.
+
+TOTP verification is rate-limited per user. Disabling TOTP requires password reauthentication before the secret and backup codes are removed.
+
+### MFA authorization gap
+
+`SetupTotp`, `EnableTotp`, and `DisableTotp` accept caller-supplied user identifiers. [AuthGrpcService](../../src/main/java/com/oodesigns/cas/infrastructure/grpc/AuthGrpcService.java) does not install an authentication or authorization interceptor that binds those identifiers to an authenticated principal. `DisableTotp` verifies the target user's password, but setup and enable do not establish caller ownership inside this service.
+
+Until principal-aware RPC authorization is implemented, deployment controls must tightly restrict access to MFA management methods. This is the highest-priority application security gap in the current state.
+
+## Tokens and sessions
+
+[TokenService](../../src/main/java/com/oodesigns/cas/domain/service/TokenService.java) separates token purposes:
+
+| Token | Lifetime | Intended use |
+| --- | ---: | --- |
+| Access | 15 minutes | Authorized API access |
+| Refresh | 7 days | Rotating session continuation |
+| 2FA verification | 5 minutes | Complete the MFA login challenge only |
+
+Version 2 tokens include subject, audience where applicable, JTI, issued-at, expiration, and a `ver: 2` marker. [JwtTokenVerifier](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/JwtTokenVerifier.java) validates signatures, token purpose, expiry, and access-token revocation state.
+
+The active signing key is used for issuance, while an allowlisted active-plus-previous key set supports manual rotation. Current limitations are:
+
+- HS256 uses shared symmetric secrets; compromise of a verification key permits signing.
+- Tokens have no issuer claim.
+- Verification tries allowed keys rather than selecting by `kid`.
+- Key distribution, retirement, and emergency rotation are operational procedures rather than an integrated key-management service.
+
+Refresh tokens are stored as SHA-256 hashes, rotated atomically under database locking, and organized into token families. Reuse detection revokes the family. Logout records the access-token JTI as revoked.
+
+Access-token verification is a usable adapter, not a universal enforcement layer. This repository has no general gRPC access-token guard for protected methods; CAS invokes access verification for logout but does not use it to authorize every management RPC.
+
+## Rate limiting
+
+Login uses independent IP, normalized-username, and combined-key limits. [DatabaseLoginRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/DatabaseLoginRateLimiter.java) delegates to an atomic PostgreSQL function, allowing limits to be shared across service instances. Database failures deny the login attempt rather than silently bypassing the limiter.
+
+TOTP verification uses process-local buckets in [TotpRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/TotpRateLimiter.java). This means TOTP limits are not shared across replicas, and the in-memory key map is not globally bounded. Database login-rate keys also have no hard cardinality cap and are cleaned during later consume operations. Capacity limits, retention, and abuse monitoring remain operational concerns.
+
+## Database isolation
+
+Flyway migrations establish two database trust zones:
+
+- `private_schema` owns authentication tables and internal state.
+- `api_schema` exposes approved operations as functions.
+
+The application role is non-superuser and receives function execution rather than direct table privileges. Security-definer functions lock `search_path` to trusted schemas, revoke default `PUBLIC` execution, grant only the application role, and are owned by a non-login owner role. [V1_0_1__create_roles.sql](../../.devcontainer/flyway/sql/V1_0_1__create_roles.sql) establishes the role model; later API migrations repeat explicit revoke/grant ownership controls.
+
+Flyway provides ordered, checksummed, single-application migration history. Foundational migrations are intended to run once through Flyway and are not all independently idempotent; plain `CREATE SCHEMA`, `CREATE TABLE`, and `CREATE INDEX` statements remain. Production safety therefore depends on immutable applied migrations, `flyway validate`, backups, a dedicated migration identity, and reviewed forward migrations as described in [SECURITY_ROLLOUT.md](SECURITY_ROLLOUT.md).
+
+## Transport, runtime, and secrets
+
+[GrpcTlsConfigurer](../../src/main/java/com/oodesigns/cas/infrastructure/grpc/GrpcTlsConfigurer.java) fails startup when TLS material is absent unless plaintext is explicitly enabled. Configuring a truststore enables client-certificate authentication. TLS protocol and cipher selection currently rely on Netty defaults rather than an explicit service-level allowlist.
+
+mTLS verifies trust chains but does not map certificates to application principals or enforce revocation through the currently unused `trusted_clients` table. Certificate identity authorization remains a deployment or future application concern.
+
+[Dockerfile](../../Dockerfile) uses a Java 25 Alpine runtime and a non-root application user. [compose.yml](../../compose.yml) defaults to TLS, uses a read-only application filesystem, mounts a temporary filesystem for `/tmp`, and sets `no-new-privileges`.
+
+Database credentials, JWT signing keys, TOTP encryption keys, and keystore/truststore passwords are supplied at runtime. They must be stored in a production secret manager, mounted or injected with least privilege, and rotated through controlled deployment. Environment-backed values remain visible to sufficiently privileged process and host inspection.
+
+## Supply chain and verification
+
+[gradle.lockfile](../../gradle.lockfile) pins resolved dependency versions. [build.gradle](../../build.gradle) enforces JaCoCo line coverage at 100 percent, excluding designated generated or bootstrap classes.
+
+[scripts/security-check.sh](../../scripts/security-check.sh) provides the local security gate:
+
+1. Clean unit and integration tests.
+2. JaCoCo coverage verification.
+3. Dependency resolution and lock verification.
+4. OSV dependency scanning.
+5. Docker image build.
+6. Trivy rejection of HIGH or CRITICAL image findings.
+7. Optional database integration tests when the PostgreSQL stack is available.
+
+GitHub-hosted CI is intentionally absent. The repository provides the gate but cannot prove it ran for a deployment. An approved internal pipeline must invoke the script, preserve scan evidence, enforce approvals, and deploy the exact scanned image digest.
+
+## Audit and privacy
+
+Database triggers record security-relevant changes, but the current application does not consistently set database session actor context. Actor attribution can therefore fall back to trigger defaults.
+
+Some audit events serialize complete database records, which can include password hashes or token hashes. Audit storage must be treated as sensitive, access-controlled, retained for a defined period, and excluded from general application logging and analytics exports.
+
+The current TOTP disable function deletes the row, while the available disabled-event trigger fires only on an update that clears `verified_at`. The delete bypasses that trigger, so no TOTP-disabled audit event is recorded. The supplied disable reason is also not passed into the SQL function. This is a material audit gap.
+
+Application logs must not contain plaintext passwords, TOTP secrets, backup codes, JWT signing keys, or complete tokens. Masked value objects reduce accidental disclosure, but logging policy and production log access remain operational controls.
+
+## Priority residual risks
+
+| Priority | Risk | Required direction |
+| --- | --- | --- |
+| High | MFA management RPCs are not bound to an authenticated principal. | Add a gRPC authentication/authorization interceptor and derive user identity from verified credentials rather than caller-selected IDs. |
+| High | No universal access-token enforcement layer protects service methods. | Define protected RPCs and enforce signature, audience, expiry, JTI revocation, and authorization centrally. |
+| Medium | Audit records can contain sensitive hashes, actor attribution is weak, and TOTP disable emits no disabled event. | Redact trigger payloads, set actor context, persist disable reasons, define retention, and test attributable events. |
+| Medium | TOTP rate limits are process-local and unbounded. | Move to bounded distributed state or enforce equivalent limits at a trusted gateway. |
+| Medium | JWT and TOTP key rotation is manual; legacy CBC TOTP values remain readable. | Define automated key lifecycle, previous-key retirement, emergency rotation, and re-encryption procedures. |
+| Medium | TLS identity and cipher policy are not mapped or pinned in application code. | Enforce approved protocol/cipher policy at the service or trusted ingress and bind client identity to authorization policy. |
+| Low | Plaintext secrets cross immutable library/API boundaries. | Keep boundaries short, restrict diagnostics and host access, and prefer clearable APIs when dependencies permit. |
+
+## Reviewer verification
+
+Use these checks when reviewing a release:
+
+```bash
+./gradlew clean test integrationTest jacocoTestCoverageVerification
+./gradlew databaseIntegrationTest -PincludeDbTests
+./scripts/security-check.sh
+```
+
+Reviewers should also verify:
+
+- Production has `ALLOW_PLAINTEXT=false`, or plaintext is reachable only behind an independently verified TLS boundary.
+- MFA management RPCs are not exposed to untrusted callers without compensating authorization.
+- The active and previous JWT key set matches the approved rotation state.
+- TOTP encryption keys and legacy-cipher migration are documented.
+- Flyway validation succeeds against a restored production copy before deployment.
+- Audit access, retention, redaction, and actor attribution meet organizational policy.
+- The deployed image digest is the same image that passed OSV, Trivy, tests, and approval.
+
+## Evidence map
+
+- Service contract: [auth.proto](../../src/main/proto/auth.proto)
+- Login orchestration: [LoginCommandHandler](../../src/main/java/com/oodesigns/cas/application/command/LoginCommandHandler.java)
+- Sensitive values: [Password](../../src/main/java/com/oodesigns/cas/domain/value/Password.java), [Credentials](../../src/main/java/com/oodesigns/cas/domain/value/Credentials.java), [KeyPassword](../../src/main/java/com/oodesigns/cas/domain/value/KeyPassword.java)
+- MFA implementation: [TotpSecretCipher](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/TotpSecretCipher.java), [JooqTotpVerifier](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/JooqTotpVerifier.java)
+- Token implementation: [TokenService](../../src/main/java/com/oodesigns/cas/domain/service/TokenService.java), [JwtTokenVerifier](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/JwtTokenVerifier.java), [JooqRefreshTokenStore](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/JooqRefreshTokenStore.java)
+- Database controls: [Flyway migrations](../../.devcontainer/flyway/sql/)
+- Runtime controls: [GrpcTlsConfigurer](../../src/main/java/com/oodesigns/cas/infrastructure/grpc/GrpcTlsConfigurer.java), [Dockerfile](../../Dockerfile), [compose.yml](../../compose.yml)
+- Security gate: [security-check.sh](../../scripts/security-check.sh)
+- Production operations: [SECURITY_ROLLOUT.md](SECURITY_ROLLOUT.md)
