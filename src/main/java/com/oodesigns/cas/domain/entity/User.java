@@ -1,6 +1,5 @@
 package com.oodesigns.cas.domain.entity;
 
-import jakarta.annotation.Nonnull;
 import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
 import com.oodesigns.cas.domain.value.Username;
@@ -27,7 +26,6 @@ public record User(UserId userId, Username username, Set<Permission> permissions
         // passwordResetRequiredAt and mfaRequiredAt can be null (optional enforcement)
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return String.format("User{userId=%s, username=%s}", userId, username);

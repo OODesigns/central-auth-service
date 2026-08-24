@@ -16,7 +16,7 @@ TOTP 2FA is implemented end to end over gRPC. Status is derived from `totp_secre
 
 | Token | Audience | Lifetime | Purpose |
 |---|---|---:|---|
-| Access | none | 15 minutes | Authorized API access |
+| Access | `access_token` | 15 minutes | Authorized API access |
 | Refresh | `refresh_token` | 7 days | Rotating session continuation |
 | 2FA verification | `2fa_verification` | 5 minutes | Complete login challenge only |
 

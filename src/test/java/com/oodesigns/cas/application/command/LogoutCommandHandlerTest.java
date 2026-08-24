@@ -3,6 +3,7 @@ package com.oodesigns.cas.application.command;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.AccessToken;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,12 +43,12 @@ class LogoutCommandHandlerTest {
 
     @Test
     void handleReturnsSuccessAndInvalidatesTokenWhenTokenIsValid() {
-        when(tokenVerifier.verifyAccessToken(ACCESS_TOKEN)).thenReturn(Optional.of(claims));
+        when(tokenVerifier.verifyAccessToken(AccessToken.of(ACCESS_TOKEN))).thenReturn(Optional.of(claims));
 
         final LogoutResult result = handler.handle(new LogoutCommand(ACCESS_TOKEN));
 
         result.mapTo(s -> {
-            verify(revocationStore).invalidate(eq(claims), eq(ACCESS_TOKEN), eq("logout"));
+            verify(revocationStore).invalidate(eq(claims), eq(AccessToken.of(ACCESS_TOKEN)), eq("logout"));
             return null;
         }).orElse(f -> {
             fail("Expected success: " + f.errorCode());
@@ -57,7 +58,7 @@ class LogoutCommandHandlerTest {
 
     @Test
     void handleReturnsInvalidAccessTokenWhenVerifierRejects() {
-        when(tokenVerifier.verifyAccessToken(ACCESS_TOKEN)).thenReturn(Optional.empty());
+        when(tokenVerifier.verifyAccessToken(AccessToken.of(ACCESS_TOKEN))).thenReturn(Optional.empty());
 
         final LogoutResult result = handler.handle(new LogoutCommand(ACCESS_TOKEN));
 
@@ -89,7 +90,7 @@ class LogoutCommandHandlerTest {
 
     @Test
     void handleReturnsInternalErrorWhenRevocationFails() {
-        when(tokenVerifier.verifyAccessToken(ACCESS_TOKEN)).thenThrow(new IllegalStateException("database unavailable"));
+        when(tokenVerifier.verifyAccessToken(AccessToken.of(ACCESS_TOKEN))).thenThrow(new IllegalStateException("database unavailable"));
 
         final LogoutResult result = handler.handle(new LogoutCommand(ACCESS_TOKEN));
 

@@ -2,6 +2,7 @@ package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.RefreshToken;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,18 +32,18 @@ public final class MockRefreshTokenStore implements Ports.RefreshTokenStore {
     private final Map<String, Entry> tokens = new HashMap<>();
 
     @Override
-    public void issue(final UserId userId, final String refreshToken) {
+    public void issue(final UserId userId, final RefreshToken refreshToken) {
         Objects.requireNonNull(userId, "UserId cannot be null");
         Objects.requireNonNull(refreshToken, "Refresh token cannot be null");
-        tokens.put(refreshToken, new Entry(UUID.randomUUID()));
+        tokens.put(refreshToken.value(), new Entry(UUID.randomUUID()));
     }
 
     @Override
-    public RotationStatus rotate(final String presentedToken, final String replacementToken) {
+    public RotationStatus rotate(final RefreshToken presentedToken, final RefreshToken replacementToken) {
         Objects.requireNonNull(presentedToken, "Presented token cannot be null");
         Objects.requireNonNull(replacementToken, "Replacement token cannot be null");
 
-        final Entry entry = tokens.get(presentedToken);
+        final Entry entry = tokens.get(presentedToken.value());
         if (entry == null) {
             return RotationStatus.NOT_FOUND;
         }
@@ -56,7 +57,7 @@ public final class MockRefreshTokenStore implements Ports.RefreshTokenStore {
         }
         entry.consumed = true;
         entry.revoked = true;
-        tokens.put(replacementToken, new Entry(entry.familyId));
+        tokens.put(replacementToken.value(), new Entry(entry.familyId));
         return RotationStatus.ROTATED;
     }
 

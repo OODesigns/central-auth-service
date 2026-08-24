@@ -1,6 +1,7 @@
 package com.oodesigns.cas.application.command;
 
 import org.junit.jupiter.api.Test;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -17,7 +18,7 @@ class VerifyTotpCommandTest {
     @Test
     void constructorAllowsOtpCode() {
         final VerifyTotpCommand cmd = new VerifyTotpCommand(VALID_TOKEN, VALID_OTP);
-        assertEquals(VALID_TOKEN, cmd.verificationToken());
+        assertEquals(VALID_TOKEN, cmd.verificationToken().value());
         assertEquals(VALID_OTP, cmd.code());
         assertTrue(cmd.isOtpCode());
     }
@@ -39,7 +40,7 @@ class VerifyTotpCommandTest {
 
     @Test
     void constructorRejectsNullToken() {
-        assertThrows(NullPointerException.class, () -> new VerifyTotpCommand(null, VALID_OTP));
+        assertThrows(NullPointerException.class, () -> new VerifyTotpCommand((TwoFactorVerificationToken) null, VALID_OTP));
     }
 
     @Test

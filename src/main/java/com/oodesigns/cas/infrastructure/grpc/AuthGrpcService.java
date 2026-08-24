@@ -4,6 +4,8 @@ import com.oodesigns.cas.application.command.DisableReason;
 import com.oodesigns.cas.application.command.DisableTotpCommand;
 import com.oodesigns.cas.application.command.DisableTotpCommandHandler;
 import com.oodesigns.cas.application.command.DisableTotpResult;
+import com.oodesigns.cas.application.command.AdminDisableTotpCommand;
+import com.oodesigns.cas.application.command.AdminDisableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpCommand;
 import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpResult;
@@ -26,11 +28,15 @@ import com.oodesigns.cas.domain.value.IpAddress;
 import com.oodesigns.cas.domain.value.Password;
 import com.oodesigns.cas.domain.value.TotpCode;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.infrastructure.grpc.proto.AuthServiceGrpc;
 import com.oodesigns.cas.infrastructure.grpc.proto.DisableTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.DisableTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.DisableTotpSuccess;
+import com.oodesigns.cas.infrastructure.grpc.proto.AdminDisableTotpRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.AdminDisableTotpResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.AdminDisableTotpSuccess;
 import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpSuccess;
@@ -86,6 +92,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
     private final EnableTotpCommandHandler enableTotpHandler;
     private final VerifyTotpCommandHandler verifyTotpHandler;
     private final DisableTotpCommandHandler disableTotpHandler;
+    private final AdminDisableTotpCommandHandler adminDisableTotpHandler;
     private final RefreshTokenCommandHandler refreshTokenHandler;
         private final LogoutCommandHandler logoutHandler;
 
@@ -94,6 +101,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                            final EnableTotpCommandHandler enableTotpHandler,
                            final VerifyTotpCommandHandler verifyTotpHandler,
                            final DisableTotpCommandHandler disableTotpHandler,
+                           final AdminDisableTotpCommandHandler adminDisableTotpHandler,
                            final RefreshTokenCommandHandler refreshTokenHandler,
                            final LogoutCommandHandler logoutHandler) {
         this.loginHandler = Objects.requireNonNull(loginHandler, "LoginCommandHandler is required");
@@ -101,6 +109,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
         this.enableTotpHandler = Objects.requireNonNull(enableTotpHandler, "EnableTotpCommandHandler is required");
         this.verifyTotpHandler = Objects.requireNonNull(verifyTotpHandler, "VerifyTotpCommandHandler is required");
         this.disableTotpHandler = Objects.requireNonNull(disableTotpHandler, "DisableTotpCommandHandler is required");
+        this.adminDisableTotpHandler = Objects.requireNonNull(adminDisableTotpHandler, "AdminDisableTotpCommandHandler is required");
         this.refreshTokenHandler = Objects.requireNonNull(refreshTokenHandler, "RefreshTokenCommandHandler is required");
         this.logoutHandler = Objects.requireNonNull(logoutHandler, "LogoutCommandHandler is required");
     }
@@ -114,19 +123,24 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                       final StreamObserver<LoginResponse> responseObserver) {
         final LoginResponse response;
         try {
+            final String peerIp = GrpcAuthInterceptor.PEER_IP.get();
+            if (peerIp == null || peerIp.isBlank()) {
+                respond(responseObserver, invalidRequestLoginResponse("Trusted peer IP is unavailable"));
+                return;
+            }
             final char[] passwordChars = request.getPassword().toCharArray();
             try {
                 final LoginCommand command = new LoginCommand(
                     Username.of(request.getUsername()),
                     Password.of(passwordChars),
-                    IpAddress.of(request.getIpAddress())
+                    IpAddress.of(peerIp)
                 );
                 response = toLoginResponse(loginHandler.handle(command));
             } finally {
                 Arrays.fill(passwordChars, '\0');
             }
         } catch (final RuntimeException e) {
-            LOGGER.log(Level.WARNING, "Login request validation failed", e);
+            LOGGER.log(Level.FINE, "Login request validation failed", e);
             respond(responseObserver, invalidRequestLoginResponse(e.getMessage()));
             return;
         }
@@ -137,8 +151,8 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
         return result.fold(
             success -> LoginResponse.newBuilder()
                     .setSuccess(LoginSuccess.newBuilder()
-                    .setAccessToken(success.tokenPair().accessToken())
-                    .setRefreshToken(success.tokenPair().refreshToken())
+                    .setAccessToken(success.tokenPair().accessToken().value())
+                    .setRefreshToken(success.tokenPair().refreshToken().value())
                     .setUserId(success.userId().asUUID().toString())
                     .addAllPermissions(success.permissions().stream()
                                     .map(p -> p.value())
@@ -147,7 +161,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                 .build(),
             required2FA -> LoginResponse.newBuilder()
                     .setTotpRequired(Login2FARequired.newBuilder()
-                    .setVerificationToken(required2FA.verificationToken())
+                    .setVerificationToken(required2FA.verificationToken().value())
                     .setUserId(required2FA.userId().asUUID().toString())
                             .build())
                 .build(),
@@ -158,7 +172,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                 .build(),
             enrollment -> LoginResponse.newBuilder()
                     .setMfaEnrollmentRequired(LoginMfaEnrollmentRequired.newBuilder()
-                    .setEnrollmentToken(enrollment.enrollmentToken())
+                    .setEnrollmentToken(enrollment.enrollmentToken().value())
                     .setUserId(enrollment.userId().asUUID().toString())
                     .build())
                 .build(),
@@ -192,7 +206,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
             );
             response = toSetupTotpResponse(setupTotpHandler.handle(command));
         } catch (final RuntimeException e) {
-            LOGGER.log(Level.WARNING, "SetupTotp request validation failed", e);
+            LOGGER.log(Level.FINE, "SetupTotp request validation failed", e);
             respond(responseObserver, invalidRequestSetupTotpResponse(e.getMessage()));
             return;
         }
@@ -236,7 +250,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
             );
             response = toEnableTotpResponse(enableTotpHandler.handle(command));
         } catch (final RuntimeException e) {
-            LOGGER.log(Level.WARNING, "EnableTotp request validation failed", e);
+            LOGGER.log(Level.FINE, "EnableTotp request validation failed", e);
             respond(responseObserver, invalidRequestEnableTotpResponse(e.getMessage()));
             return;
         }
@@ -277,7 +291,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
             );
             response = toVerifyTotpResponse(verifyTotpHandler.handle(command));
         } catch (final RuntimeException e) {
-            LOGGER.log(Level.WARNING, "VerifyTotp request validation failed", e);
+            LOGGER.log(Level.FINE, "VerifyTotp request validation failed", e);
             respond(responseObserver, invalidRequestVerifyTotpResponse(e.getMessage()));
             return;
         }
@@ -287,8 +301,8 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
     private VerifyTotpResponse toVerifyTotpResponse(final VerifyTotpResult result) {
         return result.mapTo(s -> VerifyTotpResponse.newBuilder()
                         .setSuccess(VerifyTotpSuccess.newBuilder()
-                                .setAccessToken(s.tokenPair().accessToken())
-                                .setRefreshToken(s.tokenPair().refreshToken())
+                                .setAccessToken(s.tokenPair().accessToken().value())
+                                .setRefreshToken(s.tokenPair().refreshToken().value())
                                 .setUserId(s.userId().asUUID().toString())
                                 .addAllPermissions(s.permissions().stream()
                                         .map(p -> p.value())
@@ -318,7 +332,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
             final RefreshTokenCommand command = new RefreshTokenCommand(request.getRefreshToken());
             response = toRefreshResponse(refreshTokenHandler.handle(command));
         } catch (final RuntimeException e) {
-            LOGGER.log(Level.WARNING, "Refresh request validation failed", e);
+            LOGGER.log(Level.FINE, "Refresh request validation failed", e);
             respond(responseObserver, invalidRequestRefreshResponse(e.getMessage()));
             return;
         }
@@ -328,8 +342,8 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
     private RefreshResponse toRefreshResponse(final RefreshTokenResult result) {
         return result.mapTo(s -> RefreshResponse.newBuilder()
                         .setSuccess(RefreshSuccess.newBuilder()
-                                .setAccessToken(s.tokenPair().accessToken())
-                                .setRefreshToken(s.tokenPair().refreshToken())
+                                .setAccessToken(s.tokenPair().accessToken().value())
+                                .setRefreshToken(s.tokenPair().refreshToken().value())
                                 .setUserId(s.userId().asUUID().toString())
                                 .addAllPermissions(s.permissions().stream()
                                         .map(p -> p.value())
@@ -361,10 +375,10 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                 respond(responseObserver, invalidRequestLogoutResponse("Access token does not match bearer token"));
                 return;
             }
-            final LogoutCommand command = new LogoutCommand(request.getAccessToken());
+            final LogoutCommand command = new LogoutCommand(AccessToken.of(request.getAccessToken()));
             response = toLogoutResponse(logoutHandler.handle(command));
         } catch (final RuntimeException e) {
-            LOGGER.log(Level.WARNING, "Logout request validation failed", e);
+            LOGGER.log(Level.FINE, "Logout request validation failed", e);
             respond(responseObserver, invalidRequestLogoutResponse(e.getMessage()));
             return;
         }
@@ -411,8 +425,9 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                         "Disable reason must be specified"));
                     return;
                 }
-                if (GrpcAuthInterceptor.principal() != null
-                        && reason != DisableReason.USER_REQUESTED) {
+                final boolean ownAccount = matchesPrincipal(request.getUserId());
+                final boolean privileged = GrpcAuthInterceptor.hasPermission("manage_mfa");
+                if ((!ownAccount && !privileged) || (reason != DisableReason.USER_REQUESTED && !privileged)) {
                     respond(responseObserver, invalidRequestDisableTotpResponse(
                         "Privileged disable reasons require administrative authorization"));
                     return;
@@ -427,7 +442,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                 Arrays.fill(passwordChars, '\0');
             }
         } catch (final RuntimeException e) {
-            LOGGER.log(Level.WARNING, "DisableTotp request validation failed", e);
+            LOGGER.log(Level.FINE, "DisableTotp request validation failed", e);
             respond(responseObserver, invalidRequestDisableTotpResponse(e.getMessage()));
             return;
         }
@@ -458,6 +473,61 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
         return DisableTotpResponse.newBuilder()
                 .setError(errorMessage(INVALID_REQUEST, message))
                 .build();
+    }
+
+    @Override
+    public void adminDisableTotp(final AdminDisableTotpRequest request,
+                                 final StreamObserver<AdminDisableTotpResponse> responseObserver) {
+        try {
+            if (GrpcAuthInterceptor.isEnrollmentToken()) {
+                responseObserver.onError(io.grpc.Status.UNAUTHENTICATED
+                    .withDescription("An access token is required")
+                    .asRuntimeException());
+                return;
+            }
+            if (!GrpcAuthInterceptor.hasPermission("manage_mfa")) {
+                responseObserver.onError(io.grpc.Status.PERMISSION_DENIED
+                    .withDescription("manage_mfa permission is required")
+                    .asRuntimeException());
+                return;
+            }
+            final UserId adminId = GrpcAuthInterceptor.principal();
+            if (adminId == null) {
+                responseObserver.onError(io.grpc.Status.UNAUTHENTICATED
+                    .withDescription("Authenticated administrator is required")
+                    .asRuntimeException());
+                return;
+            }
+            final DisableReason reason = toDomainReason(request.getReason());
+            if (reason == null || reason == DisableReason.USER_REQUESTED) {
+                responseObserver.onError(io.grpc.Status.INVALID_ARGUMENT
+                    .withDescription("A privileged disable reason is required")
+                    .asRuntimeException());
+                return;
+            }
+            final char[] passwordChars = request.getAdminPassword().toCharArray();
+            try {
+                final AdminDisableTotpCommand command = new AdminDisableTotpCommand(
+                    adminId, Password.of(passwordChars), UserId.of(request.getTargetUserId()), reason);
+                respond(responseObserver, toAdminDisableTotpResponse(adminDisableTotpHandler.handle(command)));
+            } finally {
+                Arrays.fill(passwordChars, '\0');
+            }
+        } catch (final IllegalArgumentException exception) {
+            responseObserver.onError(io.grpc.Status.INVALID_ARGUMENT
+                .withDescription(exception.getMessage()).asRuntimeException());
+        } catch (final RuntimeException exception) {
+            LOGGER.log(Level.SEVERE, "AdminDisableTotp request failed", exception);
+            responseObserver.onError(io.grpc.Status.INTERNAL
+                .withDescription("Admin TOTP disable failed").asRuntimeException());
+        }
+    }
+
+    private AdminDisableTotpResponse toAdminDisableTotpResponse(final DisableTotpResult result) {
+        return result.mapTo(success -> AdminDisableTotpResponse.newBuilder()
+                .setSuccess(AdminDisableTotpSuccess.getDefaultInstance()).build())
+            .orElse(failure -> AdminDisableTotpResponse.newBuilder()
+                .setError(errorMessage(failure.errorCode(), failure.errorMessage())).build());
     }
 
     private boolean matchesPrincipal(final String requestedUserId) {

@@ -1,6 +1,7 @@
 package com.oodesigns.cas.integration.grpc;
 
 import com.oodesigns.cas.application.command.DisableTotpCommandHandler;
+import com.oodesigns.cas.application.command.AdminDisableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
 import com.oodesigns.cas.application.command.LogoutCommandHandler;
@@ -10,6 +11,7 @@ import com.oodesigns.cas.application.command.VerifyTotpCommandHandler;
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.TotpCodeGenerator;
 import com.oodesigns.cas.domain.service.TokenService;
+import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.SecretFor2FA;
 import com.oodesigns.cas.domain.value.UserId;
 import com.oodesigns.cas.infrastructure.adapter.BcryptPasswordVerifier;
@@ -189,6 +191,11 @@ class GrpcSmokeTest {
                 credentialByIdReader,
                 totpSetupProvider
         );
+        final AdminDisableTotpCommandHandler adminDisableTotpHandler = new AdminDisableTotpCommandHandler(
+                authenticationService,
+                credentialByIdReader,
+                totpSetupProvider
+        );
         final RefreshTokenCommandHandler refreshTokenHandler = new RefreshTokenCommandHandler(
                 tokenVerifier,
                 userRepository,
@@ -205,6 +212,7 @@ class GrpcSmokeTest {
                         enableTotpHandler,
                         verifyTotpHandler,
                         disableTotpHandler,
+                        adminDisableTotpHandler,
                         refreshTokenHandler,
                         logoutHandler))
                 .build()
@@ -330,7 +338,7 @@ class GrpcSmokeTest {
         assertTrue(logout.hasSuccess(), "Logout should revoke the presented access token");
         revokedAccessTokenHash = sha256Hex(verifiedAccessToken);
         assertEquals(1L, countInvalidatedTokens(revokedAccessTokenHash), "Logout should persist a revocation row");
-        assertTrue(tokenVerifier.verifyAccessToken(verifiedAccessToken).isEmpty(),
+        assertTrue(tokenVerifier.verifyAccessToken(AccessToken.of(verifiedAccessToken)).isEmpty(),
                 "The same verifier must reject the revoked access token");
 
         final LoginResponse afterDisable = stub.login(LoginRequest.newBuilder()

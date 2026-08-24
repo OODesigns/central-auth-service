@@ -49,9 +49,9 @@ note bottom of Api
 end note
 
 note bottom of Grpc
-  AuthService currently has no access-token
-  authentication interceptor or protected
-  business RPC. verifyAccessToken is used by
-  logout and is available for future consumers.
+  GrpcAuthInterceptor verifies bearer tokens
+  before protected RPC dispatch, binds the
+  principal and permissions, and enforces
+  MFA user ownership.
 end note
 @enduml

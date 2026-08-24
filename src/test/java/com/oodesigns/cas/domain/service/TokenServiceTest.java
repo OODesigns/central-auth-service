@@ -41,8 +41,10 @@ class TokenServiceTest {
     }
 
     private void setupTokenSignerMock() {
-        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(com.oodesigns.cas.domain.value.Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
-            .thenAnswer(invocation -> java.util.Optional.of("signed.%s".formatted(((com.oodesigns.cas.domain.value.Payload) invocation.getArgument(0)).value())));
+        when(tokenSigner.signAccessToken(org.mockito.ArgumentMatchers.any(Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
+            .thenAnswer(invocation -> java.util.Optional.of(AccessToken.of("signed.token.here")));
+        when(tokenSigner.signRefreshToken(org.mockito.ArgumentMatchers.any(Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
+            .thenAnswer(invocation -> java.util.Optional.of(RefreshToken.of("signed.refresh.here")));
     }
 
     @Test
@@ -67,7 +69,10 @@ class TokenServiceTest {
 
     @Test
     void testGenerateTokensCreatesUniqueJti() {
-        setupTokenSignerMock();
+        when(tokenSigner.signAccessToken(org.mockito.ArgumentMatchers.any(Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
+            .thenAnswer(invocation -> java.util.Optional.of(AccessToken.of("access." + UUID.randomUUID() + ".signature")));
+        when(tokenSigner.signRefreshToken(org.mockito.ArgumentMatchers.any(Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
+            .thenAnswer(invocation -> java.util.Optional.of(RefreshToken.of("refresh." + UUID.randomUUID() + ".signature")));
         when(clock.now()).thenReturn(Instant.now());
 
         final var tokens1Optional = tokenService.generateTokens(testUser);
@@ -89,8 +94,8 @@ class TokenServiceTest {
         final TokenService.TokenPair tokens = tokensOptional.get();
         assertNotNull(tokens.accessToken());
         assertNotNull(tokens.refreshToken());
-        assertFalse(tokens.accessToken().isEmpty());
-        assertFalse(tokens.refreshToken().isEmpty());
+        assertFalse(tokens.accessToken().value().isEmpty());
+        assertFalse(tokens.refreshToken().value().isEmpty());
     }
 
     @Test
@@ -98,17 +103,17 @@ class TokenServiceTest {
         when(clock.now()).thenReturn(Instant.ofEpochSecond(1_700_000_000L));
         // capture the payload passed to signer
         final java.util.concurrent.atomic.AtomicReference<com.oodesigns.cas.domain.value.Payload> captured = new java.util.concurrent.atomic.AtomicReference<>();
-        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(com.oodesigns.cas.domain.value.Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
+        when(tokenSigner.signTwoFactorVerificationToken(org.mockito.ArgumentMatchers.any(Payload.class), org.mockito.ArgumentMatchers.any(Instant.class)))
             .thenAnswer(invocation -> {
                 final com.oodesigns.cas.domain.value.Payload p = invocation.getArgument(0);
                 captured.set(p);
-                return java.util.Optional.of("signed-token");
+                return java.util.Optional.of(TwoFactorVerificationToken.of("signed.token.here"));
             });
 
         final com.oodesigns.cas.domain.value.UserId uid = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
-        final String token = tokenService.generate2FAVerificationToken(uid);
+        final TwoFactorVerificationToken token = tokenService.generate2FAVerificationToken(uid);
         assertNotNull(token);
-        assertEquals("signed-token", token);
+        assertEquals("signed.token.here", token.value());
 
         final com.oodesigns.cas.domain.value.Payload payload = captured.get();
         assertNotNull(payload);
@@ -124,7 +129,7 @@ class TokenServiceTest {
     @Test
     void testGenerate2FAVerificationTokenSignerFailureThrows() {
         when(clock.now()).thenReturn(Instant.now());
-        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+        when(tokenSigner.signTwoFactorVerificationToken(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
             .thenReturn(java.util.Optional.empty());
 
         final com.oodesigns.cas.domain.value.UserId uid = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
@@ -134,17 +139,17 @@ class TokenServiceTest {
     @Test
     void testGenerateMfaEnrollmentToken() {
         when(clock.now()).thenReturn(Instant.ofEpochSecond(1_700_000_000L));
-        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
-            .thenReturn(java.util.Optional.of("enrollment-token"));
+        when(tokenSigner.signMfaEnrollmentToken(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+            .thenReturn(java.util.Optional.of(MfaEnrollmentToken.of("enrollment.token.here")));
 
         final com.oodesigns.cas.domain.value.UserId uid = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
-        assertEquals("enrollment-token", tokenService.generateMfaEnrollmentToken(uid));
+        assertEquals("enrollment.token.here", tokenService.generateMfaEnrollmentToken(uid).value());
     }
 
     @Test
     void testGenerateMfaEnrollmentTokenSignerFailureThrows() {
         when(clock.now()).thenReturn(Instant.now());
-        when(tokenSigner.sign(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+        when(tokenSigner.signMfaEnrollmentToken(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
             .thenReturn(java.util.Optional.empty());
 
         final com.oodesigns.cas.domain.value.UserId uid = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());

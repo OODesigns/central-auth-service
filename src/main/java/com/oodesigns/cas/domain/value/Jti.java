@@ -1,6 +1,5 @@
 package com.oodesigns.cas.domain.value;
 
-import jakarta.annotation.Nonnull;
 import java.util.Objects;
 import java.util.UUID;
 import com.oodesigns.cas.util.validation.ValidatedValue;
@@ -78,7 +77,6 @@ public final class Jti extends ValidatedValue<UUID> {
      * 
      * @return the UUID
      */
-    @Nonnull
     public UUID asUUID() {
         return value();
     }

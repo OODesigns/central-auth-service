@@ -31,8 +31,8 @@ public final class JooqTotpStatusReader implements Ports.TotpStatusReader {
     public Optional<UserId> check2FAStatus(final UserId userId) {
         return Optional.ofNullable(userId)
             .flatMap(id -> Routines.getTotpStatus(dsl, id.value())
-                .map(TotpStatusRecord::userId)
-                .map(UserId::of));
+                .map(record -> record.userId())
+                .map(value -> UserId.of(value)));
     }
 
     /**

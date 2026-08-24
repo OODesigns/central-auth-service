@@ -117,8 +117,8 @@ class AdminLoginMockIntegrationTest {
                 assertNotNull(success.tokenPair().refreshToken(), "Refresh token should not be null");
                 
                 // Verify tokens are non-empty
-                assertFalse(success.tokenPair().accessToken().isEmpty(), "Access token should not be empty");
-                assertFalse(success.tokenPair().refreshToken().isEmpty(), "Refresh token should not be empty");
+                assertFalse(success.tokenPair().accessToken().value().isEmpty(), "Access token should not be empty");
+                assertFalse(success.tokenPair().refreshToken().value().isEmpty(), "Refresh token should not be empty");
                 
                 return null;
             })

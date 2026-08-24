@@ -3,6 +3,8 @@ package com.oodesigns.cas.application.command;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
+import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
@@ -43,7 +45,7 @@ public sealed interface LoginResult
         return new SuccessResult(tokenPair, userId, permissions);
     }
 
-    static Required2FAResult required2FA(final String verificationToken, final UserId userId) {
+    static Required2FAResult required2FA(final TwoFactorVerificationToken verificationToken, final UserId userId) {
         return new Required2FAResult(verificationToken, userId);
     }
 
@@ -51,7 +53,7 @@ public sealed interface LoginResult
         return new PasswordResetRequiredResult(userId);
     }
 
-    static MfaEnrollmentRequiredResult mfaEnrollmentRequired(final String enrollmentToken, final UserId userId) {
+    static MfaEnrollmentRequiredResult mfaEnrollmentRequired(final MfaEnrollmentToken enrollmentToken, final UserId userId) {
         return new MfaEnrollmentRequiredResult(enrollmentToken, userId);
     }
 
@@ -115,12 +117,10 @@ public sealed interface LoginResult
      * Client must exchange the restricted verificationToken for full tokens
      * by calling the /auth/verify-2fa endpoint with a valid 2FA code.
      */
-    record Required2FAResult(String verificationToken, UserId userId) implements LoginResult {
+    record Required2FAResult(TwoFactorVerificationToken verificationToken, UserId userId) implements LoginResult {
 
         public Required2FAResult {
-            if (verificationToken == null || verificationToken.isBlank()) {
-                throw new IllegalArgumentException("2FA verification token is required");
-            }
+            Objects.requireNonNull(verificationToken, "2FA verification token is required");
             if (userId == null) {
                 throw new IllegalArgumentException("User ID is required");
             }
@@ -196,11 +196,9 @@ public sealed interface LoginResult
         }
     }
 
-    record MfaEnrollmentRequiredResult(String enrollmentToken, UserId userId) implements LoginResult {
+    record MfaEnrollmentRequiredResult(MfaEnrollmentToken enrollmentToken, UserId userId) implements LoginResult {
         public MfaEnrollmentRequiredResult {
-            if (enrollmentToken == null || enrollmentToken.isBlank()) {
-                throw new IllegalArgumentException("MFA enrollment token is required");
-            }
+            Objects.requireNonNull(enrollmentToken, "MFA enrollment token is required");
             Objects.requireNonNull(userId, "User ID is required");
         }
 

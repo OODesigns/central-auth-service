@@ -1,6 +1,7 @@
 package com.oodesigns.cas;
 
 import com.oodesigns.cas.application.command.DisableTotpCommandHandler;
+import com.oodesigns.cas.application.command.AdminDisableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
 import com.oodesigns.cas.application.command.LogoutCommandHandler;
@@ -128,6 +129,8 @@ public final class Main {
                 new VerifyTotpCommandHandler(tokenVerifier, totpVerifier, userRepository, tokenService, totpRateLimiter, refreshTokenStore);
         final DisableTotpCommandHandler disableTotpHandler =
                 new DisableTotpCommandHandler(authService, credentialByIdReader, totpSetupProvider);
+        final AdminDisableTotpCommandHandler adminDisableTotpHandler =
+                new AdminDisableTotpCommandHandler(authService, credentialByIdReader, totpSetupProvider);
         final RefreshTokenCommandHandler refreshTokenHandler =
                 new RefreshTokenCommandHandler(tokenVerifier, userRepository, tokenService, refreshTokenStore);
         final LogoutCommandHandler logoutHandler = new LogoutCommandHandler(tokenVerifier, accessTokenRevocationStore);
@@ -135,7 +138,8 @@ public final class Main {
         // --- gRPC service ---
         final AuthGrpcService grpcService = new AuthGrpcService(
                 loginHandler, setupTotpHandler, enableTotpHandler,
-                verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler);
+                verifyTotpHandler, disableTotpHandler, adminDisableTotpHandler,
+                refreshTokenHandler, logoutHandler);
 
         // --- TLS (optional) ---
         final String keystorePath = props.get("grpc.tls.keystore.path");

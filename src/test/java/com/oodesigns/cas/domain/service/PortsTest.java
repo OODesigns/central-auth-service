@@ -4,6 +4,10 @@ import com.oodesigns.cas.application.command.LoginCommand;
 import com.oodesigns.cas.domain.entity.User;
 import com.oodesigns.cas.domain.value.Credentials;
 import com.oodesigns.cas.domain.value.Payload;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
+import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
 import com.oodesigns.cas.domain.value.UserCredential;
 import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.domain.value.UserId;
@@ -28,8 +32,24 @@ class PortsTest {
 
     static class TestTokenSigner implements Ports.TokenSigner {
         @Override
-        public Optional<String> sign(final Payload payload, final Instant expiresAt) {
-            return Optional.of("test.token.here");
+        public Optional<AccessToken> signAccessToken(final Payload payload, final Instant expiresAt) {
+            return Optional.of(AccessToken.of("test.token.here"));
+        }
+
+        @Override
+        public Optional<RefreshToken> signRefreshToken(final Payload payload, final Instant expiresAt) {
+            return Optional.of(RefreshToken.of("test.token.here"));
+        }
+
+        @Override
+        public Optional<TwoFactorVerificationToken> signTwoFactorVerificationToken(
+                final Payload payload, final Instant expiresAt) {
+            return Optional.of(TwoFactorVerificationToken.of("test.token.here"));
+        }
+
+        @Override
+        public Optional<MfaEnrollmentToken> signMfaEnrollmentToken(final Payload payload, final Instant expiresAt) {
+            return Optional.of(MfaEnrollmentToken.of("test.token.here"));
         }
     }
 

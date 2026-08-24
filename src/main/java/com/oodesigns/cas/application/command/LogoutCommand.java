@@ -1,12 +1,16 @@
 package com.oodesigns.cas.application.command;
 
+import com.oodesigns.cas.domain.value.AccessToken;
+
 /**
  * Command for logging out an access-token session.
  */
-public record LogoutCommand(String accessToken) {
+public record LogoutCommand(AccessToken accessToken) {
     public LogoutCommand {
-        if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalArgumentException("Access token is required");
-        }
+        java.util.Objects.requireNonNull(accessToken, "Access token is required");
+    }
+
+    public LogoutCommand(final String accessToken) {
+        this(AccessToken.of(accessToken));
     }
 }

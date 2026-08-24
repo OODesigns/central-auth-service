@@ -1,6 +1,7 @@
 package com.oodesigns.cas.domain.service;
 
 import com.oodesigns.cas.domain.value.SecretFor2FA;
+import com.oodesigns.cas.domain.value.TotpCode;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -9,6 +10,7 @@ import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 /**
@@ -101,19 +103,29 @@ public final class TotpCodeGenerator {
      */
     public OptionalLong findMatchingCounter(final SecretFor2FA secret, final String candidateCode) {
         Objects.requireNonNull(secret, "TOTP secret is required");
-        if (candidateCode == null) {
-            return OptionalLong.empty();
-        }
+        return parseCandidateCode(candidateCode)
+            .map(code -> findMatchingCounter(secret, code))
+            .orElseGet(OptionalLong::empty);
+    }
 
+    private OptionalLong findMatchingCounter(final SecretFor2FA secret, final TotpCode candidateCode) {
         final long currentStep = currentTimeStep();
         long matchedCounter = -1;
         for (int offset = -SKEW_STEPS; offset <= SKEW_STEPS; offset++) {
             final long candidateCounter = currentStep + offset;
-            if (constantTimeEquals(generateForTimeStep(secret, candidateCounter), candidateCode)) {
+            if (constantTimeEquals(generateForTimeStep(secret, candidateCounter), candidateCode.getCode())) {
                 matchedCounter = candidateCounter;
             }
         }
         return matchedCounter < 0 ? OptionalLong.empty() : OptionalLong.of(matchedCounter);
+    }
+
+    private Optional<TotpCode> parseCandidateCode(final String candidateCode) {
+        try {
+            return Optional.ofNullable(candidateCode).map(TotpCode::of);
+        } catch (final IllegalArgumentException exception) {
+            return Optional.empty();
+        }
     }
 
     /**

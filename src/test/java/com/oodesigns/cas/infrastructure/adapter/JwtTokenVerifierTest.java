@@ -6,6 +6,9 @@ import com.oodesigns.cas.domain.value.KeyPassword;
 import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.Payload;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,13 +86,14 @@ class JwtTokenVerifierTest {
 
     @Test
     void verify2FAVerificationToken_ReturnsEmpty_WhenTokenIsBlank() {
-        assertTrue(verifier.verify2FAVerificationToken("   ").isEmpty());
+                assertThrows(IllegalArgumentException.class,
+                        () -> TwoFactorVerificationToken.of("  .x.y"));
     }
 
     @Test
     void verify2FAVerificationToken_ReturnsEmpty_WhenKeyNotAvailable() {
         when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.empty());
-        assertTrue(verifier.verify2FAVerificationToken("some.token.here").isEmpty());
+        assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of("some.token.here")).isEmpty());
     }
 
     @Test
@@ -101,7 +105,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        final Optional<UserId> result = verifier.verify2FAVerificationToken(token);
+        final Optional<UserId> result = verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token));
 
         assertTrue(result.isPresent());
         assertEquals(userId, result.get().asUUID());
@@ -115,7 +119,7 @@ class JwtTokenVerifierTest {
                                 .formatted(userId, UUID.randomUUID()));
                 when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                assertEquals(userId, verifier.verify2FAVerificationToken(token).orElseThrow().asUUID());
+                assertEquals(userId, verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).orElseThrow().asUUID());
         }
 
         @Test
@@ -126,7 +130,7 @@ class JwtTokenVerifierTest {
                                 .formatted(userId, UUID.randomUUID()));
                 when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                assertEquals(userId, verifier.verifyRefreshToken(token).orElseThrow().asUUID());
+                assertEquals(userId, verifier.verifyRefreshToken(RefreshToken.of(token)).orElseThrow().asUUID());
         }
 
         @Test
@@ -138,7 +142,7 @@ class JwtTokenVerifierTest {
                                 .formatted(userId, jti));
                 when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                final Ports.AccessTokenClaims claims = verifier.verifyAccessToken(token).orElseThrow();
+                final Ports.AccessTokenClaims claims = verifier.verifyAccessToken(AccessToken.of(token)).orElseThrow();
                 assertEquals(userId, claims.userId().asUUID());
                 assertEquals(jti, claims.jti().asUUID());
         }
@@ -148,14 +152,14 @@ class JwtTokenVerifierTest {
                 when(keySupplier.getPassword(JWT_KEY_ID)).thenAnswer(
                         ignored -> Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                assertTrue(verifier.verify2FAVerificationToken(signVersionTwo(
-                        "{\"sub\":\"%s\",\"aud\":\"wrong\"}".formatted(UUID.randomUUID()))).isEmpty());
-                assertTrue(verifier.verify2FAVerificationToken(signVersionTwo(
-                        "{\"aud\":\"2fa_verification\"}")).isEmpty());
-                assertTrue(verifier.verifyAccessToken(signVersionTwo(
-                        "{\"sub\":\"%s\",\"aud\":\"access_token\"}".formatted(UUID.randomUUID()))).isEmpty());
-                assertTrue(verifier.verifyAccessToken(signVersionTwo(
-                        "{\"jti\":\"%s\",\"aud\":\"access_token\"}".formatted(UUID.randomUUID()))).isEmpty());
+                assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(signVersionTwo(
+                        "{\"sub\":\"%s\",\"aud\":\"wrong\"}".formatted(UUID.randomUUID())))).isEmpty());
+                assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(signVersionTwo(
+                        "{\"aud\":\"2fa_verification\"}"))).isEmpty());
+                assertTrue(verifier.verifyAccessToken(AccessToken.of(signVersionTwo(
+                        "{\"sub\":\"%s\",\"aud\":\"access_token\"}".formatted(UUID.randomUUID())))).isEmpty());
+                assertTrue(verifier.verifyAccessToken(AccessToken.of(signVersionTwo(
+                        "{\"jti\":\"%s\",\"aud\":\"access_token\"}".formatted(UUID.randomUUID())))).isEmpty());
         }
 
         @Test
@@ -172,7 +176,7 @@ class JwtTokenVerifierTest {
                         .compact();
                 when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                assertEquals(userId, verifier.verify2FAVerificationToken(token).orElseThrow().asUUID());
+                assertEquals(userId, verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).orElseThrow().asUUID());
                 assertTrue(JwtTokenVerifier.hasAudienceValue(
                         "2fa_verification", "2fa_verification"));
                 assertTrue(JwtTokenVerifier.hasAudienceValue(
@@ -191,7 +195,7 @@ class JwtTokenVerifierTest {
                         .compact();
                 when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
+                assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).isEmpty());
         }
 
         @Test
@@ -204,7 +208,7 @@ class JwtTokenVerifierTest {
                 when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
                 when(accessTokenRevocationStore.isInvalidated(Jti.of(jti))).thenReturn(true);
 
-                assertTrue(verifier.verifyAccessToken(token).isEmpty());
+                assertTrue(verifier.verifyAccessToken(AccessToken.of(token)).isEmpty());
         }
 
     @Test
@@ -217,7 +221,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
+        assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).isEmpty());
     }
 
         @Test
@@ -226,9 +230,9 @@ class JwtTokenVerifierTest {
                 final UUID userId = UUID.randomUUID();
                 final String token = new JwtTokenSigner(
                         ignored -> Optional.of(KeyPassword.of(TEST_SECRET)), "JWT_SECRET_PREVIOUS")
-                        .sign(Payload.of("{\"sub\":\"%s\",\"aud\":\"2fa_verification\"}".formatted(userId)),
+                        .signTwoFactorVerificationToken(Payload.of("{\"iss\":\"central-auth-service\",\"sub\":\"%s\",\"aud\":\"2fa_verification\"}".formatted(userId)),
                                 Instant.now().plusSeconds(300))
-                        .orElseThrow();
+                        .orElseThrow().value();
                 final JwtTokenVerifier rotatingVerifier = new JwtTokenVerifier(
                         keyId -> switch (keyId) {
                                 case "JWT_SECRET_ACTIVE" -> Optional.of(KeyPassword.of(activeSecret));
@@ -238,7 +242,7 @@ class JwtTokenVerifierTest {
                         List.of("JWT_SECRET_ACTIVE", "JWT_SECRET_PREVIOUS"),
                         accessTokenRevocationStore);
 
-                assertEquals(userId, rotatingVerifier.verify2FAVerificationToken(token).orElseThrow().asUUID());
+                assertEquals(userId, rotatingVerifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).orElseThrow().asUUID());
         }
 
     @Test
@@ -250,7 +254,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
+        assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).isEmpty());
     }
 
     @Test
@@ -270,15 +274,13 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
+        assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).isEmpty());
     }
 
     @Test
     void verify2FAVerificationToken_ReturnsEmpty_WhenTokenIsMalformed() {
-        when(keySupplier.getPassword(JWT_KEY_ID))
-                .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
-
-        assertTrue(verifier.verify2FAVerificationToken("not.a.valid.jwt.token").isEmpty());
+        assertThrows(IllegalArgumentException.class,
+            () -> TwoFactorVerificationToken.of("not.a.valid.jwt.token"));
     }
 
     @Test
@@ -293,7 +295,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
+                assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).isEmpty());
     }
 
     @Test
@@ -309,7 +311,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
+        assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).isEmpty());
     }
 
     @Test
@@ -324,7 +326,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
+        assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).isEmpty());
     }
 
         @Test
@@ -337,7 +339,7 @@ class JwtTokenVerifierTest {
                 when(keySupplier.getPassword(JWT_KEY_ID))
                                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                final Optional<Ports.AccessTokenClaims> result = verifier.verifyAccessToken(token);
+                final Optional<Ports.AccessTokenClaims> result = verifier.verifyAccessToken(AccessToken.of(token));
 
                 assertTrue(result.isPresent());
                 assertEquals(userId, result.get().userId().asUUID());
@@ -349,8 +351,8 @@ class JwtTokenVerifierTest {
                 final String payloadWithIssuer = payload.replace("{", "{\"iss\":\"central-auth-service\",");
                 return new JwtTokenSigner(
                         ignored -> Optional.of(KeyPassword.of(TEST_SECRET)), JWT_KEY_ID)
-                        .sign(Payload.of(payloadWithIssuer), Instant.now().plusSeconds(300))
-                        .orElseThrow();
+                        .signTwoFactorVerificationToken(Payload.of(payloadWithIssuer), Instant.now().plusSeconds(300))
+                        .orElseThrow().value();
         }
 
         @Test
@@ -362,7 +364,7 @@ class JwtTokenVerifierTest {
                 when(keySupplier.getPassword(JWT_KEY_ID))
                                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                assertTrue(verifier.verifyAccessToken(token).isEmpty());
+                assertTrue(verifier.verifyAccessToken(AccessToken.of(token)).isEmpty());
         }
 
         @Test
@@ -375,20 +377,17 @@ class JwtTokenVerifierTest {
                                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
                 when(accessTokenRevocationStore.isInvalidated(Jti.of(jti))).thenReturn(true);
 
-                assertTrue(verifier.verifyAccessToken(token).isEmpty());
+                assertTrue(verifier.verifyAccessToken(AccessToken.of(token)).isEmpty());
         }
 
         @Test
         void verifyAccessToken_ReturnsEmpty_WhenTokenIsBlank() {
-                assertTrue(verifier.verifyAccessToken("  ").isEmpty());
+                assertThrows(IllegalArgumentException.class, () -> verifier.verifyAccessToken(AccessToken.of("  ")));
         }
 
         @Test
         void verifyAccessToken_ReturnsEmpty_WhenTokenIsMalformed() {
-                when(keySupplier.getPassword(JWT_KEY_ID))
-                        .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
-
-                assertTrue(verifier.verifyAccessToken("not-a-jwt").isEmpty());
+                assertThrows(IllegalArgumentException.class, () -> verifier.verifyAccessToken(AccessToken.of("not-a-jwt")));
         }
 
         @Test
@@ -401,7 +400,7 @@ class JwtTokenVerifierTest {
                 when(keySupplier.getPassword(JWT_KEY_ID))
                         .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                assertTrue(verifier.verifyAccessToken(token).isEmpty());
+                assertTrue(verifier.verifyAccessToken(AccessToken.of(token)).isEmpty());
         }
 
         @Test
@@ -414,7 +413,7 @@ class JwtTokenVerifierTest {
                 when(keySupplier.getPassword(JWT_KEY_ID))
                         .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-                assertTrue(verifier.verifyAccessToken(token).isEmpty());
+                assertTrue(verifier.verifyAccessToken(AccessToken.of(token)).isEmpty());
         }
 
         @Test
@@ -455,7 +454,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        assertTrue(verifier.verify2FAVerificationToken(token).isEmpty());
+        assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).isEmpty());
     }
 
     @Test
@@ -492,7 +491,7 @@ class JwtTokenVerifierTest {
             final UUID userId = UUID.randomUUID();
             final String expiredToken = buildValid2FAToken(userId, "2fa_verification",
                     Instant.now().minusSeconds(1));
-            assertTrue(verifier.verify2FAVerificationToken(expiredToken).isEmpty());
+            assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(expiredToken)).isEmpty());
 
             when(keySupplier.getPassword(JWT_KEY_ID))
                     .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
@@ -502,7 +501,7 @@ class JwtTokenVerifierTest {
                     .expiration(Date.from(Instant.now().plusSeconds(300)))
                     .signWith(signingKey, Jwts.SIG.HS256)
                     .compact();
-            assertTrue(verifier.verify2FAVerificationToken(tokenWithBadJson).isEmpty());
+            assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(tokenWithBadJson)).isEmpty());
         } finally {
             logger.setLevel(savedLevel);
             logger.removeHandler(handler);
@@ -521,7 +520,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        final Optional<UserId> result = verifier.verifyRefreshToken(token);
+        final Optional<UserId> result = verifier.verifyRefreshToken(RefreshToken.of(token));
 
         assertTrue(result.isPresent());
         assertEquals(userId, result.get().asUUID());
@@ -534,7 +533,7 @@ class JwtTokenVerifierTest {
 
     @Test
     void verifyRefreshToken_ReturnsEmpty_WhenTokenIsBlank() {
-        assertTrue(verifier.verifyRefreshToken("  ").isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> verifier.verifyRefreshToken(RefreshToken.of("  ")));
     }
 
     @Test
@@ -545,7 +544,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        assertTrue(verifier.verifyRefreshToken(token).isEmpty());
+        assertTrue(verifier.verifyRefreshToken(RefreshToken.of(token)).isEmpty());
     }
 
     @Test
@@ -557,7 +556,7 @@ class JwtTokenVerifierTest {
         when(keySupplier.getPassword(JWT_KEY_ID))
                 .thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
-        assertTrue(verifier.verifyRefreshToken(token).isEmpty());
+        assertTrue(verifier.verifyRefreshToken(RefreshToken.of(token)).isEmpty());
     }
 
     // -------------------------------------------------------------------------

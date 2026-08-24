@@ -29,7 +29,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class VerifyTotpCommandHandlerTest {
 
-    private static final String VERIFICATION_TOKEN = "a.valid.jwt";
+    private static final TwoFactorVerificationToken VERIFICATION_TOKEN = TwoFactorVerificationToken.of("a.valid.jwt");
     private static final String VALID_OTP = "123456";
     private static final String VALID_BACKUP = "ABCD-EFGH-IJKL-MNOP";
 
@@ -58,7 +58,8 @@ class VerifyTotpCommandHandlerTest {
 
     private void mockSuccessfulTokenGeneration() {
         when(clock.now()).thenReturn(Instant.now());
-        when(tokenSigner.sign(any(), any())).thenReturn(Optional.of("signed.token"));
+        when(tokenSigner.signAccessToken(any(), any())).thenReturn(Optional.of(AccessToken.of("signed.token.here")));
+        when(tokenSigner.signRefreshToken(any(), any())).thenReturn(Optional.of(RefreshToken.of("signed.token.here")));
     }
 
     // ---------------------------------------------------------------- OTP happy path
@@ -232,7 +233,7 @@ class VerifyTotpCommandHandlerTest {
         when(totpVerifier.verifyCode(userId, TotpCode.of(VALID_OTP))).thenReturn(true);
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         when(clock.now()).thenReturn(Instant.now());
-        when(tokenSigner.sign(any(), any())).thenReturn(Optional.empty());
+        when(tokenSigner.signAccessToken(any(), any())).thenReturn(Optional.empty());
 
         final VerifyTotpResult result =
             handler.handle(new VerifyTotpCommand(VERIFICATION_TOKEN, VALID_OTP));
@@ -301,7 +302,7 @@ class VerifyTotpCommandHandlerTest {
 
         handler.handle(new VerifyTotpCommand(VERIFICATION_TOKEN, VALID_OTP));
 
-        verify(refreshTokenStore).issue(eq(userId), anyString());
+        verify(refreshTokenStore).issue(eq(userId), any(RefreshToken.class));
     }
 }
 

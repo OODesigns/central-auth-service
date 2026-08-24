@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-This is a **Hexagonal Architecture (Ports & Adapters)** authentication service in Java 26 with strict separation:
+This is a **Hexagonal Architecture (Ports & Adapters)** authentication service in Java 25 with strict separation:
 
 - **domain/** - Pure business logic, no framework dependencies. Contains `Ports.java` interface definitions
 - **application/** - Command handlers orchestrating domain services (e.g., `LoginCommandHandler`)
@@ -54,7 +54,7 @@ Tests use Mockito with `@ExtendWith(MockitoExtension.class)`. Mock all `Ports.*`
 
 - **PostgreSQL** via docker-compose with Flyway migrations
 - **JOOQ** for type-safe queries - adapters in `infrastructure/adapter/`
-- Stored procedures in `auth` schema (e.g., `auth.find_user_credentials()`)
+- Stored procedures in `api_schema` over `private_schema` data (e.g., `api_schema.find_user_credentials()`)
 - Config via `application.properties` with `${ENV_VAR:default}` syntax
 
 ## Build Commands

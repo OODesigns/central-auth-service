@@ -9,6 +9,10 @@ import com.oodesigns.cas.domain.value.TotpCode;
 import com.oodesigns.cas.domain.value.UserCredential;
 import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +42,10 @@ public class Ports {
      * Port for token signing and verification.
      */
     public interface TokenSigner {
-        Optional<String> sign(final Payload payload, final Instant expiresAt);
+        Optional<AccessToken> signAccessToken(final Payload payload, final Instant expiresAt);
+        Optional<RefreshToken> signRefreshToken(final Payload payload, final Instant expiresAt);
+        Optional<TwoFactorVerificationToken> signTwoFactorVerificationToken(final Payload payload, final Instant expiresAt);
+        Optional<MfaEnrollmentToken> signMfaEnrollmentToken(final Payload payload, final Instant expiresAt);
     }
 
     /**
@@ -55,7 +62,7 @@ public class Ports {
          * @param token the compact JWT access token received from the client
          * @return Optional containing the authenticated principal if valid, empty otherwise
          */
-        Optional<AccessTokenClaims> verifyAccessToken(String token);
+        Optional<AccessTokenClaims> verifyAccessToken(AccessToken token);
 
         /**
          * Verify a 2FA verification token and extract the subject user ID.
@@ -72,10 +79,10 @@ public class Ports {
          *         the token is valid; empty if the token is expired, has a bad signature,
          *         has the wrong audience, or is otherwise malformed
          */
-        Optional<UserId> verify2FAVerificationToken(String token);
+        Optional<UserId> verify2FAVerificationToken(TwoFactorVerificationToken token);
 
         /** Verify the short-lived token used only to bootstrap required MFA enrollment. */
-        Optional<UserId> verifyMfaEnrollmentToken(String token);
+        Optional<UserId> verifyMfaEnrollmentToken(MfaEnrollmentToken token);
 
         /**
          * Verify a refresh token and extract the subject user ID.
@@ -85,7 +92,7 @@ public class Ports {
          *   <li>A trusted signature (same key as used by {@link TokenSigner}).</li>
          *   <li>An {@code exp} claim that has not yet passed.</li>
          *   <li>An {@code aud} claim equal to {@code "refresh_token"} — this distinguishes
-         *       refresh tokens from access tokens (no {@code aud}) and 2FA verification
+         *       refresh tokens from access tokens ({@code aud: "access_token"}) and 2FA verification
          *       tokens ({@code aud: 2fa_verification}), preventing token-type confusion.</li>
          * </ul>
          * <p>
@@ -97,17 +104,24 @@ public class Ports {
          * @return Optional containing the {@link UserId} from the {@code sub} claim if the
          *         token is valid; empty otherwise
          */
-        Optional<UserId> verifyRefreshToken(String token);
+        Optional<UserId> verifyRefreshToken(RefreshToken token);
     }
 
     /**
      * Claims extracted from a validated access token.
      */
-    public record AccessTokenClaims(UserId userId, Jti jti, Instant expiresAt) {
+    public record AccessTokenClaims(UserId userId, Jti jti, Instant expiresAt,
+                                    java.util.Set<com.oodesigns.cas.domain.value.Permission> permissions) {
         public AccessTokenClaims {
             java.util.Objects.requireNonNull(userId, "UserId cannot be null");
             java.util.Objects.requireNonNull(jti, "JTI cannot be null");
             java.util.Objects.requireNonNull(expiresAt, "Expiry time cannot be null");
+            java.util.Objects.requireNonNull(permissions, "Permissions cannot be null");
+            permissions = java.util.Set.copyOf(permissions);
+        }
+
+        public AccessTokenClaims(final UserId userId, final Jti jti, final Instant expiresAt) {
+            this(userId, jti, expiresAt, java.util.Set.of());
         }
     }
 
@@ -115,7 +129,7 @@ public class Ports {
      * Port for invalidating and querying revoked access tokens.
      */
     public interface AccessTokenRevocationStore {
-        void invalidate(final AccessTokenClaims claims, final String token, final String reason);
+        void invalidate(final AccessTokenClaims claims, final AccessToken token, final String reason);
 
         boolean isInvalidated(final Jti jti);
     }
@@ -397,7 +411,7 @@ public class Ports {
          * @param userId       the owner of the refresh token
          * @param refreshToken the raw refresh token (the implementation stores only its hash)
          */
-        void issue(final UserId userId, final String refreshToken);
+        void issue(final UserId userId, final RefreshToken refreshToken);
 
         /**
          * Atomically consume the presented refresh token and record its replacement within the
@@ -407,7 +421,7 @@ public class Ports {
          * @param replacementToken the raw refresh token that replaces it on success
          * @return the outcome of the rotation attempt
          */
-        RotationStatus rotate(final String presentedToken, final String replacementToken);
+        RotationStatus rotate(final RefreshToken presentedToken, final RefreshToken replacementToken);
 
         /**
          * Outcome of a {@link #rotate} attempt.

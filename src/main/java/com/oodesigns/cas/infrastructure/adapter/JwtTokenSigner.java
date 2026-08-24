@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.KeyPassword;
 import com.oodesigns.cas.domain.value.Payload;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
+import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
@@ -66,7 +70,26 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
      * @return Optional containing JWT token string when signing succeeds
      */
     @Override
-    public Optional<String> sign(final Payload payload, final Instant expiresAt) {
+    public Optional<AccessToken> signAccessToken(final Payload payload, final Instant expiresAt) {
+        return signCompactToken(payload, expiresAt).map(AccessToken::of);
+    }
+
+    @Override
+    public Optional<RefreshToken> signRefreshToken(final Payload payload, final Instant expiresAt) {
+        return signCompactToken(payload, expiresAt).map(RefreshToken::of);
+    }
+
+    @Override
+    public Optional<TwoFactorVerificationToken> signTwoFactorVerificationToken(final Payload payload, final Instant expiresAt) {
+        return signCompactToken(payload, expiresAt).map(TwoFactorVerificationToken::of);
+    }
+
+    @Override
+    public Optional<MfaEnrollmentToken> signMfaEnrollmentToken(final Payload payload, final Instant expiresAt) {
+        return signCompactToken(payload, expiresAt).map(MfaEnrollmentToken::of);
+    }
+
+    private Optional<String> signCompactToken(final Payload payload, final Instant expiresAt) {
         if (payload == null || expiresAt == null) {
             return Optional.empty();
         }

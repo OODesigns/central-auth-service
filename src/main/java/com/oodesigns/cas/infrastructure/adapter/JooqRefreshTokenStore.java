@@ -2,6 +2,7 @@ package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.RefreshToken;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -34,18 +35,18 @@ public final class JooqRefreshTokenStore implements Ports.RefreshTokenStore {
     }
 
     @Override
-    public void issue(final UserId userId, final String refreshToken) {
+    public void issue(final UserId userId, final RefreshToken refreshToken) {
         Objects.requireNonNull(userId, "UserId cannot be null");
         Objects.requireNonNull(refreshToken, "Refresh token cannot be null");
-        dsl.execute(STORE_SQL, userId.value(), hash(refreshToken));
+        dsl.execute(STORE_SQL, userId.value(), hash(refreshToken.value()));
     }
 
     @Override
-    public RotationStatus rotate(final String presentedToken, final String replacementToken) {
+    public RotationStatus rotate(final RefreshToken presentedToken, final RefreshToken replacementToken) {
         Objects.requireNonNull(presentedToken, "Presented token cannot be null");
         Objects.requireNonNull(replacementToken, "Replacement token cannot be null");
         final String status = Optional.ofNullable(
-                dsl.fetchOne(ROTATE_SQL, hash(presentedToken), hash(replacementToken)))
+            dsl.fetchOne(ROTATE_SQL, hash(presentedToken.value()), hash(replacementToken.value())))
             .map(record -> record.get(0, String.class))
             .orElse("NOT_FOUND");
         return switch (status) {

@@ -159,21 +159,21 @@ public final class LoginCommandHandler {
 
         // Step 3: MFA enrollment enforcement
         if (user.mfaRequiredAt() != null && !totpEnabled) {
-            final String enrollmentToken;
+            final com.oodesigns.cas.domain.value.MfaEnrollmentToken enrollmentToken;
             try {
                 enrollmentToken = tokenService.generateMfaEnrollmentToken(user.userId());
             } catch (final RuntimeException exception) {
                 LOGGER.log(Level.WARNING, "MFA enrollment token could not be generated", exception);
                 return LoginResult.failure("MFA_SETUP_REQUIRED", "MFA enrollment is required.");
             }
-            return enrollmentToken == null || enrollmentToken.isBlank()
+            return enrollmentToken == null
                 ? LoginResult.failure("MFA_SETUP_REQUIRED", "MFA enrollment is required.")
                 : LoginResult.mfaEnrollmentRequired(enrollmentToken, user.userId());
         }
 
         // Step 4: MFA challenge (enrolled users)
         if (totpEnabled) {
-            final String verificationToken = tokenService.generate2FAVerificationToken(user.userId());
+            final var verificationToken = tokenService.generate2FAVerificationToken(user.userId());
             return LoginResult.required2FA(verificationToken, user.userId());
         }
 

@@ -2,6 +2,7 @@ package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Jti;
+import com.oodesigns.cas.domain.value.AccessToken;
 import org.jooq.DSLContext;
 
 import java.nio.charset.StandardCharsets;
@@ -27,13 +28,13 @@ public final class JooqAccessTokenRevocationStore implements Ports.AccessTokenRe
     }
 
     @Override
-    public void invalidate(final Ports.AccessTokenClaims claims, final String token, final String reason) {
+    public void invalidate(final Ports.AccessTokenClaims claims, final AccessToken token, final String reason) {
         Objects.requireNonNull(claims, "AccessTokenClaims cannot be null");
         Objects.requireNonNull(token, "Token cannot be null");
         Objects.requireNonNull(reason, "Reason cannot be null");
         dsl.execute(INVALIDATE_SQL,
                 claims.jti().asUUID(),
-                hash(token),
+                hash(token.value()),
                 Timestamp.from(claims.expiresAt()),
                 reason);
     }

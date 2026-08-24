@@ -72,8 +72,8 @@ class LoginCommandHandlerTest {
     }
 
     private void mockSuccessfulFlow() {
-        when(tokenSigner.sign(any(), any()))
-            .thenAnswer(ignored -> Optional.of("signed.token"));
+        when(tokenSigner.signAccessToken(any(), any())).thenReturn(Optional.of(AccessToken.of("signed.token.here")));
+        when(tokenSigner.signRefreshToken(any(), any())).thenReturn(Optional.of(RefreshToken.of("signed.token.here")));
         when(rateLimiter.checkLimit(any(LoginCommand.class)))
             .thenReturn(Ports.RateLimitResult.allowed());
         when(clock.now()).thenReturn(Instant.now());
@@ -208,7 +208,8 @@ class LoginCommandHandlerTest {
     @Test
     void testLoginRequires2FAWhenEnabled() {
         // Set up only the stubs we need for this test to avoid unnecessary stubbing
-        when(tokenSigner.sign(any(), any())).thenReturn(Optional.of("signed.token"));
+        when(tokenSigner.signAccessToken(any(), any())).thenReturn(Optional.of(AccessToken.of("signed.token.here")));
+        when(tokenSigner.signRefreshToken(any(), any())).thenReturn(Optional.of(RefreshToken.of("signed.token.here")));
         when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
         when(clock.now()).thenReturn(Instant.now());
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
@@ -264,7 +265,8 @@ class LoginCommandHandlerTest {
         final User userWithMfaRequiredAndEnrolled = new User(userId, Username.of("john_doe"),
             Set.of(Permission.of("read")), null, Instant.now());
 
-        when(tokenSigner.sign(any(), any())).thenReturn(Optional.of("signed.2fa.token"));
+        when(tokenSigner.signTwoFactorVerificationToken(any(), any()))
+            .thenReturn(Optional.of(TwoFactorVerificationToken.of("signed.2fa.token")));
         when(clock.now()).thenReturn(Instant.now());
         when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
@@ -322,7 +324,7 @@ class LoginCommandHandlerTest {
         loginHandler.handle(cmd);
 
         // The issued refresh token must be recorded so it can be rotated / reuse-detected later.
-        verify(refreshTokenStore).issue(eq(testCredential.userId()), anyString());
+        verify(refreshTokenStore).issue(eq(testCredential.userId()), any(RefreshToken.class));
     }
 
     @Test
@@ -333,12 +335,12 @@ class LoginCommandHandlerTest {
         when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
         when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
         when(totpStatusReader.check2FAStatus(any())).thenReturn(Optional.empty());
-        when(tokenSigner.sign(any(), any())).thenReturn(Optional.empty());
+        when(tokenSigner.signAccessToken(any(), any())).thenReturn(Optional.empty());
 
         final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
         loginHandler.handle(cmd);
 
-        verify(refreshTokenStore, never()).issue(any(), anyString());
+        verify(refreshTokenStore, never()).issue(any(), any(RefreshToken.class));
     }
 
     @Test
@@ -359,7 +361,7 @@ class LoginCommandHandlerTest {
         when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
         when(totpStatusReader.check2FAStatus(any())).thenReturn(Optional.empty());
         // Token signing fails → generateTokens returns empty
-        when(tokenSigner.sign(any(), any())).thenReturn(Optional.empty());
+        when(tokenSigner.signTwoFactorVerificationToken(any(), any())).thenReturn(Optional.empty());
 
         final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
         final LoginResult result = loginHandler.handle(cmd);

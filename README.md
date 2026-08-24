@@ -79,10 +79,10 @@ Migrations are located in `.devcontainer/flyway/`:
 
 ### How Migrations Work
 
-1. Migrations are automatically executed during Docker container startup via the Flyway service defined in `docker-compose.yml`
+1. Migrations are automatically executed during Docker container startup via the Flyway service defined in `compose.yml`
 2. Flyway tracks applied migrations in the `flyway_schema_history` table
 3. Only pending migrations (not already applied) are executed
-4. Migration status can be reviewed in `MIGRATION_REVIEW.md`
+4. Migration status can be reviewed in Flyway's `flyway_schema_history` table and the current production runbook in `docs/project/SECURITY_ROLLOUT.md`
 
 ### Creating New Migrations
 

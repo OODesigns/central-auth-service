@@ -1,6 +1,7 @@
 package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
+import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.UserId;
 import org.jooq.DSLContext;
@@ -57,14 +58,14 @@ class JooqAccessTokenRevocationStoreTest {
         final Instant expiresAt = Instant.now().plusSeconds(600);
         final Ports.AccessTokenClaims claims = new Ports.AccessTokenClaims(UserId.of(userId), Jti.of(jti), expiresAt);
 
-        store.invalidate(claims, TOKEN, REASON);
+        store.invalidate(claims, AccessToken.of(TOKEN), REASON);
 
         verify(dsl).execute(INVALIDATE_SQL, jti, sha256Hex(TOKEN), Timestamp.from(expiresAt), REASON);
     }
 
     @Test
     void invalidateRejectsNullClaims() {
-        assertThrows(NullPointerException.class, () -> store.invalidate(null, TOKEN, REASON));
+        assertThrows(NullPointerException.class, () -> store.invalidate(null, AccessToken.of(TOKEN), REASON));
     }
 
     @Test
@@ -78,7 +79,7 @@ class JooqAccessTokenRevocationStoreTest {
     void invalidateRejectsNullReason() {
         final Ports.AccessTokenClaims claims = new Ports.AccessTokenClaims(
                 UserId.of(UUID.randomUUID()), Jti.of(UUID.randomUUID()), Instant.now().plusSeconds(600));
-        assertThrows(NullPointerException.class, () -> store.invalidate(claims, TOKEN, null));
+        assertThrows(NullPointerException.class, () -> store.invalidate(claims, AccessToken.of(TOKEN), null));
     }
 
     @Test
@@ -117,7 +118,7 @@ class JooqAccessTokenRevocationStoreTest {
             mockedDigest.when(() -> MessageDigest.getInstance("SHA-256"))
                     .thenThrow(new NoSuchAlgorithmException("unavailable"));
 
-            assertThrows(IllegalStateException.class, () -> store.invalidate(claims, TOKEN, REASON));
+            assertThrows(IllegalStateException.class, () -> store.invalidate(claims, AccessToken.of(TOKEN), REASON));
         }
     }
 

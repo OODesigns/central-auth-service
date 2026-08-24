@@ -5,6 +5,10 @@ import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.Payload;
 import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
+import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -49,13 +53,13 @@ public final class TokenService {
                 .map(refreshToken -> new TokenPair(accessToken, refreshToken)));
     }
 
-    private Optional<String> createAccessToken(final UserId userId, final Jti jti,
+    private Optional<AccessToken> createAccessToken(final UserId userId, final Jti jti,
                                                final java.util.Set<Permission> permissions,
                                                final Instant issuedAt) {
         final Instant expiresAt = issuedAt.plus(ACCESS_TOKEN_TTL);
         return getPermissionsList(permissions)
                 .flatMap(p -> createAccessTokenPayload(userId, jti, p, issuedAt, expiresAt))
-                .flatMap(payload -> tokenSigner.sign(payload, expiresAt));
+                .flatMap(payload -> tokenSigner.signAccessToken(payload, expiresAt));
     }
 
     private Optional<Payload> createAccessTokenPayload(final UserId userId,
@@ -76,7 +80,7 @@ public final class TokenService {
         return Optional.of(permissionsJson);
     }
 
-    private Optional<String> createRefreshToken(final UserId userId, final Instant issuedAt) {
+    private Optional<RefreshToken> createRefreshToken(final UserId userId, final Instant issuedAt) {
         final Instant expiresAt = issuedAt.plus(REFRESH_TOKEN_TTL);
         // A unique jti guarantees every refresh token is a distinct credential even when two
         // are issued for the same user within the same second (e.g. rotation), so their hashes
@@ -84,7 +88,7 @@ public final class TokenService {
         final Jti jti = Jti.generate();
 
         return createRefreshTokenPayload(userId, jti, issuedAt, expiresAt)
-                .flatMap(payload -> tokenSigner.sign(payload, expiresAt));
+                .flatMap(payload -> tokenSigner.signRefreshToken(payload, expiresAt));
     }
 
     private Optional<Payload> createRefreshTokenPayload(final UserId userId,
@@ -107,7 +111,7 @@ public final class TokenService {
      * @param userId the user who needs to verify 2FA
      * @return the 2FA verification token
      */
-    public String generate2FAVerificationToken(final UserId userId) {
+    public TwoFactorVerificationToken generate2FAVerificationToken(final UserId userId) {
         final Instant now = clock.now();
         final Instant expiresAt = now.plus(TOTP_VERIFICATION_TOKEN_TTL);
         final Jti jti = Jti.generate();
@@ -121,25 +125,25 @@ public final class TokenService {
             jti.value()
         );
 
-        return tokenSigner.sign(Payload.of(payloadJson), expiresAt)
+        return tokenSigner.signTwoFactorVerificationToken(Payload.of(payloadJson), expiresAt)
             .orElseThrow(() -> new IllegalStateException("Failed to sign 2FA verification token"));
     }
 
     /** Generate a short-lived token that can only initiate or complete MFA enrollment. */
-    public String generateMfaEnrollmentToken(final UserId userId) {
+    public MfaEnrollmentToken generateMfaEnrollmentToken(final UserId userId) {
         final Instant now = clock.now();
         final Instant expiresAt = now.plus(MFA_ENROLLMENT_TOKEN_TTL);
         final String payloadJson = String.format(
             "{\"iss\":\"%s\",\"sub\":\"%s\",\"aud\":\"mfa_enrollment\",\"iat\":%d,\"exp\":%d,\"jti\":\"%s\"}",
             TOKEN_ISSUER, userId.toString(), now.getEpochSecond(), expiresAt.getEpochSecond(), Jti.generate().value());
-        return tokenSigner.sign(Payload.of(payloadJson), expiresAt)
+        return tokenSigner.signMfaEnrollmentToken(Payload.of(payloadJson), expiresAt)
             .orElseThrow(() -> new IllegalStateException("Failed to sign MFA enrollment token"));
     }
 
     /**
      * Token pair (access + refresh).
      */
-    public record TokenPair(String accessToken, String refreshToken) {
+    public record TokenPair(AccessToken accessToken, RefreshToken refreshToken) {
         public TokenPair {
             Objects.requireNonNull(accessToken);
             Objects.requireNonNull(refreshToken);

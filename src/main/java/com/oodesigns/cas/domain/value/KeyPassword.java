@@ -41,7 +41,7 @@ public class KeyPassword extends Password {
                 .andThen(KeyPassword::validateMinimumLength)
                 .andThen(KeyPassword::validateLength)
                 .andThen(KeyPassword::validateContents)
-                .andThen(char[]::clone)
+                .andThen(chars -> chars.clone())
                 .andThen(KeyPassword::new)
                 .apply(passwordChars);
     }

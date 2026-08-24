@@ -103,8 +103,6 @@ test {
     useJUnitPlatform {
         excludeTags 'integration'
     }
-    // Configure Mockito as a Java agent to enable inline-mock-maker
-    jvmArgs += "-javaagent:${configurations.mockitoAgent.singleFile}"
     finalizedBy jacocoTestReport
 
 }
@@ -116,7 +114,6 @@ tasks.register('integrationTest', Test) {
         includeTags 'integration'
         excludeTags 'database'  // Exclude database tests from general integration tests
     }
-    jvmArgs += "-javaagent:${configurations.mockitoAgent.singleFile}"
     shouldRunAfter test
 }
 
@@ -126,7 +123,6 @@ tasks.register('databaseIntegrationTest', Test) {
     useJUnitPlatform {
         includeTags 'database'
     }
-    jvmArgs += "-javaagent:${configurations.mockitoAgent.singleFile}"
     shouldRunAfter test
 
     // Only run if database is available (check via environment variable or manual flag)
@@ -134,6 +130,13 @@ tasks.register('databaseIntegrationTest', Test) {
     onlyIf {
         includeDbTests
     }
+}
+
+tasks.withType(Test).configureEach {
+    // Use Mockito as a startup Java agent to avoid dynamic self-attachment warnings
+    jvmArgs "-javaagent:${configurations.mockitoAgent.singleFile}"
+    // Keep compatibility with tool-driven test launches that may still attach agents
+    jvmArgs '-XX:+EnableDynamicAgentLoading'
 }
 
 jacocoTestReport {

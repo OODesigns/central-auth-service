@@ -6,6 +6,11 @@ import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.KeyPassword;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.Permission;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import com.oodesigns.cas.domain.service.TokenService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -17,6 +22,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Date;
+import java.util.Set;
+import java.util.stream.StreamSupport;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -95,14 +102,11 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
     }
 
     @Override
-    public Optional<Ports.AccessTokenClaims> verifyAccessToken(final String token) {
-        if (token == null || token.isBlank()) {
-            return Optional.empty();
-        }
+    public Optional<Ports.AccessTokenClaims> verifyAccessToken(final AccessToken token) {
         return keyIds.stream()
             .map(keySupplier::getPassword)
                 .flatMap(password -> password.stream())
-            .map(password -> parseAndVerifyAccessToken(token, password))
+            .map(password -> parseAndVerifyAccessToken(token.value(), password))
                 .flatMap(claims -> claims.stream())
             .findFirst();
     }
@@ -114,12 +118,12 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
      * has an invalid signature, has the wrong audience, or cannot be parsed.
      */
     @Override
-    public Optional<UserId> verify2FAVerificationToken(final String token) {
+    public Optional<UserId> verify2FAVerificationToken(final TwoFactorVerificationToken token) {
         return verifyWithAudience(token, AUDIENCE_2FA);
     }
 
     @Override
-    public Optional<UserId> verifyMfaEnrollmentToken(final String token) {
+    public Optional<UserId> verifyMfaEnrollmentToken(final MfaEnrollmentToken token) {
         return verifyWithAudience(token, AUDIENCE_MFA_ENROLLMENT);
     }
 
@@ -131,18 +135,15 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
      * cannot be parsed.
      */
     @Override
-    public Optional<UserId> verifyRefreshToken(final String token) {
+    public Optional<UserId> verifyRefreshToken(final RefreshToken token) {
         return verifyWithAudience(token, AUDIENCE_REFRESH);
     }
 
-    private Optional<UserId> verifyWithAudience(final String token, final String expectedAudience) {
-        if (token == null || token.isBlank()) {
-            return Optional.empty();
-        }
+    private Optional<UserId> verifyWithAudience(final com.oodesigns.cas.domain.value.CompactToken token, final String expectedAudience) {
         return keyIds.stream()
             .map(keySupplier::getPassword)
                 .flatMap(password -> password.stream())
-            .map(password -> parseAndVerify(token, password, expectedAudience))
+            .map(password -> parseAndVerify(token.value(), password, expectedAudience))
                 .flatMap(userId -> userId.stream())
             .findFirst();
     }
@@ -157,8 +158,10 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
                         .build()
                         .parseSignedClaims(token)
                         .getPayload();
-                if (isVersionTwo(claims) && hasIssuer(claims)) {
-                    return extractVersionTwoAccessTokenClaims(claims);
+                if (isVersionTwo(claims)) {
+                    return hasIssuer(claims)
+                        ? extractVersionTwoAccessTokenClaims(claims)
+                        : Optional.empty();
                 }
                 final String payloadJson = claims.get("payload", String.class);
                 return extractAccessTokenClaims(payloadJson, claims.getExpiration());
@@ -182,8 +185,10 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
                         .build()
                         .parseSignedClaims(token)
                         .getPayload();
-                if (isVersionTwo(claims) && hasIssuer(claims)) {
-                    return extractVersionTwoUserId(claims, expectedAudience);
+                if (isVersionTwo(claims)) {
+                    return hasIssuer(claims)
+                        ? extractVersionTwoUserId(claims, expectedAudience)
+                        : Optional.empty();
                 }
                 final String payloadJson = claims.get("payload", String.class);
                 return extractUserId(payloadJson, expectedAudience);
@@ -244,7 +249,8 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
             return Optional.empty();
         }
         final Ports.AccessTokenClaims accessClaims = new Ports.AccessTokenClaims(
-            UserId.of(claims.getSubject()), Jti.of(claims.getId()), claims.getExpiration().toInstant());
+            UserId.of(claims.getSubject()), Jti.of(claims.getId()), claims.getExpiration().toInstant(),
+            permissions(claims.get("permissions")));
         return accessTokenRevocationStore.isInvalidated(accessClaims.jti())
             ? Optional.empty()
             : Optional.of(accessClaims);
@@ -255,17 +261,11 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
     }
 
     static boolean hasAudienceValue(final Object audience, final String expectedAudience) {
-        if (audience instanceof String value) {
-            return expectedAudience.equals(value);
-        }
-        if (audience instanceof Iterable<?> values) {
-            for (final Object value : values) {
-                if (expectedAudience.equals(value)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return audience instanceof String value
+            ? expectedAudience.equals(value)
+            : audience instanceof Iterable<?> values
+                && StreamSupport.stream(values.spliterator(), false)
+                    .anyMatch(expectedAudience::equals);
     }
 
     private Optional<Ports.AccessTokenClaims> extractAccessTokenClaims(final String payloadJson, final Date expiration) {
@@ -285,12 +285,37 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
             final Ports.AccessTokenClaims claims = new Ports.AccessTokenClaims(
                     UserId.of(sub),
                     Jti.of(jti),
-                    expiration.toInstant());
+                    expiration.toInstant(),
+                    permissions(payload.get("permissions")));
             return accessTokenRevocationStore.isInvalidated(claims.jti()) ? Optional.empty() : Optional.of(claims);
         } catch (final Exception e) {
             LOGGER.log(Level.FINE, "Failed to parse access token payload", e);
             return Optional.empty();
         }
+    }
+
+    private Set<Permission> permissions(final Object rawPermissions) {
+        return Optional.ofNullable(rawPermissions)
+            .filter(this::isPermissionCollection)
+            .map(this::asPermissionCollection)
+            .map(this::toPermissions)
+            .orElseGet(Set::of);
+    }
+
+    private boolean isPermissionCollection(final Object value) {
+        return value instanceof Iterable<?>;
+    }
+
+    private Iterable<?> asPermissionCollection(final Object value) {
+        return (Iterable<?>) value;
+    }
+
+    private Set<Permission> toPermissions(final Iterable<?> values) {
+        return StreamSupport.stream(values.spliterator(), false)
+            .filter(String.class::isInstance)
+            .map(String.class::cast)
+            .map(Permission::of)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
 }

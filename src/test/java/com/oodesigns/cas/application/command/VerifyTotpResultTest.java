@@ -1,6 +1,8 @@
 package com.oodesigns.cas.application.command;
 
 import com.oodesigns.cas.domain.service.TokenService;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
 import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
 import org.junit.jupiter.api.Test;
@@ -15,7 +17,7 @@ class VerifyTotpResultTest {
     private static final UserId USER_ID = UserId.of(UUID.randomUUID());
     private static final Set<Permission> PERMISSIONS = Set.of(Permission.of("read"));
     private static final TokenService.TokenPair TOKEN_PAIR =
-        new TokenService.TokenPair("access.token", "refresh.token");
+        new TokenService.TokenPair(AccessToken.of("access.token.here"), RefreshToken.of("refresh.token.here"));
 
     // ---------------------------------------------------------------- SuccessResult
 

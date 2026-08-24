@@ -2,6 +2,7 @@ package com.oodesigns.cas.infrastructure.adapter;
 
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.RefreshToken;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +29,8 @@ class JooqRefreshTokenStoreTest {
 
     private static final String STORE_SQL = "SELECT api_schema.store_refresh_token(?, ?)";
     private static final String ROTATE_SQL = "SELECT api_schema.rotate_refresh_token(?, ?)";
-    private static final String PRESENTED = "presented.token";
-    private static final String REPLACEMENT = "replacement.token";
+    private static final RefreshToken PRESENTED = RefreshToken.of("presented.token.here");
+    private static final RefreshToken REPLACEMENT = RefreshToken.of("replacement.token.here");
 
     @Mock
     private DSLContext dsl;
@@ -52,7 +53,7 @@ class JooqRefreshTokenStoreTest {
 
         store.issue(UserId.of(userId), PRESENTED);
 
-        verify(dsl).execute(STORE_SQL, userId, sha256Hex(PRESENTED));
+        verify(dsl).execute(STORE_SQL, userId, sha256Hex(PRESENTED.value()));
     }
 
     @Test
@@ -71,7 +72,7 @@ class JooqRefreshTokenStoreTest {
 
         store.rotate(PRESENTED, REPLACEMENT);
 
-        verify(dsl).fetchOne(ROTATE_SQL, sha256Hex(PRESENTED), sha256Hex(REPLACEMENT));
+        verify(dsl).fetchOne(ROTATE_SQL, sha256Hex(PRESENTED.value()), sha256Hex(REPLACEMENT.value()));
     }
 
     @Test
@@ -106,7 +107,7 @@ class JooqRefreshTokenStoreTest {
 
     @Test
     void rotateMapsNullRecordToNotFound() {
-        when(dsl.fetchOne(ROTATE_SQL, sha256Hex(PRESENTED), sha256Hex(REPLACEMENT))).thenReturn(null);
+        when(dsl.fetchOne(ROTATE_SQL, sha256Hex(PRESENTED.value()), sha256Hex(REPLACEMENT.value()))).thenReturn(null);
         assertEquals(Ports.RefreshTokenStore.RotationStatus.NOT_FOUND, store.rotate(PRESENTED, REPLACEMENT));
     }
 
@@ -133,7 +134,7 @@ class JooqRefreshTokenStoreTest {
     private void stubRotate(final String status) {
         final Record record = mock(Record.class);
         when(record.get(0, String.class)).thenReturn(status);
-        when(dsl.fetchOne(ROTATE_SQL, sha256Hex(PRESENTED), sha256Hex(REPLACEMENT))).thenReturn(record);
+        when(dsl.fetchOne(ROTATE_SQL, sha256Hex(PRESENTED.value()), sha256Hex(REPLACEMENT.value()))).thenReturn(record);
     }
 
     private static String sha256Hex(final String token) {

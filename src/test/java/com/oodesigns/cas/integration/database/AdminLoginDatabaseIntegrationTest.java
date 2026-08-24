@@ -217,8 +217,8 @@ class AdminLoginDatabaseIntegrationTest {
                 assertNotNull(success.tokenPair(), "Token pair should be generated");
                 assertNotNull(success.tokenPair().accessToken(), "Access token should not be null");
                 assertNotNull(success.tokenPair().refreshToken(), "Refresh token should not be null");
-                assertFalse(success.tokenPair().accessToken().isEmpty(), "Access token should not be empty");
-                assertFalse(success.tokenPair().refreshToken().isEmpty(), "Refresh token should not be empty");
+                assertFalse(success.tokenPair().accessToken().value().isEmpty(), "Access token should not be empty");
+                assertFalse(success.tokenPair().refreshToken().value().isEmpty(), "Refresh token should not be empty");
                 return null;
             })
             .orElse(failure -> {

@@ -6,6 +6,8 @@ import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
 import com.oodesigns.cas.domain.value.Username;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,15 +58,16 @@ class RefreshTokenCommandHandlerTest {
 
     private void mockTokenGeneration() {
         when(clock.now()).thenReturn(Instant.now());
-        when(tokenSigner.sign(any(), any())).thenReturn(Optional.of("signed.token"));
+        when(tokenSigner.signAccessToken(any(), any())).thenReturn(Optional.of(AccessToken.of("signed.token.here")));
+        when(tokenSigner.signRefreshToken(any(), any())).thenReturn(Optional.of(RefreshToken.of("signed.token.here")));
     }
 
     @Test
     void handleReturnsSuccessAndRotatesWhenTokenIsCurrent() {
-        when(tokenVerifier.verifyRefreshToken(REFRESH_TOKEN)).thenReturn(Optional.of(userId));
+        when(tokenVerifier.verifyRefreshToken(RefreshToken.of(REFRESH_TOKEN))).thenReturn(Optional.of(userId));
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         mockTokenGeneration();
-        when(refreshTokenStore.rotate(eq(REFRESH_TOKEN), anyString()))
+        when(refreshTokenStore.rotate(eq(RefreshToken.of(REFRESH_TOKEN)), any(RefreshToken.class)))
             .thenReturn(Ports.RefreshTokenStore.RotationStatus.ROTATED);
 
         final RefreshTokenResult result = handler.handle(new RefreshTokenCommand(REFRESH_TOKEN));
@@ -74,15 +77,15 @@ class RefreshTokenCommandHandlerTest {
             return null;
         }).orElse(f -> { fail("Expected success: " + f.errorCode()); return null; });
 
-        verify(refreshTokenStore).rotate(eq(REFRESH_TOKEN), anyString());
+        verify(refreshTokenStore).rotate(eq(RefreshToken.of(REFRESH_TOKEN)), any(RefreshToken.class));
     }
 
     @Test
     void handleReturnsReuseDetectedWhenStoreDetectsReplay() {
-        when(tokenVerifier.verifyRefreshToken(REFRESH_TOKEN)).thenReturn(Optional.of(userId));
+        when(tokenVerifier.verifyRefreshToken(RefreshToken.of(REFRESH_TOKEN))).thenReturn(Optional.of(userId));
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         mockTokenGeneration();
-        when(refreshTokenStore.rotate(eq(REFRESH_TOKEN), anyString()))
+        when(refreshTokenStore.rotate(eq(RefreshToken.of(REFRESH_TOKEN)), any(RefreshToken.class)))
             .thenReturn(Ports.RefreshTokenStore.RotationStatus.REUSE_DETECTED);
 
         final RefreshTokenResult result = handler.handle(new RefreshTokenCommand(REFRESH_TOKEN));
@@ -93,10 +96,10 @@ class RefreshTokenCommandHandlerTest {
 
     @Test
     void handleReturnsExpiredWhenStoredTokenExpired() {
-        when(tokenVerifier.verifyRefreshToken(REFRESH_TOKEN)).thenReturn(Optional.of(userId));
+        when(tokenVerifier.verifyRefreshToken(RefreshToken.of(REFRESH_TOKEN))).thenReturn(Optional.of(userId));
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         mockTokenGeneration();
-        when(refreshTokenStore.rotate(eq(REFRESH_TOKEN), anyString()))
+        when(refreshTokenStore.rotate(eq(RefreshToken.of(REFRESH_TOKEN)), any(RefreshToken.class)))
             .thenReturn(Ports.RefreshTokenStore.RotationStatus.EXPIRED);
 
         final RefreshTokenResult result = handler.handle(new RefreshTokenCommand(REFRESH_TOKEN));
@@ -107,10 +110,10 @@ class RefreshTokenCommandHandlerTest {
 
     @Test
     void handleReturnsInvalidRefreshTokenWhenStoreReportsNotFound() {
-        when(tokenVerifier.verifyRefreshToken(REFRESH_TOKEN)).thenReturn(Optional.of(userId));
+        when(tokenVerifier.verifyRefreshToken(RefreshToken.of(REFRESH_TOKEN))).thenReturn(Optional.of(userId));
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         mockTokenGeneration();
-        when(refreshTokenStore.rotate(eq(REFRESH_TOKEN), anyString()))
+        when(refreshTokenStore.rotate(eq(RefreshToken.of(REFRESH_TOKEN)), any(RefreshToken.class)))
             .thenReturn(Ports.RefreshTokenStore.RotationStatus.NOT_FOUND);
 
         final RefreshTokenResult result = handler.handle(new RefreshTokenCommand(REFRESH_TOKEN));
@@ -121,7 +124,7 @@ class RefreshTokenCommandHandlerTest {
 
     @Test
     void handleReturnsInvalidRefreshTokenWhenVerifierRejects() {
-        when(tokenVerifier.verifyRefreshToken(REFRESH_TOKEN)).thenReturn(Optional.empty());
+        when(tokenVerifier.verifyRefreshToken(RefreshToken.of(REFRESH_TOKEN))).thenReturn(Optional.empty());
 
         final RefreshTokenResult result = handler.handle(new RefreshTokenCommand(REFRESH_TOKEN));
 
@@ -133,7 +136,7 @@ class RefreshTokenCommandHandlerTest {
 
     @Test
     void handleReturnsUserNotFoundWhenUserMissing() {
-        when(tokenVerifier.verifyRefreshToken(REFRESH_TOKEN)).thenReturn(Optional.of(userId));
+        when(tokenVerifier.verifyRefreshToken(RefreshToken.of(REFRESH_TOKEN))).thenReturn(Optional.of(userId));
         when(userRetriever.findById(userId)).thenReturn(Optional.empty());
 
         final RefreshTokenResult result = handler.handle(new RefreshTokenCommand(REFRESH_TOKEN));
@@ -146,10 +149,10 @@ class RefreshTokenCommandHandlerTest {
 
     @Test
     void handleReturnsInternalErrorWhenTokenSigningFails() {
-        when(tokenVerifier.verifyRefreshToken(REFRESH_TOKEN)).thenReturn(Optional.of(userId));
+        when(tokenVerifier.verifyRefreshToken(RefreshToken.of(REFRESH_TOKEN))).thenReturn(Optional.of(userId));
         when(userRetriever.findById(userId)).thenReturn(Optional.of(user));
         when(clock.now()).thenReturn(Instant.now());
-        when(tokenSigner.sign(any(), any())).thenReturn(Optional.empty());
+        when(tokenSigner.signAccessToken(any(), any())).thenReturn(Optional.empty());
 
         final RefreshTokenResult result = handler.handle(new RefreshTokenCommand(REFRESH_TOKEN));
 
@@ -157,7 +160,7 @@ class RefreshTokenCommandHandlerTest {
             .orElse(f -> { assertEquals("INTERNAL_ERROR", f.errorCode()); return null; });
 
         // No rotation should be attempted if the replacement token could not be generated.
-        verify(refreshTokenStore, never()).rotate(anyString(), anyString());
+        verify(refreshTokenStore, never()).rotate(any(RefreshToken.class), any(RefreshToken.class));
     }
 
     @Test

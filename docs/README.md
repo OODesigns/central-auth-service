@@ -31,6 +31,7 @@ central-auth-service/
 | Document | Description |
 |----------|-------------|
 | [ARCHITECTURE_DIAGRAMS.md](architecture/ARCHITECTURE_DIAGRAMS.md) | Current diagram index and implementation references |
+| [GOOGLE_GRPC_DESIGN_CONTRACT.md](architecture/GOOGLE_GRPC_DESIGN_CONTRACT.md) | Google-style protobuf/gRPC contract and typed internal boundary rules |
 | [GRPC_API_REFERENCE.md](api/GRPC_API_REFERENCE.md) | Authoritative request, response, outcome, and error contract for all seven gRPC RPCs |
 
 ---

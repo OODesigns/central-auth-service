@@ -1,6 +1,8 @@
 package com.oodesigns.cas.infrastructure.grpc;
 
 import com.oodesigns.cas.application.command.DisableTotpCommandHandler;
+import com.oodesigns.cas.application.command.AdminDisableTotpCommandHandler;
+import com.oodesigns.cas.application.command.DisableReason;
 import com.oodesigns.cas.application.command.DisableTotpResult;
 import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpResult;
@@ -18,8 +20,13 @@ import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.BackupCode;
 import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import com.oodesigns.cas.infrastructure.grpc.proto.DisableTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.DisableTotpResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.AdminDisableTotpRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.AdminDisableTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.EnableTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.LoginRequest;
@@ -34,6 +41,8 @@ import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpResponse;
 import io.grpc.stub.StreamObserver;
 import io.grpc.Context;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,6 +71,7 @@ class AuthGrpcServiceTest {
     @Mock private EnableTotpCommandHandler enableTotpHandler;
     @Mock private VerifyTotpCommandHandler verifyTotpHandler;
     @Mock private DisableTotpCommandHandler disableTotpHandler;
+        @Mock private AdminDisableTotpCommandHandler adminDisableTotpHandler;
     @Mock private RefreshTokenCommandHandler refreshTokenHandler;
         @Mock private LogoutCommandHandler logoutHandler;
 
@@ -70,6 +80,7 @@ class AuthGrpcServiceTest {
     @Mock private StreamObserver<EnableTotpResponse> enableTotpObserver;
     @Mock private StreamObserver<VerifyTotpResponse> verifyTotpObserver;
     @Mock private StreamObserver<DisableTotpResponse> disableTotpObserver;
+        @Mock private StreamObserver<AdminDisableTotpResponse> adminDisableTotpObserver;
     @Mock private StreamObserver<RefreshResponse> refreshObserver;
         @Mock private StreamObserver<LogoutResponse> logoutObserver;
 
@@ -83,10 +94,13 @@ class AuthGrpcServiceTest {
     @BeforeEach
     void setUp() {
         previousContext = Context.current().withValue(
-                GrpcAuthInterceptor.PRINCIPAL, UserId.of(TEST_USER_ID)).attach();
+                GrpcAuthInterceptor.PRINCIPAL, UserId.of(TEST_USER_ID))
+                .withValue(GrpcAuthInterceptor.PEER_IP, "127.0.0.1")
+                .attach();
         service = new AuthGrpcService(
                 loginHandler, setupTotpHandler, enableTotpHandler,
-                verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler);
+                verifyTotpHandler, disableTotpHandler, adminDisableTotpHandler,
+                refreshTokenHandler, logoutHandler);
     }
 
         @AfterEach
@@ -102,49 +116,56 @@ class AuthGrpcServiceTest {
     void constructor_ThrowsNPE_WhenLoginHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(null, setupTotpHandler, enableTotpHandler,
-                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler));
+                        verifyTotpHandler, disableTotpHandler, adminDisableTotpHandler, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenSetupTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, null, enableTotpHandler,
-                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler));
+                        verifyTotpHandler, disableTotpHandler, adminDisableTotpHandler, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenEnableTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, null,
-                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler, logoutHandler));
+                        verifyTotpHandler, disableTotpHandler, adminDisableTotpHandler, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenVerifyTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
-                        null, disableTotpHandler, refreshTokenHandler, logoutHandler));
+                        null, disableTotpHandler, adminDisableTotpHandler, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenDisableTotpHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
-                        verifyTotpHandler, null, refreshTokenHandler, logoutHandler));
+                        verifyTotpHandler, null, adminDisableTotpHandler, refreshTokenHandler, logoutHandler));
+    }
+
+    @Test
+    void constructor_ThrowsNPE_WhenAdminDisableTotpHandlerIsNull() {
+        assertThrows(NullPointerException.class, () ->
+                new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
+                        verifyTotpHandler, disableTotpHandler, null, refreshTokenHandler, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenRefreshTokenHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
-                        verifyTotpHandler, disableTotpHandler, null, logoutHandler));
+                        verifyTotpHandler, disableTotpHandler, adminDisableTotpHandler, null, logoutHandler));
     }
 
     @Test
     void constructor_ThrowsNPE_WhenLogoutHandlerIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
-                        verifyTotpHandler, disableTotpHandler, refreshTokenHandler, null));
+                        verifyTotpHandler, disableTotpHandler, adminDisableTotpHandler, refreshTokenHandler, null));
     }
 
     // =========================================================================
@@ -154,7 +175,7 @@ class AuthGrpcServiceTest {
     @Test
     void login_SuccessResult_ReturnsLoginSuccessResponse() {
         final TokenService.TokenPair tokenPair =
-                new TokenService.TokenPair(TEST_ACCESS_TOKEN, TEST_REFRESH_TOKEN);
+                new TokenService.TokenPair(AccessToken.of(TEST_ACCESS_TOKEN), RefreshToken.of(TEST_REFRESH_TOKEN));
         final LoginResult result = LoginResult.success(
                 tokenPair, UserId.of(TEST_USER_ID), Set.of(Permission.of("read_data")));
 
@@ -177,7 +198,7 @@ class AuthGrpcServiceTest {
     @Test
     void login_Required2FAResult_ReturnsTotpRequiredResponse() {
         final LoginResult result =
-                LoginResult.required2FA("verification.token", UserId.of(TEST_USER_ID));
+                LoginResult.required2FA(TwoFactorVerificationToken.of("verification.token.here"), UserId.of(TEST_USER_ID));
 
         when(loginHandler.handle(any())).thenReturn(result);
 
@@ -189,7 +210,7 @@ class AuthGrpcServiceTest {
 
         final LoginResponse response = captor.getValue();
         assertTrue(response.hasTotpRequired());
-        assertEquals("verification.token", response.getTotpRequired().getVerificationToken());
+        assertEquals("verification.token.here", response.getTotpRequired().getVerificationToken());
         assertEquals(TEST_USER_ID, response.getTotpRequired().getUserId());
     }
 
@@ -234,7 +255,6 @@ class AuthGrpcServiceTest {
         final LoginRequest invalidRequest = LoginRequest.newBuilder()
                 .setUsername("")
                 .setPassword("securepassword123")
-                .setIpAddress("192.168.1.1")
                 .build();
 
         service.login(invalidRequest, loginObserver);
@@ -386,7 +406,7 @@ class AuthGrpcServiceTest {
     @Test
     void verifyTotp_SuccessResult_ReturnsVerifyTotpSuccessResponse() {
         final TokenService.TokenPair tokenPair =
-                new TokenService.TokenPair(TEST_ACCESS_TOKEN, TEST_REFRESH_TOKEN);
+                new TokenService.TokenPair(AccessToken.of(TEST_ACCESS_TOKEN), RefreshToken.of(TEST_REFRESH_TOKEN));
         final VerifyTotpResult result = VerifyTotpResult.success(
                 tokenPair, UserId.of(TEST_USER_ID), Set.of(Permission.of("read_data")));
 
@@ -454,7 +474,7 @@ class AuthGrpcServiceTest {
     @Test
     void refresh_SuccessResult_ReturnsRefreshSuccessResponse() {
         final TokenService.TokenPair tokenPair =
-                new TokenService.TokenPair(TEST_ACCESS_TOKEN, TEST_REFRESH_TOKEN);
+                new TokenService.TokenPair(AccessToken.of(TEST_ACCESS_TOKEN), RefreshToken.of(TEST_REFRESH_TOKEN));
         final RefreshTokenResult result = RefreshTokenResult.success(
                 tokenPair, UserId.of(TEST_USER_ID), Set.of(Permission.of("read_data")));
 
@@ -695,6 +715,87 @@ class AuthGrpcServiceTest {
         verify(disableTotpHandler, never()).handle(any());
     }
 
+        // =========================================================================
+        // Admin Disable TOTP
+        // =========================================================================
+
+        @Test
+        void adminDisableTotp_Success_AllowsCrossUserWhenAdminAuthorized() {
+                when(adminDisableTotpHandler.handle(any())).thenReturn(DisableTotpResult.success());
+                final UserId adminId = UserId.of(UUID.randomUUID());
+                final UserId targetId = UserId.of(UUID.randomUUID());
+
+                withContext(adminId, Set.of(Permission.of("manage_mfa")), false, () ->
+                        service.adminDisableTotp(validAdminDisableTotpRequest(targetId.asUUID().toString()), adminDisableTotpObserver));
+
+                final ArgumentCaptor<AdminDisableTotpResponse> responseCaptor =
+                                ArgumentCaptor.forClass(AdminDisableTotpResponse.class);
+                final ArgumentCaptor<com.oodesigns.cas.application.command.AdminDisableTotpCommand> commandCaptor =
+                                ArgumentCaptor.forClass(com.oodesigns.cas.application.command.AdminDisableTotpCommand.class);
+                verify(adminDisableTotpHandler).handle(commandCaptor.capture());
+                verify(adminDisableTotpObserver).onNext(responseCaptor.capture());
+                verify(adminDisableTotpObserver).onCompleted();
+
+                final var command = commandCaptor.getValue();
+                assertEquals(adminId, command.adminId());
+                assertEquals(targetId, command.targetUserId());
+                assertEquals(DisableReason.ADMIN_FORCED, command.reason());
+                assertEquals("AdminPassword1234", String.valueOf(command.adminPassword().chars()));
+                assertTrue(responseCaptor.getValue().hasSuccess());
+        }
+
+        @Test
+        void adminDisableTotp_RejectsWhenManageMfaPermissionMissing() {
+                withContext(UserId.of(UUID.randomUUID()), Set.of(), false, () ->
+                        service.adminDisableTotp(validAdminDisableTotpRequest(UUID.randomUUID().toString()), adminDisableTotpObserver));
+
+                final ArgumentCaptor<Throwable> errorCaptor = ArgumentCaptor.forClass(Throwable.class);
+                verify(adminDisableTotpObserver).onError(errorCaptor.capture());
+                verify(adminDisableTotpHandler, never()).handle(any());
+                assertEquals(Status.PERMISSION_DENIED.getCode(), ((StatusRuntimeException) errorCaptor.getValue()).getStatus().getCode());
+        }
+
+        @Test
+        void adminDisableTotp_RejectsEnrollmentTokenContext() {
+                withContext(UserId.of(UUID.randomUUID()), Set.of(Permission.of("manage_mfa")), true, () ->
+                        service.adminDisableTotp(validAdminDisableTotpRequest(UUID.randomUUID().toString()), adminDisableTotpObserver));
+
+                final ArgumentCaptor<Throwable> errorCaptor = ArgumentCaptor.forClass(Throwable.class);
+                verify(adminDisableTotpObserver).onError(errorCaptor.capture());
+                verify(adminDisableTotpHandler, never()).handle(any());
+                assertEquals(Status.UNAUTHENTICATED.getCode(), ((StatusRuntimeException) errorCaptor.getValue()).getStatus().getCode());
+        }
+
+        @Test
+        void adminDisableTotp_RejectsUserRequestedReason() {
+                withContext(UserId.of(UUID.randomUUID()), Set.of(Permission.of("manage_mfa")), false, () ->
+                        service.adminDisableTotp(AdminDisableTotpRequest.newBuilder()
+                                        .setTargetUserId(UUID.randomUUID().toString())
+                                        .setAdminPassword("AdminPassword1234")
+                                        .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.USER_REQUESTED)
+                                        .build(), adminDisableTotpObserver));
+
+                final ArgumentCaptor<Throwable> errorCaptor = ArgumentCaptor.forClass(Throwable.class);
+                verify(adminDisableTotpObserver).onError(errorCaptor.capture());
+                verify(adminDisableTotpHandler, never()).handle(any());
+                assertEquals(Status.INVALID_ARGUMENT.getCode(), ((StatusRuntimeException) errorCaptor.getValue()).getStatus().getCode());
+        }
+
+        @Test
+        void adminDisableTotp_RejectsInvalidTargetUserId() {
+                withContext(UserId.of(UUID.randomUUID()), Set.of(Permission.of("manage_mfa")), false, () ->
+                        service.adminDisableTotp(AdminDisableTotpRequest.newBuilder()
+                                        .setTargetUserId("not-a-uuid")
+                                        .setAdminPassword("AdminPassword1234")
+                                        .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.ADMIN_FORCED)
+                                        .build(), adminDisableTotpObserver));
+
+                final ArgumentCaptor<Throwable> errorCaptor = ArgumentCaptor.forClass(Throwable.class);
+                verify(adminDisableTotpObserver).onError(errorCaptor.capture());
+                verify(adminDisableTotpHandler, never()).handle(any());
+                assertEquals(Status.INVALID_ARGUMENT.getCode(), ((StatusRuntimeException) errorCaptor.getValue()).getStatus().getCode());
+        }
+
     // =========================================================================
     // Helpers
     // =========================================================================
@@ -703,7 +804,6 @@ class AuthGrpcServiceTest {
         return LoginRequest.newBuilder()
                 .setUsername("testuser")
                 .setPassword("securepassword123")
-                .setIpAddress("192.168.1.1")
                 .build();
     }
 
@@ -741,5 +841,29 @@ class AuthGrpcServiceTest {
                 .setRefreshToken("valid.refresh.token")
                 .build();
     }
+
+        private AdminDisableTotpRequest validAdminDisableTotpRequest(final String targetUserId) {
+                return AdminDisableTotpRequest.newBuilder()
+                                .setTargetUserId(targetUserId)
+                                .setAdminPassword("AdminPassword1234")
+                                .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.ADMIN_FORCED)
+                                .build();
+        }
+
+        private void withContext(final UserId principal,
+                                                         final Set<Permission> permissions,
+                                                         final boolean enrollmentToken,
+                                                         final Runnable action) {
+                final Context previous = Context.current()
+                                .withValue(GrpcAuthInterceptor.PRINCIPAL, principal)
+                                .withValue(GrpcAuthInterceptor.PERMISSIONS, permissions)
+                                .withValue(GrpcAuthInterceptor.ENROLLMENT_TOKEN, enrollmentToken)
+                                .attach();
+                try {
+                        action.run();
+                } finally {
+                        Context.current().detach(previous);
+                }
+        }
 }
 

@@ -67,7 +67,7 @@ class JwtTokenSignerTest {
         }, "test-key");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        assertTrue(shortKeySigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt).isEmpty(),
+        assertTrue(shortKeySigner.signAccessToken(Payload.of("{\"sub\":\"user\"}"), expiresAt).isEmpty(),
             "Should return empty Optional for key < 32 characters at signing time");
     }
 
@@ -77,7 +77,7 @@ class JwtTokenSignerTest {
         final JwtTokenSigner nullPasswordSigner = new JwtTokenSigner(_ -> java.util.Optional.empty(), "test-key");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final var result = nullPasswordSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
+        final var result = nullPasswordSigner.signAccessToken(Payload.of("{\"sub\":\"user\"}"), expiresAt);
         assertTrue(result.isEmpty(), "Should return empty Optional when supplier returns empty password");
     }
 
@@ -87,7 +87,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\",\"iat\":1234567890,\"exp\":1234567900}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         assertNotNull(token, "Token should not be null");
         assertFalse(token.isBlank(), "Token should not be empty");
@@ -99,8 +99,8 @@ class JwtTokenSignerTest {
     void shouldGenerateDifferentTokensForDifferentPayloads() {
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
         
-        final String token1 = signer.sign(Payload.of("{\"sub\":\"user1\"}"), expiresAt).orElseThrow();
-        final String token2 = signer.sign(Payload.of("{\"sub\":\"user2\"}"), expiresAt).orElseThrow();
+        final String token1 = signer.signAccessToken(Payload.of("{\"sub\":\"user1\"}"), expiresAt).orElseThrow().value();
+        final String token2 = signer.signAccessToken(Payload.of("{\"sub\":\"user2\"}"), expiresAt).orElseThrow().value();
 
         assertNotEquals(token1, token2, "Different payloads should generate different tokens");
     }
@@ -110,7 +110,7 @@ class JwtTokenSignerTest {
     void shouldReturnEmptyForNullPayload() {
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        assertTrue(signer.sign(null, expiresAt).isEmpty(),
+        assertTrue(signer.signAccessToken(null, expiresAt).isEmpty(),
             "Should return empty Optional for null payload");
     }
 
@@ -126,7 +126,7 @@ class JwtTokenSignerTest {
     void shouldReturnEmptyForNullExpiration() {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
 
-        assertTrue(signer.sign(payload, null).isEmpty(),
+        assertTrue(signer.signAccessToken(payload, null).isEmpty(),
                 "Should return empty Optional for null expiration");
     }
 
@@ -136,7 +136,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\",\"permissions\":[\"READ\",\"WRITE\"]}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         // Verify the token can be parsed and contains our payload
         final var claims = parseToken(token);
@@ -156,7 +156,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         final Instant expiresAt = Instant.now().plus(2, ChronoUnit.HOURS).truncatedTo(ChronoUnit.SECONDS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         final var claims = parseToken(token);
         final Date tokenExpiration = claims.getExpiration();
@@ -170,7 +170,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         assertThrows(Exception.class, () -> parseTokenWithDifferentKey(token),
             "Should reject token signed with different key");
@@ -187,7 +187,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of(payloadJson);
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         final var claims = parseToken(token);
         assertEquals(payloadJson, claims.get("payload", String.class),
@@ -229,7 +229,7 @@ class JwtTokenSignerTest {
             );
             final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-            final var result = exceptionSigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
+            final var result = exceptionSigner.signAccessToken(Payload.of("{\"sub\":\"user\"}"), expiresAt);
 
             assertTrue(result.isEmpty(), "Should return empty Optional when signing fails");
         }
@@ -248,7 +248,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user\"}");
 
         // Trigger the sign operation which should call getPassword
-        customSigner.sign(payload, expiresAt);
+        customSigner.signAccessToken(payload, expiresAt);
 
         // Verify the correct key ID was used
         assertTrue(true, "Key ID parameter was correctly passed to supplier");
@@ -260,7 +260,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         final Instant expiresAt = Instant.now().minus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         assertNotNull(token, "Should still generate token even with past expiration");
         // Token is created but would be immediately expired when validated
@@ -273,7 +273,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of(largeJson);
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         final var claims = parseToken(token);
         assertEquals(payload.value(), claims.get("payload", String.class),
@@ -286,7 +286,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         final var claims = parseToken(token);
         assertEquals("{}", claims.get("payload", String.class),
@@ -300,8 +300,8 @@ class JwtTokenSignerTest {
         final Instant expiresAt1 = Instant.now().plus(1, ChronoUnit.HOURS);
         final Instant expiresAt2 = Instant.now().plus(2, ChronoUnit.HOURS);
 
-        final String token1 = signer.sign(payload, expiresAt1).orElseThrow();
-        final String token2 = signer.sign(payload, expiresAt2).orElseThrow();
+        final String token1 = signer.signAccessToken(payload, expiresAt1).orElseThrow().value();
+        final String token2 = signer.signAccessToken(payload, expiresAt2).orElseThrow().value();
 
         assertNotEquals(token1, token2, "Different expiration times should generate different tokens");
     }
@@ -312,7 +312,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         // JWT format: header.payload.signature
         // Header contains algorithm information
@@ -329,7 +329,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"user\":{\"id\":\"123\",\"roles\":[\"ADMIN\",\"USER\"]},\"nested\":{\"level2\":{\"value\":true}}}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         final var claims = parseToken(token);
         assertEquals(payload.value(), claims.get("payload", String.class),
@@ -342,7 +342,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");
         final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         assertFalse(token.contains(TEST_SECRET), "Token should not contain the secret key");
         assertFalse(token.contains("this-is-a-test"), "Token should not contain secret key substrings");
@@ -369,7 +369,7 @@ class JwtTokenSignerTest {
         final Payload payload = Payload.of("{\"sub\":\"user\"}");
         final Instant expiresAt = Instant.now().plus(30, ChronoUnit.SECONDS).truncatedTo(ChronoUnit.SECONDS);
 
-        final String token = signer.sign(payload, expiresAt).orElseThrow();
+        final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
 
         final var claims = parseToken(token);
         final Date tokenExp = claims.getExpiration();
@@ -385,7 +385,7 @@ class JwtTokenSignerTest {
 
         for (int i = 0; i < 10; i++) {
             final Payload payload = Payload.of("{\"sub\":\"user" + i + "\"}");
-            final String token = signer.sign(payload, expiresAt).orElseThrow();
+            final String token = signer.signAccessToken(payload, expiresAt).orElseThrow().value();
             
             final var claims = parseToken(token);
             assertEquals(payload.value(), claims.get("payload", String.class),
@@ -413,7 +413,7 @@ class JwtTokenSignerTest {
 
             try {
                 final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
-                final var result = faultySigner.sign(Payload.of("{\"sub\":\"user\"}"), expiresAt);
+                final var result = faultySigner.signAccessToken(Payload.of("{\"sub\":\"user\"}"), expiresAt);
 
                 assertTrue(result.isEmpty(), "Should return empty Optional when password conversion fails");
                 // The catch block and logger.log() lambda should be fully evaluated here

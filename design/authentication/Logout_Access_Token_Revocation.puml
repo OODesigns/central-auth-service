@@ -40,7 +40,9 @@ note right of Db
 end note
 
 note right of Consumer
-  Protected RPC integration is future work.
-  The smoke test verifies this contract.
+  Protected RPCs reject missing, invalid,
+  expired, or revoked bearer tokens.
+  Logout requires the bearer token to match
+  the request token.
 end note
 @enduml

@@ -1,5 +1,7 @@
 package com.oodesigns.cas.application.command;
 
+import com.oodesigns.cas.domain.value.RefreshToken;
+
 /**
  * Command to exchange a valid refresh token for a fresh access + refresh token pair.
  * <p>
@@ -8,11 +10,13 @@ package com.oodesigns.cas.application.command;
  *
  * @param refreshToken the raw refresh token issued by a previous login / 2FA verification / refresh
  */
-public record RefreshTokenCommand(String refreshToken) {
+public record RefreshTokenCommand(RefreshToken refreshToken) {
     public RefreshTokenCommand {
-        if (refreshToken == null || refreshToken.isBlank()) {
-            throw new IllegalArgumentException("Refresh token is required");
-        }
+        java.util.Objects.requireNonNull(refreshToken, "Refresh token is required");
+    }
+
+    public RefreshTokenCommand(final String refreshToken) {
+        this(RefreshToken.of(refreshToken));
     }
 }
 

@@ -12,6 +12,7 @@ The implementation and tests are authoritative. This overview does not claim tha
 | --- | --- |
 | Password handling | Plaintext passwords are moved into clearable `char[]` value objects at the service boundary, cloned defensively, masked in logs, and cleared through `AutoCloseable`. Protobuf and BCrypt still impose short-lived immutable `String` boundaries. |
 | Authentication | Login rate limiting runs before credential lookup; missing users and bad passwords share the same public outcome; BCrypt verifies stored password hashes. |
+| Rate-limit identity | Login rate limiting uses the gRPC transport peer address; the client-supplied `ip_address` field is retained only for wire compatibility and is not trusted. |
 | MFA | TOTP secrets are encrypted, pending enrollment is separated from active state, accepted counters prevent replay, backup codes are hashed and single-use, and verification is rate-limited. |
 | Tokens | Access, refresh, and 2FA tokens have separate purposes and lifetimes. Refresh tokens rotate atomically, reuse revokes the family, and access-token JTIs can be revoked. |
 | Database | Application access is constrained to `api_schema` functions over `private_schema` data, with `SECURITY DEFINER`, locked `search_path`, explicit ownership, and restricted grants. |
@@ -28,6 +29,8 @@ The service follows hexagonal architecture: domain and application code depend o
 3. Infrastructure adapters perform cryptography and external I/O behind domain ports.
 4. PostgreSQL exposes approved functions rather than direct application table access.
 5. The deployment platform supplies TLS material, database credentials, signing keys, encryption keys, and pipeline enforcement.
+
+When a trusted proxy or sidecar terminates the client connection, it must preserve the original peer address through a trusted transport boundary. The service does not trust arbitrary forwarded-IP metadata; otherwise the rate limiter sees the proxy address and cannot distinguish clients.
 
 Login, refresh, and TOTP challenge exchange remain credential-bearing public entry points; protected management methods require the interceptor's verified bearer or enrollment token. Network reachability, TLS client authentication, and upstream authorization must not be mistaken for application-level principal authorization unless the deployment explicitly provides and verifies them.
 
@@ -75,7 +78,7 @@ JWT HMAC conversion and access/refresh-token hashing explicitly clear their temp
 
 [LoginCommandHandler](../../src/main/java/com/oodesigns/cas/application/command/LoginCommandHandler.java) applies controls in security-sensitive order:
 
-1. Check IP, username, and combined IP-plus-username rate limits.
+1. Derive the peer IP from the gRPC transport, then check IP, username, and combined IP-plus-username rate limits.
 2. Retrieve the minimal stored credential record.
 3. Verify the supplied password with BCrypt.
 4. Load the full user only after password verification.
@@ -107,24 +110,24 @@ TOTP verification is rate-limited per user. Disabling TOTP requires password rea
 
 `GrpcAuthInterceptor` requires an access token for `DisableTotp` and `Logout`, and accepts either an access token or the dedicated short-lived MFA-enrollment token for `SetupTotp` and `EnableTotp`. [AuthGrpcService](../../src/main/java/com/oodesigns/cas/infrastructure/grpc/AuthGrpcService.java) checks that any supplied user identifier matches the verified principal. The enrollment token is issued only after password authentication when policy requires MFA but no active secret exists.
 
-The interceptor provides principal binding, but the current token claims do not carry roles or permissions, so this is self-service authorization rather than general administrative authorization. Authenticated self-service calls accept only `USER_REQUESTED`; `ADMIN_FORCED`, `SECURITY_INCIDENT`, and `RECOVERY_FLOW` require a separate role/permission policy before they can be safely exposed.
+The interceptor provides principal binding and carries the access token's validated permission snapshot. `USER_REQUESTED` is restricted to the caller's own account; cross-user actions and `ADMIN_FORCED`, `SECURITY_INCIDENT`, and `RECOVERY_FLOW` require the database-seeded `manage_mfa` permission. Privileged permissions are snapshots until token expiry, so critical role changes should revoke existing JTIs or use a fresh permission lookup.
 
 ## Tokens and sessions
 
 [TokenService](../../src/main/java/com/oodesigns/cas/domain/service/TokenService.java) separates token purposes:
 
-| Token | Lifetime | Intended use |
-| --- | ---: | --- |
-| Access | 15 minutes | Authorized API access |
-| Refresh | 7 days | Rotating session continuation |
-| 2FA verification | 5 minutes | Complete the MFA login challenge only |
+| Token | Audience | Lifetime | Intended use |
+| --- | --- | ---: | --- |
+| Access | `access_token` | 15 minutes | Authorized API access |
+| Refresh | `refresh_token` | 7 days | Rotating session continuation |
+| 2FA verification | `2fa_verification` | 5 minutes | Complete the MFA login challenge only |
 
 Version 2 tokens include subject, audience where applicable, JTI, issued-at, expiration, and a `ver: 2` marker. [JwtTokenVerifier](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/JwtTokenVerifier.java) validates signatures, token purpose, expiry, and access-token revocation state.
 
 The active signing key is used for issuance, while an allowlisted active-plus-previous key set supports manual rotation. Current limitations are:
 
 - HS256 uses shared symmetric secrets; compromise of a verification key permits signing.
-- Legacy tokens may have no issuer claim; new version-2 tokens use and require issuer `central-auth-service`.
+- Legacy tokens may have no issuer claim during the controlled migration window. New version-2 tokens use and require issuer `central-auth-service`; retire legacy verification after the maximum token lifetime and revoke remaining legacy sessions where possible.
 - Verification tries allowed keys rather than selecting by `kid`.
 - Key distribution, retirement, and emergency rotation are operational procedures rather than an integrated key-management service.
 
@@ -136,7 +139,7 @@ Refresh tokens are stored as SHA-256 hashes, rotated atomically under database l
 
 Login uses independent IP, normalized-username, and combined-key limits. [DatabaseLoginRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/DatabaseLoginRateLimiter.java) delegates to an atomic PostgreSQL function, allowing limits to be shared across service instances. Database failures deny the login attempt rather than silently bypassing the limiter.
 
-TOTP verification defaults to the distributed PostgreSQL limiter in [DatabaseTotpRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/DatabaseTotpRateLimiter.java), using the same atomic fixed-window function as login. The process-local [TotpRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/TotpRateLimiter.java) remains available only through explicit `TOTP_RATE_LIMIT_BACKEND=memory` configuration for local development. Database rate-limit keys have no hard cardinality cap and are cleaned during later consume operations. Capacity limits, retention, and abuse monitoring remain operational concerns.
+TOTP verification defaults to the distributed PostgreSQL limiter in [DatabaseTotpRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/DatabaseTotpRateLimiter.java), using the same atomic fixed-window function as login. The process-local [TotpRateLimiter](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/TotpRateLimiter.java) remains available only through explicit `TOTP_RATE_LIMIT_BACKEND=memory` configuration for local development and is bounded at 100,000 tracked keys with expiry eviction. Database rate-limit rows have no independent hard cardinality cap or cleanup worker and require scheduled retention cleanup. Capacity limits, retention, and abuse monitoring remain operational concerns.
 
 ## Database isolation
 
@@ -191,9 +194,9 @@ The following table records the status of the findings from the original securit
 
 | Priority | Risk | Required direction |
 | --- | --- | --- |
-| Resolved with limits | Protected MFA/logout RPCs lacked principal binding and central token enforcement. | `GrpcAuthInterceptor` now enforces bearer/enrollment token policy and user-ID matching; add role/permission claims for privileged administration. |
+| Resolved with limits | Protected MFA/logout RPCs lacked principal binding and central token enforcement. | `GrpcAuthInterceptor` now enforces bearer/enrollment token policy, user-ID matching, and `manage_mfa` permission checks; permission snapshots remain valid until token expiry. |
 | Medium | Actor attribution and audit retention still depend on application/deployment integration. | Set transaction-scoped actor context, define retention, and test attributable events and redaction. |
-| Medium | Distributed rate-limit storage has no hard cardinality cap or independent retention worker. | Bound keys, schedule cleanup, and monitor abuse and storage growth. |
+| Medium | Database rate-limit storage has no hard cardinality cap or independent retention worker. | Schedule cleanup, add storage bounds, and monitor abuse and storage growth; the explicit memory backend is bounded at 100,000 keys. |
 | Medium | JWT and TOTP key rotation is manual; legacy CBC TOTP values remain readable. | Define automated key lifecycle, previous-key retirement, emergency rotation, and re-encryption procedures. |
 | Medium | mTLS certificates are not mapped to application principals; certificate revocation is not integrated. | Bind client identity to authorization policy and enforce certificate lifecycle/revocation at the service or trusted ingress. TLS protocol/cipher selection is pinned in the service. |
 | Low | Plaintext secrets cross immutable library/API boundaries. | Keep boundaries short, restrict diagnostics and host access, and prefer clearable APIs when dependencies permit. |

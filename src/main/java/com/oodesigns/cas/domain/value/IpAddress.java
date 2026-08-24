@@ -63,6 +63,9 @@ public final class IpAddress extends ValidatedValue<String> {
      * @return true if valid IPv4 or IPv6, false otherwise
      */
     private static boolean isValidIpAddress(final String ip) {
+        if (!isLiteralAddress(ip)) {
+            return false;
+        }
         try {
             //noinspection ResultOfMethodCallIgnored
             InetAddress.getByName(ip);
@@ -70,5 +73,11 @@ public final class IpAddress extends ValidatedValue<String> {
         } catch (final UnknownHostException _) {
             return false;
         }
+    }
+
+    private static boolean isLiteralAddress(final String value) {
+        return value.contains(":")
+            ? value.matches("[0-9A-Fa-f:.]+")
+            : value.matches("[0-9.]+");
     }
 }

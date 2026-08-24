@@ -1,6 +1,5 @@
 package com.oodesigns.cas.domain.value;
 
-import jakarta.annotation.Nonnull;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -139,12 +138,11 @@ public class Password implements AutoCloseable {
         return Function.<char[]>identity()
             .andThen(Password::validateLength)
             .andThen(Password::validateContent)
-            .andThen(char[]::clone)
+            .andThen(chars -> chars.clone())
             .andThen(Password::new)
             .apply(passwordChars);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return "Password{***}";

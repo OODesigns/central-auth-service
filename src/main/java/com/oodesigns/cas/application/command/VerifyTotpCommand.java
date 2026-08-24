@@ -1,6 +1,7 @@
 package com.oodesigns.cas.application.command;
 
 import java.util.Objects;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 
 /**
  * Command to complete 2FA verification after login.
@@ -17,7 +18,7 @@ import java.util.Objects;
  * </ul>
  * Any other format is rejected before reaching the infrastructure ports.
  */
-public record VerifyTotpCommand(String verificationToken, String code) {
+public record VerifyTotpCommand(TwoFactorVerificationToken verificationToken, String code) {
 
     private static final String OTP_PATTERN = "^\\d{6}$";
     private static final String BACKUP_CODE_PATTERN = "^[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$";
@@ -33,13 +34,14 @@ public record VerifyTotpCommand(String verificationToken, String code) {
     public VerifyTotpCommand {
         Objects.requireNonNull(verificationToken, "Verification token is required");
         Objects.requireNonNull(code, "Code is required");
-        if (verificationToken.isBlank()) {
-            throw new IllegalArgumentException("Verification token cannot be blank");
-        }
         if (!code.matches(OTP_PATTERN) && !code.matches(BACKUP_CODE_PATTERN)) {
             throw new IllegalArgumentException(
                 "Code must be a 6-digit OTP or a XXXX-XXXX-XXXX-XXXX backup code");
         }
+    }
+
+    public VerifyTotpCommand(final String verificationToken, final String code) {
+        this(TwoFactorVerificationToken.of(verificationToken), code);
     }
 
     /**

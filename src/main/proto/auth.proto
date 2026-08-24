@@ -7,7 +7,8 @@ option java_outer_classname = "AuthProto";
 option java_multiple_files = true;
 
 // Central Authentication Service — gRPC API
-// Maps 1-to-1 to application command handlers.
+// Transport values are validated and converted to domain value objects at the
+// infrastructure boundary. The contract does not use JSON envelopes.
 service AuthService {
     // Authenticate with username + password. Returns tokens, 2FA challenge, or error.
     rpc Login(LoginRequest) returns (LoginResponse);
@@ -29,6 +30,9 @@ service AuthService {
 
     // Disable TOTP 2FA after password re-authentication.
     rpc DisableTotp(DisableTotpRequest) returns (DisableTotpResponse);
+
+    // Disable another user's TOTP 2FA with administrative authorization.
+    rpc AdminDisableTotp(AdminDisableTotpRequest) returns (AdminDisableTotpResponse);
 }
 
 // ============================================================================
@@ -38,7 +42,9 @@ service AuthService {
 message LoginRequest {
     string username   = 1;
     string password   = 2;
-    string ip_address = 3;
+    // Deprecated: the server derives the peer address from the gRPC transport.
+    string ip_address = 3 [deprecated = true];
+        reserved 1000 to 1999;
 }
 
 message LoginResponse {
@@ -49,6 +55,7 @@ message LoginResponse {
         Error                     error                  = 4;
         LoginMfaEnrollmentRequired mfa_enrollment_required = 5;
     }
+        reserved 1000 to 1999;
 }
 
 message LoginSuccess {
@@ -56,20 +63,24 @@ message LoginSuccess {
     string          refresh_token = 2;
     string          user_id       = 3;
     repeated string permissions   = 4;
+        reserved 1000 to 1999;
 }
 
 message Login2FARequired {
     string verification_token = 1;
     string user_id            = 2;
+        reserved 1000 to 1999;
 }
 
 message LoginPasswordResetRequired {
     string user_id = 1;
+        reserved 1000 to 1999;
 }
 
 message LoginMfaEnrollmentRequired {
     string enrollment_token = 1;
     string user_id = 2;
+        reserved 1000 to 1999;
 }
 
 // ============================================================================
@@ -77,8 +88,11 @@ message LoginMfaEnrollmentRequired {
 // ============================================================================
 
 message SetupTotpRequest {
+    // Validated as a UUID and bound to the authenticated/enrollment principal.
     string user_id  = 1;
+    // Validated as a normalized username for the otpauth label.
     string username = 2;
+        reserved 1000 to 1999;
 }
 
 message SetupTotpResponse {
@@ -86,11 +100,13 @@ message SetupTotpResponse {
         SetupTotpSuccess success = 1;
         Error            error   = 2;
     }
+        reserved 1000 to 1999;
 }
 
 message SetupTotpSuccess {
     string secret      = 1;
     string otpauth_uri = 2;
+        reserved 1000 to 1999;
 }
 
 // ============================================================================
@@ -98,8 +114,11 @@ message SetupTotpSuccess {
 // ============================================================================
 
 message EnableTotpRequest {
+    // Validated as a UUID and bound to the authenticated/enrollment principal.
     string user_id   = 1;
+    // Exactly six decimal digits after boundary validation.
     string totp_code = 2;
+        reserved 1000 to 1999;
 }
 
 message EnableTotpResponse {
@@ -107,10 +126,12 @@ message EnableTotpResponse {
         EnableTotpSuccess success = 1;
         Error             error   = 2;
     }
+        reserved 1000 to 1999;
 }
 
 message EnableTotpSuccess {
     repeated string backup_codes = 1;
+        reserved 1000 to 1999;
 }
 
 // ============================================================================
@@ -118,9 +139,11 @@ message EnableTotpSuccess {
 // ============================================================================
 
 message VerifyTotpRequest {
+    // Opaque short-lived token; validated into a typed domain token at ingress.
     string verification_token = 1;
     // Either a 6-digit OTP (e.g. "123456") or a backup code (e.g. "ABCD-EFGH-IJKL-MNOP")
     string code = 2;
+        reserved 1000 to 1999;
 }
 
 message VerifyTotpResponse {
@@ -128,6 +151,7 @@ message VerifyTotpResponse {
         VerifyTotpSuccess success = 1;
         Error             error   = 2;
     }
+        reserved 1000 to 1999;
 }
 
 message VerifyTotpSuccess {
@@ -135,6 +159,7 @@ message VerifyTotpSuccess {
     string          refresh_token = 2;
     string          user_id       = 3;
     repeated string permissions   = 4;
+        reserved 1000 to 1999;
 }
 
 // ============================================================================
@@ -142,7 +167,9 @@ message VerifyTotpSuccess {
 // ============================================================================
 
 message RefreshRequest {
+    // Opaque refresh token; validated into a typed domain token at ingress.
     string refresh_token = 1;
+        reserved 1000 to 1999;
 }
 
 message RefreshResponse {
@@ -150,6 +177,7 @@ message RefreshResponse {
         RefreshSuccess success = 1;
         Error          error   = 2;
     }
+        reserved 1000 to 1999;
 }
 
 message RefreshSuccess {
@@ -157,6 +185,7 @@ message RefreshSuccess {
     string          refresh_token = 2;
     string          user_id       = 3;
     repeated string permissions   = 4;
+        reserved 1000 to 1999;
 }
 
 // ============================================================================
@@ -164,7 +193,9 @@ message RefreshSuccess {
 // ============================================================================
 
 message LogoutRequest {
+    // Opaque access token; validated into a typed domain token at ingress.
     string access_token = 1;
+        reserved 1000 to 1999;
 }
 
 message LogoutResponse {
@@ -172,18 +203,24 @@ message LogoutResponse {
         LogoutSuccess success = 1;
         Error         error   = 2;
     }
+        reserved 1000 to 1999;
 }
 
-message LogoutSuccess {}
+message LogoutSuccess {
+    reserved 1000 to 1999;
+}
 
 // ============================================================================
 // Disable TOTP
 // ============================================================================
 
 message DisableTotpRequest {
+    // Validated as a UUID and bound to the authenticated principal.
     string        user_id  = 1;
+    // Converted to a clearable password value object at ingress.
     string        password = 2;
     DisableReason reason   = 3;
+    reserved 1000 to 1999;
 }
 
 enum DisableReason {
@@ -199,9 +236,31 @@ message DisableTotpResponse {
         DisableTotpSuccess success = 1;
         Error              error   = 2;
     }
+        reserved 1000 to 1999;
 }
 
-message DisableTotpSuccess {}
+message DisableTotpSuccess {
+    reserved 1000 to 1999;
+}
+
+message AdminDisableTotpRequest {
+    string target_user_id = 1;
+    string admin_password = 2;
+    DisableReason reason = 3;
+    reserved 1000 to 1999;
+}
+
+message AdminDisableTotpResponse {
+    oneof result {
+        AdminDisableTotpSuccess success = 1;
+        Error error = 2;
+    }
+    reserved 1000 to 1999;
+}
+
+message AdminDisableTotpSuccess {
+    reserved 1000 to 1999;
+}
 
 // ============================================================================
 // Common types
@@ -210,5 +269,6 @@ message DisableTotpSuccess {}
 message Error {
     string error_code    = 1;
     string error_message = 2;
+    reserved 1000 to 1999;
 }
 

@@ -3,6 +3,9 @@ package com.oodesigns.cas.application.command;
 import com.oodesigns.cas.domain.service.TokenService;
 import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.AccessToken;
+import com.oodesigns.cas.domain.value.RefreshToken;
+import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -20,14 +23,14 @@ class LoginResultTest {
     @Test
     void testSuccessResult() {
         final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
-            "access_token_123", "refresh_token_456");
+            AccessToken.of("access.token.123"), RefreshToken.of("refresh.token.456"));
         final UserId userId = UserId.of(UUID.randomUUID());
         final Set<Permission> permissions = Set.of(Permission.of("read"), Permission.of("write"));
         final LoginResult result = LoginResult.success(tokenPair, userId, permissions);
 
         result.mapTo(success -> {
-                assertEquals("access_token_123", success.tokenPair().accessToken());
-                assertEquals("refresh_token_456", success.tokenPair().refreshToken());
+                assertEquals("access.token.123", success.tokenPair().accessToken().value());
+                assertEquals("refresh.token.456", success.tokenPair().refreshToken().value());
                 assertEquals(userId, success.userId());
                 assertEquals(permissions, success.permissions());
                 return null;
@@ -75,14 +78,14 @@ class LoginResultTest {
     @Test
     void testAccessingErrorOnSuccessThrows() {
         final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
-            "access_token", "refresh_token");
+            AccessToken.of("access.token.here"), RefreshToken.of("refresh.token.here"));
         final UserId userId = UserId.of(UUID.randomUUID());
         final Set<Permission> permissions = Collections.emptySet();
         final LoginResult result = LoginResult.success(tokenPair, userId, permissions);
 
         result.mapTo(success -> {
-                assertEquals("access_token", success.tokenPair().accessToken());
-                assertEquals("refresh_token", success.tokenPair().refreshToken());
+                assertEquals("access.token.here", success.tokenPair().accessToken().value());
+                assertEquals("refresh.token.here", success.tokenPair().refreshToken().value());
                 assertEquals(userId, success.userId());
                 return null;
             })
@@ -103,7 +106,7 @@ class LoginResultTest {
     @Test
     void testSuccessWithNullUserIdThrows() {
         final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
-            "access_token", "refresh_token");
+            AccessToken.of("access.token.here"), RefreshToken.of("refresh.token.here"));
         final Set<Permission> permissions = Set.of(Permission.of("read"));
         assertThrows(IllegalArgumentException.class,
             () -> LoginResult.success(tokenPair, null, permissions));
@@ -112,7 +115,7 @@ class LoginResultTest {
     @Test
     void testSuccessWithNullPermissionsThrows() {
         final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
-            "access_token", "refresh_token");
+            AccessToken.of("access.token.here"), RefreshToken.of("refresh.token.here"));
         final UserId userId = UserId.of(UUID.randomUUID());
         assertThrows(IllegalArgumentException.class,
             () -> LoginResult.success(tokenPair, userId, null));
@@ -145,12 +148,12 @@ class LoginResultTest {
     
     @Test
     void testSuccessWithEmptyRefreshTokenThrows() {
-        assertThrows(NullPointerException.class,
+        assertThrows(IllegalArgumentException.class,
             () -> createTokenPair("access_token", null));
     }
     
     private void createTokenPair(final String access, final String refresh) {
-        final TokenService.TokenPair tokenPair = new TokenService.TokenPair(access, refresh); // invocation for exception validation only
+        final TokenService.TokenPair tokenPair = new TokenService.TokenPair(AccessToken.of(access), RefreshToken.of(refresh));
         java.util.Objects.requireNonNull(tokenPair); // touch to avoid unused variable warning
     }
 
@@ -169,9 +172,9 @@ class LoginResultTest {
     @Test
     void testMultipleSuccessResults() {
         final TokenService.TokenPair tokenPair1 = new TokenService.TokenPair(
-            "token1", "refresh1");
+            AccessToken.of("token.one.here"), RefreshToken.of("refresh.one.here"));
         final TokenService.TokenPair tokenPair2 = new TokenService.TokenPair(
-            "token2", "refresh2");
+            AccessToken.of("token.two.here"), RefreshToken.of("refresh.two.here"));
         final UserId userId1 = UserId.of(UUID.randomUUID());
         final UserId userId2 = UserId.of(UUID.randomUUID());
         final Set<Permission> permissions = Set.of(Permission.of("read"));
@@ -221,7 +224,7 @@ class LoginResultTest {
     @Test
     void testCannotSwitchStates() {
         final TokenService.TokenPair tokenPair = new TokenService.TokenPair(
-            "token", "refresh");
+            AccessToken.of("token.header.payload"), RefreshToken.of("refresh.header.payload"));
         final UserId userId = UserId.of(UUID.randomUUID());
         final Set<Permission> permissions = Set.of(Permission.of("admin"));
         final LoginResult success = LoginResult.success(tokenPair, userId, permissions);
@@ -251,11 +254,11 @@ class LoginResultTest {
     void testRequired2FAResultValidationAndMapper() {
         final java.util.UUID uuid = java.util.UUID.randomUUID();
         final com.oodesigns.cas.domain.value.UserId userId = com.oodesigns.cas.domain.value.UserId.of(uuid);
-        final LoginResult.Required2FAResult r = LoginResult.required2FA("verif-token", userId);
+        final LoginResult.Required2FAResult r = LoginResult.required2FA(TwoFactorVerificationToken.of("verif.token.here"), userId);
         assertNotNull(r);
-        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult("", userId));
-        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult(null, userId));
-        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult("token", null));
+        assertThrows(NullPointerException.class, () -> new LoginResult.Required2FAResult(null, userId));
+        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult(TwoFactorVerificationToken.of("bad"), userId));
+        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult(TwoFactorVerificationToken.of("token.here"), null));
 
         final String mapped = r.mapTo(_ -> "OK").orElse(LoginResult.FailureResult::errorCode);
         // For Required2FAResult the mapTo should return failure mapping (MFA_SETUP_REQUIRED)
