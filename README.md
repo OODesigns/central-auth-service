@@ -1,5 +1,9 @@
 # Central Auth Service
 
+Central Auth Service is a Java 25 gRPC service that provides the security part of an application: login, multi-factor authentication, access and refresh tokens, logout, session protection, and administrator-led account recovery.
+
+It stores authentication data in PostgreSQL, uses Flyway for database migrations, and follows a ports-and-adapters design so the security rules stay separate from gRPC, database, token, and encryption technology. The repository also includes a local trial stack with grpcui, Prometheus, and Grafana for testing the complete request flow.
+
 ## Docker
 
 The devcontainer is an editor environment and intentionally has no application
