@@ -3,11 +3,17 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-./gradlew clean test integrationTest jacocoTestCoverageVerification dependencies
+env -u DB_HOST -u DB_PORT -u DB_USER -u DB_PASSWORD -u APP_DB -u APP_PASSWORD \
+    -u POSTGRES_USER -u POSTGRES_PASSWORD -u API_USER -u API_PASSWORD \
+    ./gradlew clean test integrationTest dependencies
 
 if [[ "${INCLUDE_DB_TESTS:-false}" == "true" ]]; then
-    ./gradlew databaseIntegrationTest -PincludeDbTests
+    RUN_DATABASE_TESTS=true ./gradlew databaseIntegrationTest -PincludeDbTests
 fi
+
+env -u DB_HOST -u DB_PORT -u DB_USER -u DB_PASSWORD -u APP_DB -u APP_PASSWORD \
+    -u POSTGRES_USER -u POSTGRES_PASSWORD -u API_USER -u API_PASSWORD \
+    ./gradlew jacocoTestCoverageVerification
 
 if [[ "${SKIP_SUPPLY_CHAIN_SCAN:-false}" != "true" ]]; then
     command -v osv-scanner >/dev/null || {

@@ -44,6 +44,18 @@ class DatabaseLoginRateLimiterTest {
     }
 
     @Test
+    void stopsAfterUsernameBucketIsBlocked() {
+        final DSLContext dsl = mock(DSLContext.class);
+        final Record allowed = result(true);
+        final Record blocked = result(false);
+        when(dsl.fetchOne(SQL, "login:ip:192.0.2.10", 5, 60)).thenReturn(allowed);
+        when(dsl.fetchOne(SQL, "login:id:test_user", 5, 60)).thenReturn(blocked);
+
+        assertFalse(allowed(new DatabaseLoginRateLimiter(dsl).checkLimit(command())));
+        verify(dsl, never()).fetchOne(SQL, "login:ip+id:192.0.2.10:test_user", 5, 60);
+    }
+
+    @Test
     void failsClosedWhenDatabaseIsUnavailableOrReturnsNoRow() {
         final DSLContext failingDsl = mock(DSLContext.class);
         when(failingDsl.fetchOne(SQL, "login:ip:192.0.2.10", 5, 60))

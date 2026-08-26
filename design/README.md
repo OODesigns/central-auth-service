@@ -20,6 +20,12 @@ PlantUML sources and their generated PNGs are grouped by purpose.
 - [MFA policy and challenge PNG](authentication/login/2%20-%20MFA%20Policy%20%26%20Challenge.png) ([source](authentication/login/2%20-%20MFA%20Policy%20%26%20Challenge.puml))
 - [MFA challenge execution PNG](authentication/login/mfa/Perform%20MFA%20challenge.png) ([source](authentication/login/mfa/Perform%20MFA%20challenge.puml))
 
+### Security operations
+
+- [Deployment security stack PNG](security/DeploymentSecurityStack.png) ([source](security/DeploymentSecurityStack.puml))
+- [Internal security enforcement model PNG](security/InternalSecurityEnforcement.png) ([source](security/InternalSecurityEnforcement.puml))
+- [Administrator-issued account recovery PNG](security/AdminRecoveryFlow.png) ([source](security/AdminRecoveryFlow.puml))
+
 ## Shared Theme
 
 All Central Auth Service diagrams include [themes/dark-theme.puml](themes/dark-theme.puml). Relative include paths must be adjusted when moving a source file.

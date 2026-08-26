@@ -1,0 +1,16 @@
+name: Security Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Manual-only gate reminder
+        run: |
+          echo "This repository intentionally does not enforce the local security-check.sh gate in GitHub-hosted CI."
+          echo "Production security validation must run from an approved internal runner or deployment platform with scan evidence and approvals."

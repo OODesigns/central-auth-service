@@ -1,0 +1,54 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "sum(rate(grpc_server_call_count_total[5m])) by (grpc_status_code)", "legendFormat": "{{grpc_status_code}}"}],
+      "title": "gRPC Calls Per Second",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(grpc_server_call_duration_bucket[5m])) by (le, rpc_method))", "legendFormat": "{{rpc_method}}"}],
+      "title": "gRPC p95 Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "sum(rate(auth_login_failure_total[5m]))", "legendFormat": "login failures"}, {"expr": "sum(rate(auth_totp_failure_total[5m]))", "legendFormat": "TOTP failures"}, {"expr": "sum(rate(auth_mtls_rejection_total[5m]))", "legendFormat": "mTLS rejections"}],
+      "title": "Authentication Failures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "sum(rate(auth_rate_limit_total[5m]))", "legendFormat": "rate limits"}, {"expr": "sum(rate(auth_admin_action_total[5m]))", "legendFormat": "admin actions"}, {"expr": "sum(rate(auth_authorization_lookup_failure_total[5m]))", "legendFormat": "authorization lookup failures"}],
+      "title": "Security Events",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["central-auth-service"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "title": "Central Auth Service",
+  "version": 1
+}

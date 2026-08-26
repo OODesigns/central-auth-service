@@ -222,9 +222,6 @@ public final class TotpCodeGenerator {
      * so the running time does not depend on the position of the first differing character.
      */
     private static boolean constantTimeEquals(final String expected, final String actual) {
-        if (expected.length() != actual.length()) {
-            return false;
-        }
         int difference = 0;
         for (int i = 0; i < expected.length(); i++) {
             difference |= expected.charAt(i) ^ actual.charAt(i);

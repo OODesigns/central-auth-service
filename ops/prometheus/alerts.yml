@@ -1,0 +1,42 @@
+groups:
+  - name: central-auth-service-security
+    rules:
+      - alert: CentralAuthLoginFailures
+        expr: sum(rate(auth_login_failure_total[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Central Auth login failures are elevated
+
+      - alert: CentralAuthTotpFailures
+        expr: sum(rate(auth_totp_failure_total[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Central Auth TOTP failures are elevated
+
+      - alert: CentralAuthMtlsRejections
+        expr: sum(rate(auth_mtls_rejection_total[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Central Auth is rejecting machine-client certificates
+
+      - alert: CentralAuthAuthorizationLookupUnavailable
+        expr: sum(rate(auth_authorization_lookup_failure_total[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Central Auth authorization lookups are unavailable
+
+      - alert: CentralAuthGrpcDeadlines
+        expr: sum(rate(grpc_server_deadline_exceeded_total[5m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Central Auth gRPC deadlines are being exceeded

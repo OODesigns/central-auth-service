@@ -1,0 +1,47 @@
+@startuml AdminRecoveryFlow
+!include ../themes/dark-theme.puml
+hide footbox
+
+actor "Support Administrator" as Admin
+actor User
+participant "Auth gRPC" as Auth
+participant "Recovery Handler" as Recovery
+participant "Authorization Guard" as Guard
+participant "Recovery Token Service" as Tokens
+participant "Database" as DB
+participant "Audit Log" as Audit
+participant "Approved Out-of-Band Channel" as Channel
+
+Admin -> Auth: IssueRecoveryToken(target user)
+Auth -> Guard: access token + manage_recovery permission
+alt #7a454d Missing or insufficient authorization
+    Guard --> Auth: denied
+    Auth --> Admin: PERMISSION_DENIED
+else #426b55 Authorized administrator
+    Guard --> Auth: administrator principal
+    Auth -> Recovery: issue(target user, administrator)
+    Recovery -> Tokens: sign reset-purpose, short-lived token
+    Tokens --> Recovery: recovery token + JTI
+    Recovery -> DB: store token hash; invalidate existing recovery tokens
+    Recovery -> Audit: record recovery_issued
+    Recovery --> Auth: one-time recovery token
+    Auth --> Admin: token shown once
+    Admin -> Channel: deliver token using approved support process
+end
+
+User -> Auth: CompleteRecovery(token, new password)
+Auth -> Recovery: complete(token, new password)
+Recovery -> Tokens: verify signature, audience, expiry
+alt #7a454d Invalid, expired, or consumed
+    Tokens --> Recovery: invalid
+    Recovery -> Audit: record recovery_failed
+    Recovery --> Auth: UNAUTHENTICATED
+    Auth --> User: recovery failed
+else #426b55 Valid recovery token
+    Tokens --> Recovery: target user + JTI
+    Recovery -> DB: consume token; update password; revoke sessions; require MFA enrollment
+    Recovery -> Audit: record recovery_completed
+    Recovery --> Auth: success
+    Auth --> User: recovery completed
+end
+@enduml

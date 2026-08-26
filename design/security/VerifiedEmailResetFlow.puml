@@ -1,0 +1,48 @@
+@startuml VerifiedEmailResetFlow
+!include ../themes/dark-theme.puml
+hide footbox
+
+actor User
+participant "Auth gRPC" as Auth
+participant "Reset Orchestrator" as Reset
+participant "VerifiedEmail Store" as EmailStore
+participant "Reset Token Service" as TokenService
+participant "Mail Provider" as Mail
+participant "Audit Log" as Audit
+participant "Database" as DB
+
+User -> Auth: Request password reset
+Auth -> Reset: startReset(email)
+Reset -> EmailStore: find verified identity for email
+alt #7a454d Unknown or unverified
+    EmailStore --> Reset: none
+    Reset --> Auth: enumeration-safe response
+    Auth --> User: reset requested / not found
+    Reset -> Audit: record reset_request_unknown
+else #426b55 Verified identity exists
+    EmailStore --> Reset: verified user + email metadata
+    Reset -> TokenService: issue single-use reset token
+    TokenService --> Reset: short-lived token
+    Reset -> Mail: send reset link or code
+    Mail --> Reset: delivery outcome
+    Reset -> DB: persist reset event and token hash
+    Reset -> Audit: record reset_issued + delivery_result
+    Auth --> User: reset email sent
+end
+
+User -> Auth: Submit reset token + new password
+Auth -> Reset: completeReset(token, newPassword)
+Reset -> TokenService: validate token and purpose
+alt #7a454d Expired / replayed / invalid
+    TokenService --> Reset: invalid
+    Reset -> Audit: record reset_failed
+    Reset --> Auth: INVALID_TOKEN or RESET_EXPIRED
+    Auth --> User: reset failed
+else #426b55 Valid
+    TokenService --> Reset: verified principal
+    Reset -> DB: atomically store new hash, revoke prior token family
+    Reset -> Audit: record reset_consumed
+    Reset --> Auth: success
+    Auth --> User: password reset complete
+end
+@enduml

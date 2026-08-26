@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package cas;
+package cas.v1;
+
+import "google/api/field_behavior.proto";
 
 option java_package = "com.oodesigns.cas.infrastructure.grpc.proto";
 option java_outer_classname = "AuthProto";
@@ -33,6 +35,12 @@ service AuthService {
 
     // Disable another user's TOTP 2FA with administrative authorization.
     rpc AdminDisableTotp(AdminDisableTotpRequest) returns (AdminDisableTotpResponse);
+
+    // Issue a one-time recovery token after out-of-band identity verification by an administrator.
+    rpc IssueRecoveryToken(IssueRecoveryTokenRequest) returns (IssueRecoveryTokenResponse);
+
+    // Complete account recovery with the administrator-issued recovery token and a new password.
+    rpc CompleteRecovery(CompleteRecoveryRequest) returns (CompleteRecoveryResponse);
 }
 
 // ============================================================================
@@ -40,8 +48,8 @@ service AuthService {
 // ============================================================================
 
 message LoginRequest {
-    string username   = 1;
-    string password   = 2;
+    string username   = 1 [(google.api.field_behavior) = REQUIRED];
+    string password   = 2 [(google.api.field_behavior) = REQUIRED];
     // Deprecated: the server derives the peer address from the gRPC transport.
     string ip_address = 3 [deprecated = true];
         reserved 1000 to 1999;
@@ -89,9 +97,9 @@ message LoginMfaEnrollmentRequired {
 
 message SetupTotpRequest {
     // Validated as a UUID and bound to the authenticated/enrollment principal.
-    string user_id  = 1;
+    string user_id  = 1 [(google.api.field_behavior) = REQUIRED];
     // Validated as a normalized username for the otpauth label.
-    string username = 2;
+    string username = 2 [(google.api.field_behavior) = REQUIRED];
         reserved 1000 to 1999;
 }
 
@@ -115,9 +123,9 @@ message SetupTotpSuccess {
 
 message EnableTotpRequest {
     // Validated as a UUID and bound to the authenticated/enrollment principal.
-    string user_id   = 1;
+    string user_id   = 1 [(google.api.field_behavior) = REQUIRED];
     // Exactly six decimal digits after boundary validation.
-    string totp_code = 2;
+    string totp_code = 2 [(google.api.field_behavior) = REQUIRED];
         reserved 1000 to 1999;
 }
 
@@ -140,9 +148,9 @@ message EnableTotpSuccess {
 
 message VerifyTotpRequest {
     // Opaque short-lived token; validated into a typed domain token at ingress.
-    string verification_token = 1;
+    string verification_token = 1 [(google.api.field_behavior) = REQUIRED];
     // Either a 6-digit OTP (e.g. "123456") or a backup code (e.g. "ABCD-EFGH-IJKL-MNOP")
-    string code = 2;
+    string code = 2 [(google.api.field_behavior) = REQUIRED];
         reserved 1000 to 1999;
 }
 
@@ -168,7 +176,7 @@ message VerifyTotpSuccess {
 
 message RefreshRequest {
     // Opaque refresh token; validated into a typed domain token at ingress.
-    string refresh_token = 1;
+    string refresh_token = 1 [(google.api.field_behavior) = REQUIRED];
         reserved 1000 to 1999;
 }
 
@@ -194,7 +202,7 @@ message RefreshSuccess {
 
 message LogoutRequest {
     // Opaque access token; validated into a typed domain token at ingress.
-    string access_token = 1;
+    string access_token = 1 [(google.api.field_behavior) = REQUIRED];
         reserved 1000 to 1999;
 }
 
@@ -216,10 +224,10 @@ message LogoutSuccess {
 
 message DisableTotpRequest {
     // Validated as a UUID and bound to the authenticated principal.
-    string        user_id  = 1;
+    string        user_id  = 1 [(google.api.field_behavior) = REQUIRED];
     // Converted to a clearable password value object at ingress.
-    string        password = 2;
-    DisableReason reason   = 3;
+    string        password = 2 [(google.api.field_behavior) = REQUIRED];
+    DisableReason reason   = 3 [(google.api.field_behavior) = REQUIRED];
     reserved 1000 to 1999;
 }
 
@@ -244,9 +252,9 @@ message DisableTotpSuccess {
 }
 
 message AdminDisableTotpRequest {
-    string target_user_id = 1;
-    string admin_password = 2;
-    DisableReason reason = 3;
+    string target_user_id = 1 [(google.api.field_behavior) = REQUIRED];
+    string admin_password = 2 [(google.api.field_behavior) = REQUIRED];
+    DisableReason reason = 3 [(google.api.field_behavior) = REQUIRED];
     reserved 1000 to 1999;
 }
 
@@ -259,6 +267,48 @@ message AdminDisableTotpResponse {
 }
 
 message AdminDisableTotpSuccess {
+    reserved 1000 to 1999;
+}
+
+// ============================================================================
+// Administrator-issued account recovery
+// ============================================================================
+
+message IssueRecoveryTokenRequest {
+    // Target account; caller identity is derived from the bearer token.
+    string target_user_id = 1 [(google.api.field_behavior) = REQUIRED];
+    reserved 1000 to 1999;
+}
+
+message IssueRecoveryTokenResponse {
+    oneof result {
+        IssueRecoveryTokenSuccess success = 1;
+        Error error = 2;
+    }
+    reserved 1000 to 1999;
+}
+
+message IssueRecoveryTokenSuccess {
+    // Display once to an authorized administrator for approved out-of-band delivery.
+    string recovery_token = 1;
+    reserved 1000 to 1999;
+}
+
+message CompleteRecoveryRequest {
+    string recovery_token = 1 [(google.api.field_behavior) = REQUIRED];
+    string new_password = 2 [(google.api.field_behavior) = REQUIRED];
+    reserved 1000 to 1999;
+}
+
+message CompleteRecoveryResponse {
+    oneof result {
+        CompleteRecoverySuccess success = 1;
+        Error error = 2;
+    }
+    reserved 1000 to 1999;
+}
+
+message CompleteRecoverySuccess {
     reserved 1000 to 1999;
 }
 

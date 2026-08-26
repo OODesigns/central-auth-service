@@ -12,6 +12,7 @@ import com.oodesigns.cas.domain.value.UserId;
 import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
 import com.oodesigns.cas.domain.value.RefreshToken;
+import com.oodesigns.cas.domain.value.RecoveryToken;
 import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import java.time.Instant;
 import java.util.List;
@@ -46,6 +47,7 @@ public class Ports {
         Optional<RefreshToken> signRefreshToken(final Payload payload, final Instant expiresAt);
         Optional<TwoFactorVerificationToken> signTwoFactorVerificationToken(final Payload payload, final Instant expiresAt);
         Optional<MfaEnrollmentToken> signMfaEnrollmentToken(final Payload payload, final Instant expiresAt);
+        Optional<RecoveryToken> signRecoveryToken(final Payload payload, final Instant expiresAt);
     }
 
     /**
@@ -105,6 +107,27 @@ public class Ports {
          *         token is valid; empty otherwise
          */
         Optional<UserId> verifyRefreshToken(RefreshToken token);
+
+        /** Verify a short-lived token usable only to complete account recovery. */
+        Optional<UserId> verifyRecoveryToken(RecoveryToken token);
+    }
+
+    /** Hashes a clearable password before it is persisted. */
+    public interface PasswordHasher {
+        com.oodesigns.cas.domain.value.PasswordHash hash(final com.oodesigns.cas.domain.value.Password password);
+    }
+
+    /** Persists and consumes administrator-issued account-recovery tokens. */
+    public interface RecoveryTokenStore {
+        void issue(UserId administratorId, UserId targetUserId, RecoveryToken token);
+
+        RecoveryCompletion consumeAndReset(UserId targetUserId, RecoveryToken token,
+                                           com.oodesigns.cas.domain.value.PasswordHash newPasswordHash);
+
+        enum RecoveryCompletion {
+            COMPLETED,
+            INVALID_OR_CONSUMED
+        }
     }
 
     /**
@@ -261,6 +284,24 @@ public class Ports {
      */
     public interface UserRetriever {
         Optional<User> findById(final UserId userId);
+    }
+
+    /** Resolves a machine-to-machine client from its TLS certificate fingerprint. */
+    public interface TrustedClientRetriever {
+        Optional<TrustedClient> findByFingerprint(final String fingerprint);
+    }
+
+    /** Certificate-backed machine principal. */
+    public record TrustedClient(java.util.UUID id, String fingerprint,
+                                Instant expiresAt, Instant revokedAt) {
+        public TrustedClient {
+            java.util.Objects.requireNonNull(id, "Trusted client ID cannot be null");
+            java.util.Objects.requireNonNull(fingerprint, "Fingerprint cannot be null");
+        }
+
+        public boolean isActive(final Instant now) {
+            return revokedAt == null && (expiresAt == null || expiresAt.isAfter(now));
+        }
     }
 
     /**

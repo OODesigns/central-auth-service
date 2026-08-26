@@ -53,6 +53,8 @@ import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpResponse;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Metadata;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.MetadataUtils;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
@@ -78,6 +80,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -98,7 +101,6 @@ class GrpcSmokeTest {
     private static final String DEFAULT_POSTGRES_USER = "postgres";
     private static final String DEFAULT_POSTGRES_PASSWORD = "postgres";
     private static final String TEST_PASSWORD = "SmokePassword123!";
-    private static final String TEST_IP = "127.0.0.1";
     private static final String TEST_USERNAME = "grpc_smoke";
 
     private static volatile boolean defaultsInitialized;
@@ -205,7 +207,7 @@ class GrpcSmokeTest {
         final LogoutCommandHandler logoutHandler = new LogoutCommandHandler(tokenVerifier, accessTokenRevocationStore);
 
         server = NettyServerBuilder.forPort(0)
-                .intercept(new com.oodesigns.cas.infrastructure.grpc.GrpcAuthInterceptor(tokenVerifier))
+                .intercept(new com.oodesigns.cas.infrastructure.grpc.GrpcAuthInterceptor(tokenVerifier, userRepository))
                 .addService(new AuthGrpcService(
                         loginHandler,
                         setupTotpHandler,
@@ -260,7 +262,6 @@ class GrpcSmokeTest {
         final LoginResponse initialLogin = stub.login(LoginRequest.newBuilder()
                 .setUsername(TEST_USERNAME)
                 .setPassword(TEST_PASSWORD)
-                .setIpAddress(TEST_IP)
                 .build());
         assertTrue(initialLogin.hasSuccess(), "Initial login should succeed before TOTP is enabled");
         assertFalse(initialLogin.getSuccess().getPermissionsList().isEmpty(), "Role permissions should be returned");
@@ -287,7 +288,6 @@ class GrpcSmokeTest {
         final LoginResponse challenge = stub.login(LoginRequest.newBuilder()
                 .setUsername(TEST_USERNAME)
                 .setPassword(TEST_PASSWORD)
-                .setIpAddress(TEST_IP)
                 .build());
         assertTrue(challenge.hasTotpRequired(), "Login should now require 2FA verification");
 
@@ -310,18 +310,20 @@ class GrpcSmokeTest {
                 "Rotation must issue a different refresh token");
 
         // Replaying the now-consumed token must trigger reuse detection (family revoked).
-        final RefreshResponse reuse = stub.refresh(RefreshRequest.newBuilder()
-                .setRefreshToken(issuedRefreshToken)
-                .build());
-        assertTrue(reuse.hasError(), "Replaying a rotated refresh token must fail");
-        assertEquals("REFRESH_TOKEN_REUSE_DETECTED", reuse.getError().getErrorCode(),
-                "Reuse of a rotated token must be detected");
+        final StatusRuntimeException reuse = assertThrows(StatusRuntimeException.class, () ->
+                stub.refresh(RefreshRequest.newBuilder()
+                        .setRefreshToken(issuedRefreshToken)
+                        .build()));
+        assertEquals(Status.Code.UNAUTHENTICATED, reuse.getStatus().getCode(),
+                "Reuse of a rotated token must fail with a canonical status");
 
         // The replacement issued by the reuse-detected family is now revoked too.
-        final RefreshResponse afterReuse = stub.refresh(RefreshRequest.newBuilder()
-                .setRefreshToken(rotated.getSuccess().getRefreshToken())
-                .build());
-        assertTrue(afterReuse.hasError(), "The whole family must be revoked after reuse detection");
+        final StatusRuntimeException afterReuse = assertThrows(StatusRuntimeException.class, () ->
+                stub.refresh(RefreshRequest.newBuilder()
+                        .setRefreshToken(rotated.getSuccess().getRefreshToken())
+                        .build()));
+        assertEquals(Status.Code.UNAUTHENTICATED, afterReuse.getStatus().getCode(),
+                "The whole family must be revoked after reuse detection");
 
         final String verifiedAccessToken = verified.getSuccess().getAccessToken();
         final AuthServiceGrpc.AuthServiceBlockingStub verifiedStub = authorizedStub(verifiedAccessToken);
@@ -331,6 +333,8 @@ class GrpcSmokeTest {
                 .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.USER_REQUESTED)
                 .build());
         assertTrue(disabled.hasSuccess(), "DisableTotp should succeed after password re-authentication");
+        assertEquals(createdUserId.value(), latestAuditActor("TOTP_DISABLED", createdUserId.value()),
+                "TOTP disable audit events must retain the authenticated actor from the same transaction");
 
         final LogoutResponse logout = verifiedStub.logout(LogoutRequest.newBuilder()
                 .setAccessToken(verifiedAccessToken)
@@ -344,7 +348,6 @@ class GrpcSmokeTest {
         final LoginResponse afterDisable = stub.login(LoginRequest.newBuilder()
                 .setUsername(TEST_USERNAME)
                 .setPassword(TEST_PASSWORD)
-                .setIpAddress(TEST_IP)
                 .build());
         assertTrue(afterDisable.hasSuccess(), "Login should succeed again once TOTP is disabled");
     }
@@ -415,6 +418,15 @@ class GrpcSmokeTest {
                                 tokenHash);
                 assertNotNull(record, "Expected a row when counting invalidated tokens");
                 return record.get("count", Long.class);
+        }
+
+        private UUID latestAuditActor(final String action, final UUID targetId) {
+                //noinspection SqlResolve
+                final Record record = adminDsl.fetchOne(
+                                "SELECT actor_id FROM private_schema.audit_logs WHERE action = ? AND metadata ->> 'user_id' = ? ORDER BY created_at DESC LIMIT 1",
+                                action, targetId.toString());
+                assertNotNull(record, "Expected an audit event for the protected mutation");
+                return record.get("actor_id", UUID.class);
         }
 
         private static String sha256Hex(final String token) {

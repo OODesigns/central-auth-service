@@ -208,8 +208,8 @@ class LoginCommandHandlerTest {
     @Test
     void testLoginRequires2FAWhenEnabled() {
         // Set up only the stubs we need for this test to avoid unnecessary stubbing
-        when(tokenSigner.signAccessToken(any(), any())).thenReturn(Optional.of(AccessToken.of("signed.token.here")));
-        when(tokenSigner.signRefreshToken(any(), any())).thenReturn(Optional.of(RefreshToken.of("signed.token.here")));
+        when(tokenSigner.signTwoFactorVerificationToken(any(), any()))
+            .thenReturn(Optional.of(TwoFactorVerificationToken.of("signed.2fa.token")));
         when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
         when(clock.now()).thenReturn(Instant.now());
         when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
@@ -226,7 +226,6 @@ class LoginCommandHandlerTest {
             fail("Expected 2FA required result");
             return null;
         }).orElse(failure -> {
-            // Required2FAResult maps to MFA_SETUP_REQUIRED in orElse path per LoginResult implementation
             assertEquals("MFA_SETUP_REQUIRED", failure.errorCode());
             return null;
         });
@@ -253,6 +252,50 @@ class LoginCommandHandlerTest {
             fail("Login should be blocked — MFA enrollment required");
             return null;
         }).orElse(failure -> {
+            assertEquals("MFA_SETUP_REQUIRED", failure.errorCode());
+            return null;
+        });
+    }
+
+    @Test
+    void testLoginMfaEnrollmentReturnsEnrollmentToken() {
+        final UserId userId = testCredential.userId();
+        final User user = new User(userId, Username.of("john_doe"), Set.of(), null, Instant.now());
+        when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(userId));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(totpStatusReader.check2FAStatus(userId)).thenReturn(Optional.empty());
+        when(tokenSigner.signMfaEnrollmentToken(any(), any()))
+            .thenReturn(Optional.of(MfaEnrollmentToken.of("enrollment.token.here")));
+        when(clock.now()).thenReturn(Instant.now());
+
+        final LoginResult result = loginHandler.handle(new LoginCommand(
+                Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1")));
+
+        result.fold(success -> fail("Expected enrollment"), required -> fail("Expected enrollment"),
+                reset -> fail("Expected enrollment"), enrollment -> {
+                    assertEquals("enrollment.token.here", enrollment.enrollmentToken().value());
+                    return null;
+                }, failure -> fail("Expected enrollment: " + failure.errorCode()));
+    }
+
+    @Test
+    void testLoginMfaEnrollmentFailsWhenTokenSigningReturnsEmpty() {
+        final UserId userId = testCredential.userId();
+        final User user = new User(userId, Username.of("john_doe"), Set.of(), null, Instant.now());
+        when(rateLimiter.checkLimit(any(LoginCommand.class))).thenReturn(Ports.RateLimitResult.allowed());
+        when(credentialReader.findCredentialsByUsername(any())).thenReturn(Optional.of(testCredential));
+        when(passwordHasher.verify(any())).thenReturn(Optional.of(userId));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(totpStatusReader.check2FAStatus(userId)).thenReturn(Optional.empty());
+        when(tokenSigner.signMfaEnrollmentToken(any(), any())).thenReturn(Optional.empty());
+        when(clock.now()).thenReturn(Instant.now());
+
+        final LoginResult result = loginHandler.handle(new LoginCommand(
+                Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1")));
+
+        result.mapTo(_ -> fail("Expected enrollment failure")).orElse(failure -> {
             assertEquals("MFA_SETUP_REQUIRED", failure.errorCode());
             return null;
         });
@@ -360,8 +403,8 @@ class LoginCommandHandlerTest {
         when(passwordHasher.verify(any())).thenReturn(Optional.of(testCredential.userId()));
         when(userRepository.findById(testCredential.userId())).thenReturn(Optional.of(testUser));
         when(totpStatusReader.check2FAStatus(any())).thenReturn(Optional.empty());
-        // Token signing fails → generateTokens returns empty
-        when(tokenSigner.signTwoFactorVerificationToken(any(), any())).thenReturn(Optional.empty());
+        // Access-token signing fails → generateTokens returns empty
+        when(tokenSigner.signAccessToken(any(), any())).thenReturn(Optional.empty());
 
         final LoginCommand cmd = new LoginCommand(Username.of("john_doe"), Password.of(VALID_PASSWORD.toCharArray()), IpAddress.of("192.168.1.1"));
         final LoginResult result = loginHandler.handle(cmd);

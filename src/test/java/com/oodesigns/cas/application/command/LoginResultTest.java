@@ -258,7 +258,8 @@ class LoginResultTest {
         assertNotNull(r);
         assertThrows(NullPointerException.class, () -> new LoginResult.Required2FAResult(null, userId));
         assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult(TwoFactorVerificationToken.of("bad"), userId));
-        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult(TwoFactorVerificationToken.of("token.here"), null));
+        assertThrows(IllegalArgumentException.class, () -> new LoginResult.Required2FAResult(
+            TwoFactorVerificationToken.of("token.value.here"), null));
 
         final String mapped = r.mapTo(_ -> "OK").orElse(LoginResult.FailureResult::errorCode);
         // For Required2FAResult the mapTo should return failure mapping (MFA_SETUP_REQUIRED)
@@ -275,4 +276,17 @@ class LoginResultTest {
         final String mapped = pr.mapTo(_ -> "OK").orElse(LoginResult.FailureResult::errorCode);
         assertEquals("PASSWORD_RESET_REQUIRED", mapped);
     }
+
+        @Test
+        void testMfaEnrollmentRequiredResultValidationAndMapper() {
+        final var userId = com.oodesigns.cas.domain.value.UserId.of(java.util.UUID.randomUUID());
+        final var result = LoginResult.mfaEnrollmentRequired(
+            com.oodesigns.cas.domain.value.MfaEnrollmentToken.of("enrollment.token.here"), userId);
+        assertEquals("MFA_ENROLLMENT_REQUIRED",
+            result.mapTo(_ -> "OK").orElse(LoginResult.FailureResult::errorCode));
+        assertEquals(userId, result.userId());
+        assertThrows(NullPointerException.class, () -> new LoginResult.MfaEnrollmentRequiredResult(null, userId));
+        assertThrows(NullPointerException.class, () -> new LoginResult.MfaEnrollmentRequiredResult(
+            com.oodesigns.cas.domain.value.MfaEnrollmentToken.of("token.value.here"), null));
+        }
 }

@@ -9,6 +9,7 @@ import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.RefreshToken;
 import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
+import com.oodesigns.cas.domain.value.RecoveryToken;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
@@ -87,6 +88,11 @@ public final class JwtTokenSigner implements Ports.TokenSigner {
     @Override
     public Optional<MfaEnrollmentToken> signMfaEnrollmentToken(final Payload payload, final Instant expiresAt) {
         return signCompactToken(payload, expiresAt).map(MfaEnrollmentToken::of);
+    }
+
+    @Override
+    public Optional<RecoveryToken> signRecoveryToken(final Payload payload, final Instant expiresAt) {
+        return signCompactToken(payload, expiresAt).map(RecoveryToken::of);
     }
 
     private Optional<String> signCompactToken(final Payload payload, final Instant expiresAt) {

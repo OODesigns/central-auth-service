@@ -151,6 +151,14 @@ class JwtTokenSignerTest {
     }
 
     @Test
+    void shouldSignMfaEnrollmentToken() {
+        final var token = signer.signMfaEnrollmentToken(
+                Payload.of("{\"sub\":\"user123\"}"), Instant.now().plus(1, ChronoUnit.HOURS));
+        assertTrue(token.isPresent());
+        assertEquals(3, token.orElseThrow().value().split("\\.").length);
+    }
+
+    @Test
     @DisplayName("Should set correct expiration in token")
     void shouldSetCorrectExpiration() {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");

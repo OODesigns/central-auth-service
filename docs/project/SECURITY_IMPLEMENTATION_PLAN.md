@@ -1,0 +1,55 @@
+# Security Implementation Plan
+
+This document records the remaining security implementation work, the completed repo changes, and the external decisions required before account recovery can be exposed.
+
+## Completed in this repository
+
+### Structured security events
+
+`GrpcSecurityEventInterceptor` is registered by `Main` for every gRPC request. It generates or accepts a restricted correlation ID and writes JSON security events containing only:
+
+- event name
+- full gRPC method name
+- gRPC status
+- success or failure category
+- deployment environment
+- correlation ID
+
+It does not inspect request values, so plaintext passwords, bearer tokens, reset material, TOTP codes, and backup codes cannot enter these events through the interceptor. Container/runtime logging must collect stdout/stderr or the Java logging sink, enforce access control, and retain or delete event data according to the approved policy.
+
+The existing Prometheus/Grafana Compose profile remains the metrics and alerts stack. Trace collection requires the deployment platform to provide an approved OpenTelemetry collector endpoint before an OTLP exporter is configured; this repository deliberately does not guess an endpoint or credential.
+
+### Production gate ownership
+
+GitHub-hosted automation is manual-only and is not the production approval boundary. The provider-neutral `ops/internal-security-gate.sh` script is the command entry point for an approved internal runner. It requires:
+
+- `RELEASE_IMAGE_DIGEST` for the immutable artifact being promoted
+- `DEPLOYMENT_APPROVAL_ID` for the approved change record
+- database integration test access and the scanning tools required by `security-check.sh`
+
+The internal runner must execute that script before deployment and preserve its scan, test, migration, TLS, image-digest, and approval evidence.
+
+## Account recovery implementation sequence
+
+Account recovery uses an administrator-issued recovery token. CAS does not expose a public request-password-reset RPC and does not depend on an email provider. An authorized administrator delivers the one-time token through an organization-approved out-of-band support channel. The repository now implements the token, storage, protected issuance RPC, and public completion RPC; support-process approval and production database migration remain deployment prerequisites.
+
+1. Add `RecoveryToken` and reset-purpose claims, a short expiration, JTI, hash-only persistence, and atomic single-use consumption.
+2. Add database API functions to issue and consume recovery tokens, update passwords, revoke refresh-token families, and require MFA re-enrollment. Each operation must create an attributable audit event.
+3. Add ports for recovery-token storage, privileged issuance, and session revocation. No mail or verified-email port is needed.
+4. Add an `IssueRecoveryToken` handler that requires the current `manage_recovery` permission. It must invalidate any previous unused recovery token for the target account and show the new token only once to the administrator.
+5. Add a `CompleteRecovery` handler that accepts only the reset-purpose token and a new password. Invalid, expired, and consumed tokens must have the same public failure outcome.
+6. Add `IssueRecoveryToken` as a protected administrative RPC and `CompleteRecovery` as the only public recovery RPC in `auth.proto`. `GrpcAuthInterceptor` must require a current access token and `manage_recovery` for issuance.
+7. Add unit and database integration coverage for authorization, token expiry/replay/concurrent consumption, password update, refresh-family revocation, MFA re-enrollment, and audit attribution.
+8. Deploy only after internal-runner smoke tests cover issuance and completion, and the support team approves its out-of-band identity-verification and token-delivery procedure.
+
+## Acceptance criteria
+
+Account recovery is complete only when all of the following evidence exists:
+
+- Only an administrator with `manage_recovery` can issue recovery material, after the support process verifies the target user's identity out of band.
+- No public request-password-reset RPC or email delivery adapter exists.
+- Recovery tokens have a reset-only purpose, expire quickly, are stored only as hashes, and are atomically single-use.
+- Reset completion changes the password and invalidates active refresh sessions.
+- Audit records contain event metadata but no recovery token.
+- The approved support procedure records identity verification and token delivery outside CAS without storing the recovery token in general-purpose ticket text.
+- The internal security gate and recovery smoke tests passed for the exact deployed image digest.

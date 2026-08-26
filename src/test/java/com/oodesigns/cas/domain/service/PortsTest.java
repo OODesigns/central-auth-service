@@ -8,6 +8,7 @@ import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.RefreshToken;
 import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
+import com.oodesigns.cas.domain.value.RecoveryToken;
 import com.oodesigns.cas.domain.value.UserCredential;
 import com.oodesigns.cas.domain.value.Username;
 import com.oodesigns.cas.domain.value.UserId;
@@ -50,6 +51,11 @@ class PortsTest {
         @Override
         public Optional<MfaEnrollmentToken> signMfaEnrollmentToken(final Payload payload, final Instant expiresAt) {
             return Optional.of(MfaEnrollmentToken.of("test.token.here"));
+        }
+
+        @Override
+        public Optional<RecoveryToken> signRecoveryToken(final Payload payload, final Instant expiresAt) {
+            return Optional.of(RecoveryToken.of("test.token.here"));
         }
     }
 

@@ -9,6 +9,7 @@ import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.RefreshToken;
 import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
+import com.oodesigns.cas.domain.value.RecoveryToken;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -28,6 +29,7 @@ public final class TokenService {
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
     private static final Duration TOTP_VERIFICATION_TOKEN_TTL = Duration.ofMinutes(5);
     private static final Duration MFA_ENROLLMENT_TOKEN_TTL = Duration.ofMinutes(10);
+    private static final Duration RECOVERY_TOKEN_TTL = Duration.ofMinutes(15);
     public static final String TOKEN_ISSUER = "central-auth-service";
 
     public TokenService(final Ports.Clock clock, final Ports.TokenSigner tokenSigner) {
@@ -138,6 +140,17 @@ public final class TokenService {
             TOKEN_ISSUER, userId.toString(), now.getEpochSecond(), expiresAt.getEpochSecond(), Jti.generate().value());
         return tokenSigner.signMfaEnrollmentToken(Payload.of(payloadJson), expiresAt)
             .orElseThrow(() -> new IllegalStateException("Failed to sign MFA enrollment token"));
+    }
+
+    /** Generate a short-lived token that can only complete administrator-authorized recovery. */
+    public RecoveryToken generateRecoveryToken(final UserId userId) {
+        final Instant now = clock.now();
+        final Instant expiresAt = now.plus(RECOVERY_TOKEN_TTL);
+        final String payloadJson = String.format(
+            "{\"iss\":\"%s\",\"sub\":\"%s\",\"aud\":\"account_recovery\",\"iat\":%d,\"exp\":%d,\"jti\":\"%s\"}",
+            TOKEN_ISSUER, userId.toString(), now.getEpochSecond(), expiresAt.getEpochSecond(), Jti.generate().value());
+        return tokenSigner.signRecoveryToken(Payload.of(payloadJson), expiresAt)
+            .orElseThrow(() -> new IllegalStateException("Failed to sign recovery token"));
     }
 
     /**

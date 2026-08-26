@@ -11,6 +11,7 @@ import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
 import com.oodesigns.cas.domain.value.RefreshToken;
 import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
+import com.oodesigns.cas.domain.value.RecoveryToken;
 import com.oodesigns.cas.domain.service.TokenService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -52,6 +53,7 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
     private static final String AUDIENCE_MFA_ENROLLMENT = "mfa_enrollment";
     private static final String AUDIENCE_REFRESH = "refresh_token";
     private static final String AUDIENCE_ACCESS = "access_token";
+    private static final String AUDIENCE_RECOVERY = "account_recovery";
     private static final int TOKEN_VERSION = 2;
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
@@ -137,6 +139,11 @@ public final class JwtTokenVerifier implements Ports.TokenVerifier {
     @Override
     public Optional<UserId> verifyRefreshToken(final RefreshToken token) {
         return verifyWithAudience(token, AUDIENCE_REFRESH);
+    }
+
+    @Override
+    public Optional<UserId> verifyRecoveryToken(final RecoveryToken token) {
+        return verifyWithAudience(token, AUDIENCE_RECOVERY);
     }
 
     private Optional<UserId> verifyWithAudience(final com.oodesigns.cas.domain.value.CompactToken token, final String expectedAudience) {

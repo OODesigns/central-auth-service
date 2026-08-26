@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +60,8 @@ class JooqTotpSetupProviderTest {
             ENCRYPTION_KEY_ID,
             backupCodeGenerator,
             new DeterministicSecureRandom(),
-            passwordEncoder
+            passwordEncoder,
+            sameContextTransaction()
         );
     }
 
@@ -67,7 +69,7 @@ class JooqTotpSetupProviderTest {
     void constructorRejectsNullDsl() {
         assertThrows(NullPointerException.class,
             () -> new JooqTotpSetupProvider(null, keySupplier, ENCRYPTION_KEY_ID, backupCodeGenerator,
-                new DeterministicSecureRandom(), passwordEncoder));
+                new DeterministicSecureRandom(), passwordEncoder, sameContextTransaction()));
     }
 
     @Test
@@ -162,6 +164,15 @@ class JooqTotpSetupProviderTest {
     @Test
     void generateBackupCodesRejectsNullUserId() {
         assertThrows(NullPointerException.class, () -> provider.generateBackupCodes(null));
+    }
+
+    private AuditTransaction sameContextTransaction() {
+        return new AuditTransaction() {
+            @Override
+            public <T> T execute(final Function<DSLContext, T> mutation) {
+                return mutation.apply(dslContext);
+            }
+        };
     }
 
     private static final class DeterministicSecureRandom extends SecureRandom {

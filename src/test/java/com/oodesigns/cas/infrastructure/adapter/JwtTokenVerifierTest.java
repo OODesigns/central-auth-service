@@ -112,6 +112,16 @@ class JwtTokenVerifierTest {
     }
 
         @Test
+        void verifyMfaEnrollmentToken_ReturnsUserId_WhenTokenIsValid() {
+                final UUID userId = UUID.randomUUID();
+                final String token = buildValid2FAToken(userId, "mfa_enrollment", Instant.now().plusSeconds(300));
+                when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+                assertEquals(userId, verifier.verifyMfaEnrollmentToken(
+                                com.oodesigns.cas.domain.value.MfaEnrollmentToken.of(token)).orElseThrow().asUUID());
+        }
+
+        @Test
         void verify2FAVerificationTokenAcceptsVersionTwoTopLevelClaims() {
                 final UUID userId = UUID.randomUUID();
                 final String token = signVersionTwo(
@@ -160,6 +170,20 @@ class JwtTokenVerifierTest {
                         "{\"sub\":\"%s\",\"aud\":\"access_token\"}".formatted(UUID.randomUUID())))).isEmpty());
                 assertTrue(verifier.verifyAccessToken(AccessToken.of(signVersionTwo(
                         "{\"jti\":\"%s\",\"aud\":\"access_token\"}".formatted(UUID.randomUUID())))).isEmpty());
+        }
+
+        @Test
+        void versionTwoAccessTokenWithoutIssuerIsRejected() {
+                final String token = Jwts.builder()
+                        .subject(UUID.randomUUID().toString())
+                        .audience().add("access_token").and()
+                        .claim("ver", 2)
+                        .id(UUID.randomUUID().toString())
+                        .expiration(Date.from(Instant.now().plusSeconds(300)))
+                        .signWith(signingKey, Jwts.SIG.HS256)
+                        .compact();
+                when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+                assertTrue(verifier.verifyAccessToken(AccessToken.of(token)).isEmpty());
         }
 
         @Test
@@ -345,6 +369,12 @@ class JwtTokenVerifierTest {
                 assertEquals(userId, result.get().userId().asUUID());
                 assertEquals(jti, result.get().jti().asUUID());
                 assertEquals(expiresAt.getEpochSecond(), result.get().expiresAt().getEpochSecond());
+        }
+
+        @Test
+        void verifyAccessTokenReturnsEmptyWhenTokenParsingThrows() {
+                when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+                assertTrue(verifier.verifyAccessToken(AccessToken.of("one.two.three")).isEmpty());
         }
 
         private String signVersionTwo(final String payload) {

@@ -3,6 +3,8 @@ package com.oodesigns.cas.infrastructure.adapter;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.value.Credentials;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.Password;
+import com.oodesigns.cas.domain.value.PasswordHash;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -22,7 +24,7 @@ import java.util.Optional;
  * <p>
  * Requires Spring Security: org.springframework.security:spring-security-crypto:6.3.0
  */
-public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
+public final class BcryptPasswordVerifier implements Ports.PasswordVerifier, Ports.PasswordHasher {
     private final PasswordEncoder encoder;
 
     public BcryptPasswordVerifier() {
@@ -73,6 +75,17 @@ public final class BcryptPasswordVerifier implements Ports.PasswordVerifier {
                 return Optional.of(credentials.credential().userId());
             }
             return Optional.empty();
+        } finally {
+            Arrays.fill(passwordChars, '\0');
+        }
+    }
+
+    @Override
+    public PasswordHash hash(final Password password) {
+        java.util.Objects.requireNonNull(password, "Password is required");
+        final char[] passwordChars = password.chars();
+        try {
+            return PasswordHash.of(encoder.encode(new String(passwordChars)));
         } finally {
             Arrays.fill(passwordChars, '\0');
         }

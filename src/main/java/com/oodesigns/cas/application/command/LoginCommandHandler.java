@@ -166,9 +166,7 @@ public final class LoginCommandHandler {
                 LOGGER.log(Level.WARNING, "MFA enrollment token could not be generated", exception);
                 return LoginResult.failure("MFA_SETUP_REQUIRED", "MFA enrollment is required.");
             }
-            return enrollmentToken == null
-                ? LoginResult.failure("MFA_SETUP_REQUIRED", "MFA enrollment is required.")
-                : LoginResult.mfaEnrollmentRequired(enrollmentToken, user.userId());
+            return LoginResult.mfaEnrollmentRequired(enrollmentToken, user.userId());
         }
 
         // Step 4: MFA challenge (enrolled users)

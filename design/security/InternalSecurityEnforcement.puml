@@ -1,0 +1,35 @@
+@startuml InternalSecurityEnforcement
+!include ../themes/dark-theme.puml
+skinparam componentStyle rectangle
+left to right direction
+
+actor "Developer / Maintainer" as Dev
+rectangle "GitHub-hosted CI\nPR validation lane" as GH
+rectangle "Manual Approval Gate\nsecurity review + evidence" as Approval
+rectangle "Approved Internal Runner\nJenkins / GitLab / Argo" as Internal
+rectangle "Security Gate\nOSV + Trivy + image digest + Flyway + TLS" as Gate
+rectangle "Artifact Registry\nimmutable digest" as Registry
+rectangle "Production Cluster" as Prod
+rectangle "Secrets + PKI\nread-only mounts + rotation" as Secrets
+rectangle "Ops Monitoring\nPrometheus + audit + alerting" as Ops
+
+Dev --> GH : push / PR
+GH --> Approval : lightweight checks only
+Approval --> Internal : authorized production run
+Internal --> Gate : enforce actual deployment policy
+Gate --> Registry : approve scanned artifact
+Registry --> Prod : deploy by digest only
+Secrets --> Prod : runtime keys, certs, DB creds
+Prod --> Ops : security telemetry + rate-limit + audit data
+Ops --> Approval : incident, expiry, drift, policy evidence
+
+note right of GH
+  GitHub-hosted CI is not the production authority.
+  It is used for convenience checks and baseline validation.
+end note
+
+note right of Internal
+  Only the internal runner or approved platform pipeline
+  has the authority to enforce the production gate.
+end note
+@enduml

@@ -117,6 +117,12 @@ class TotpCodeGeneratorTest {
     }
 
     @Test
+    void verifyRejectsCodeWithDifferentLength() {
+        assertFalse(generatorAt(1234567890L).verify(rfcSecret(), "12345"));
+        assertTrue(generatorAt(1234567890L).findMatchingCounter(rfcSecret(), "12345").isEmpty());
+    }
+
+    @Test
     void verifyRejectsWrongCode() {
         assertFalse(generatorAt(1234567890L).verify(rfcSecret(), "000000"));
     }

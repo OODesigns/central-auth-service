@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Central Auth Service
+    orgId: 1
+    folder: Central Auth Service
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /etc/grafana/dashboards

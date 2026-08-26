@@ -66,6 +66,13 @@ class AdminDisableTotpCommandHandlerTest {
     }
 
     @Test
+    void commandRejectsUserRequestedReason() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new AdminDisableTotpCommand(adminId, Password.of(VALID_PASSWORD), targetId,
+                DisableReason.USER_REQUESTED));
+    }
+
+    @Test
     void handleSucceedsForAuthorizedCrossUserDisable() {
         when(credentialReader.findCredentialsByUserId(adminId)).thenReturn(Optional.of(adminCredential));
         when(passwordVerifier.verify(any())).thenReturn(Optional.of(adminId));
@@ -117,6 +124,19 @@ class AdminDisableTotpCommandHandlerTest {
 
         result.mapTo(success -> fail("Expected failure")).orElse(failure -> {
             assertEquals("TOTP_NOT_ENABLED", failure.errorCode());
+            return null;
+        });
+    }
+
+    @Test
+    void handleReturnsInternalErrorWhenDependencyThrows() {
+        when(credentialReader.findCredentialsByUserId(adminId))
+                .thenThrow(new IllegalStateException("database failure"));
+
+        final DisableTotpResult result = handler.handle(command(DisableReason.ADMIN_FORCED));
+
+        result.mapTo(success -> fail("Expected failure")).orElse(failure -> {
+            assertEquals("INTERNAL_ERROR", failure.errorCode());
             return null;
         });
     }

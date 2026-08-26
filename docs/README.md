@@ -42,6 +42,9 @@ central-auth-service/
 |----------|-------------|
 | [SECURITY_OVERVIEW.md](project/SECURITY_OVERVIEW.md) | Evidence-backed current security posture, Java secret handling, implemented controls, trust boundaries, and residual risks |
 | [SECURITY_ROLLOUT.md](project/SECURITY_ROLLOUT.md) | Production automation, migrations, TLS, secrets, rotation, scanning, backups, monitoring, and recovery runbook |
+| [DEPLOYMENT_GUIDE.md](project/DEPLOYMENT_GUIDE.md) | Plain-language release guide: what each security control does, why it matters, and how to run database tests |
+| [ADMIN_RECOVERY_RUNBOOK.md](project/ADMIN_RECOVERY_RUNBOOK.md) | Administrator-issued recovery deployment and support procedure |
+| [TRIAL_STACK_GUIDE.md](project/TRIAL_STACK_GUIDE.md) | Local grpcui, Prometheus, and Grafana trial environment |
 
 ---
 

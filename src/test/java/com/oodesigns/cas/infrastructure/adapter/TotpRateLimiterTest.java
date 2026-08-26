@@ -54,6 +54,10 @@ class TotpRateLimiterTest {
         assertThrows(IllegalArgumentException.class, () -> new TotpRateLimiter(-1, duration));
         assertThrows(IllegalArgumentException.class, () -> new TotpRateLimiter(5, null));
         assertThrows(IllegalArgumentException.class, () -> new TotpRateLimiter(5, Duration.ZERO));
+        assertThrows(IllegalArgumentException.class,
+            () -> new TotpRateLimiter(5, duration, 0, System::nanoTime));
+        assertThrows(NullPointerException.class,
+            () -> new TotpRateLimiter(5, duration, 1, null));
     }
 
     @Test
@@ -67,11 +71,23 @@ class TotpRateLimiterTest {
         assertFalse(limiter.checkLimit(userId).mapTo(_ -> true).orElse(b -> false));
         limiter.reset();
         assertTrue(limiter.checkLimit(userId).mapTo(_ -> true).orElse(b -> false));
+        assertEquals(1, limiter.getTrackedKeyCount());
     }
 
     @Test
     void implementsPort() {
         assertInstanceOf(Ports.TotpRateLimiter.class, limiter);
+    }
+
+    @Test
+    void boundedLimiterBlocksWhenSlotsAreExhaustedAndEvictsExpiredEntries() {
+        final long[] now = {0L};
+        final TotpRateLimiter bounded = new TotpRateLimiter(1, Duration.ofNanos(10), 1, () -> now[0]);
+        final UserId otherUser = UserId.of(UUID.randomUUID());
+        assertTrue(bounded.checkLimit(userId).mapTo(_ -> true).orElse(_ -> false));
+        assertFalse(bounded.checkLimit(otherUser).mapTo(_ -> true).orElse(_ -> false));
+        now[0] = 11L;
+        assertTrue(bounded.checkLimit(otherUser).mapTo(_ -> true).orElse(_ -> false));
     }
 }
 

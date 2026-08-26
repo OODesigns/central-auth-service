@@ -8,6 +8,8 @@ import com.oodesigns.cas.application.command.LogoutCommandHandler;
 import com.oodesigns.cas.application.command.RefreshTokenCommandHandler;
 import com.oodesigns.cas.application.command.SetupTotpCommandHandler;
 import com.oodesigns.cas.application.command.VerifyTotpCommandHandler;
+import com.oodesigns.cas.application.command.IssueRecoveryTokenCommandHandler;
+import com.oodesigns.cas.application.command.CompleteRecoveryCommandHandler;
 import com.oodesigns.cas.domain.service.AuthenticationService;
 import com.oodesigns.cas.domain.service.Ports;
 import com.oodesigns.cas.domain.service.TokenService;
@@ -15,14 +17,18 @@ import com.oodesigns.cas.infrastructure.adapter.BcryptPasswordVerifier;
 import com.oodesigns.cas.infrastructure.adapter.DatabaseLoginRateLimiter;
 import com.oodesigns.cas.infrastructure.adapter.DatabaseTotpRateLimiter;
 import com.oodesigns.cas.infrastructure.adapter.EnvironmentKeySupplier;
+import com.oodesigns.cas.infrastructure.adapter.FileKeySupplier;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpSetupProvider;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpStatusReader;
 import com.oodesigns.cas.infrastructure.adapter.JooqTotpVerifier;
 import com.oodesigns.cas.infrastructure.adapter.JooqUserCredentialByIdReader;
 import com.oodesigns.cas.infrastructure.adapter.JooqRefreshTokenStore;
 import com.oodesigns.cas.infrastructure.adapter.JooqAccessTokenRevocationStore;
+import com.oodesigns.cas.infrastructure.adapter.JooqTrustedClientRetriever;
+import com.oodesigns.cas.infrastructure.adapter.JooqRecoveryTokenStore;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenSigner;
 import com.oodesigns.cas.infrastructure.adapter.JwtTokenVerifier;
+import com.oodesigns.cas.infrastructure.adapter.KeySupplier;
 import com.oodesigns.cas.infrastructure.adapter.LoginRateLimiter;
 import com.oodesigns.cas.infrastructure.adapter.SystemClock;
 import com.oodesigns.cas.infrastructure.adapter.TotpRateLimiter;
@@ -33,18 +39,27 @@ import com.oodesigns.cas.infrastructure.config.DatabaseContextFactory;
 import com.oodesigns.cas.infrastructure.grpc.AuthGrpcService;
 import com.oodesigns.cas.infrastructure.grpc.GrpcTlsConfigurer;
 import com.oodesigns.cas.infrastructure.grpc.GrpcAuthInterceptor;
+import com.oodesigns.cas.infrastructure.grpc.GrpcMetricsInterceptor;
+import com.oodesigns.cas.infrastructure.grpc.GrpcSecurityEventInterceptor;
 import com.oodesigns.cas.util.properties.EnvironmentVariableTransformer;
 import com.oodesigns.cas.util.properties.PropertiesReader;
 import com.oodesigns.cas.util.properties.PropertiesReaderFactoryProvider;
 import io.grpc.Server;
+import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.protobuf.services.HealthStatusManager;
+import io.grpc.protobuf.services.ProtoReflectionService;
+import io.grpc.protobuf.services.ProtoReflectionServiceV1;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
+import io.opentelemetry.exporter.prometheus.PrometheusHttpServer;
+import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import org.jooq.DSLContext;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.Arrays;
 import java.util.stream.Stream;
+import java.nio.file.Path;
 
 /**
  * Application entry point.
@@ -58,6 +73,7 @@ import java.util.stream.Stream;
  * When {@code grpc.tls.keystore.path} is blank the server starts in plaintext mode,
  * suitable for local development or when TLS is terminated by a reverse proxy / sidecar.
  */
+@SuppressWarnings("null")
 public final class Main {
 
     private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
@@ -77,7 +93,11 @@ public final class Main {
         final DSLContext dsl = DatabaseContextFactory.create(dbConfig);
 
         // --- Infrastructure adapters ---
-        final EnvironmentKeySupplier keySupplier = new EnvironmentKeySupplier();
+                final KeySupplier keySupplier = switch (props.get("secrets.backend")) {
+                        case "environment" -> new EnvironmentKeySupplier();
+                        case "file" -> new FileKeySupplier(Path.of(props.get("secrets.directory")));
+                        default -> throw new IllegalArgumentException("Unsupported secrets backend");
+                };
         final SystemClock clock = new SystemClock();
         final JooqAccessTokenRevocationStore accessTokenRevocationStore = new JooqAccessTokenRevocationStore(dsl);
         final String activeJwtKeyId = props.get("jwt.active-key-id");
@@ -104,6 +124,7 @@ public final class Main {
                 };
         final UserCredentialReader credentialReader = new UserCredentialReader(dsl);
         final UserRepository userRepository = new UserRepository(dsl);
+        final JooqTrustedClientRetriever trustedClientRetriever = new JooqTrustedClientRetriever(dsl);
         final JooqTotpStatusReader totpStatusReader = new JooqTotpStatusReader(dsl);
         final JooqTotpVerifier totpVerifier =
                 new JooqTotpVerifier(dsl, clock, keySupplier, TOTP_ENCRYPTION_KEY_ID);
@@ -112,6 +133,7 @@ public final class Main {
         final JooqUserCredentialByIdReader credentialByIdReader =
                 new JooqUserCredentialByIdReader(dsl);
         final JooqRefreshTokenStore refreshTokenStore = new JooqRefreshTokenStore(dsl);
+        final JooqRecoveryTokenStore recoveryTokenStore = new JooqRecoveryTokenStore(dsl);
 
         // --- Domain services ---
         final AuthenticationService authService = new AuthenticationService(passwordVerifier);
@@ -134,25 +156,64 @@ public final class Main {
         final RefreshTokenCommandHandler refreshTokenHandler =
                 new RefreshTokenCommandHandler(tokenVerifier, userRepository, tokenService, refreshTokenStore);
         final LogoutCommandHandler logoutHandler = new LogoutCommandHandler(tokenVerifier, accessTokenRevocationStore);
+        final IssueRecoveryTokenCommandHandler issueRecoveryTokenHandler =
+                new IssueRecoveryTokenCommandHandler(tokenService, recoveryTokenStore);
+        final CompleteRecoveryCommandHandler completeRecoveryHandler =
+                new CompleteRecoveryCommandHandler(tokenVerifier, passwordVerifier, recoveryTokenStore);
 
         // --- gRPC service ---
         final AuthGrpcService grpcService = new AuthGrpcService(
                 loginHandler, setupTotpHandler, enableTotpHandler,
                 verifyTotpHandler, disableTotpHandler, adminDisableTotpHandler,
-                refreshTokenHandler, logoutHandler);
+                refreshTokenHandler, logoutHandler, issueRecoveryTokenHandler, completeRecoveryHandler);
 
         // --- TLS (optional) ---
         final String keystorePath = props.get("grpc.tls.keystore.path");
         final String truststorePath = props.get("grpc.tls.truststore.path");
         final boolean allowPlaintext = Boolean.parseBoolean(props.get("grpc.tls.allow-plaintext"));
+        final int maxInboundMessageBytes = Integer.parseInt(props.get("grpc.max-inbound-message-bytes"));
+        final int maxInboundMetadataBytes = Integer.parseInt(props.get("grpc.max-inbound-metadata-bytes"));
+        final long keepAliveTimeMinutes = Long.parseLong(props.get("grpc.keepalive-time-minutes"));
+        final long keepAliveTimeoutSeconds = Long.parseLong(props.get("grpc.keepalive-timeout-seconds"));
+        final long maxConnectionIdleMinutes = Long.parseLong(props.get("grpc.max-connection-idle-minutes"));
+        final boolean requireMachineClient = Boolean.parseBoolean(props.get("grpc.tls.require-machine-client"));
+        final boolean healthEnabled = Boolean.parseBoolean(props.get("grpc.health.enabled"));
+        final boolean reflectionEnabled = Boolean.parseBoolean(props.get("grpc.reflection.enabled"));
+        final int metricsPort = Integer.parseInt(props.get("otel.metrics.port"));
+        final String environment = props.get("deployment.environment");
+        final PrometheusHttpServer prometheusServer = PrometheusHttpServer.builder()
+                .setPort(metricsPort)
+                .setHost("0.0.0.0")
+                .build();
+        final SdkMeterProvider meterProvider = SdkMeterProvider.builder()
+                .registerMetricReader(prometheusServer)
+                .build();
         final GrpcTlsConfigurer tlsConfigurer = new GrpcTlsConfigurer(keySupplier);
         final java.util.Optional<SslContext> tlsContext =
                 tlsConfigurer.buildServerSslContext(keystorePath, truststorePath, allowPlaintext);
 
         // --- Server ---
         final NettyServerBuilder serverBuilder = NettyServerBuilder.forPort(grpcPort)
-                .intercept(new GrpcAuthInterceptor(tokenVerifier))
+                .maxInboundMessageSize(maxInboundMessageBytes)
+                .maxInboundMetadataSize(maxInboundMetadataBytes)
+                .keepAliveTime(keepAliveTimeMinutes, java.util.concurrent.TimeUnit.MINUTES)
+                .keepAliveTimeout(keepAliveTimeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
+                .permitKeepAliveWithoutCalls(false)
+                .maxConnectionIdle(maxConnectionIdleMinutes, java.util.concurrent.TimeUnit.MINUTES)
+                .intercept(new GrpcMetricsInterceptor(meterProvider, environment))
+                .intercept(new GrpcSecurityEventInterceptor(environment))
+                .intercept(new GrpcAuthInterceptor(tokenVerifier, userRepository,
+                        trustedClientRetriever, requireMachineClient))
                 .addService(grpcService);
+                final HealthStatusManager healthStatusManager = new HealthStatusManager();
+                if (healthEnabled) {
+                        healthStatusManager.setStatus("", HealthCheckResponse.ServingStatus.SERVING);
+                        serverBuilder.addService(healthStatusManager.getHealthService());
+                }
+                if (reflectionEnabled) {
+                        serverBuilder.addService(ProtoReflectionService.newInstance());
+                        serverBuilder.addService(ProtoReflectionServiceV1.newInstance());
+                }
         tlsContext.ifPresent(serverBuilder::sslContext);
         final Server server = serverBuilder.build().start();
 
@@ -165,6 +226,8 @@ public final class Main {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             LOGGER.info("Shutting down CAS gRPC server...");
             server.shutdown();
+            prometheusServer.close();
+            meterProvider.close();
             LOGGER.info("CAS gRPC server stopped.");
         }));
 

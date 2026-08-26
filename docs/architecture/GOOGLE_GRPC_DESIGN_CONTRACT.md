@@ -14,8 +14,10 @@ This contract defines the API and implementation standards for Central Auth Serv
 - Keep opaque textual credentials and tokens as protobuf `string` fields. Their security comes from boundary validation and typed conversion.
 - Use `bytes` only for genuinely binary values such as encrypted data.
 - Use `google.protobuf.Timestamp` for exposed timestamps.
-- Use canonical gRPC statuses for transport and authentication failures; preserve the current response error branch for compatibility.
+- Use canonical gRPC statuses for transport and authentication failures. The legacy response error fields remain only for protobuf source compatibility.
 - For privileged administrative RPCs, return canonical statuses for malformed requests and authorization failures (`INVALID_ARGUMENT`, `PERMISSION_DENIED`, `UNAUTHENTICATED`) and reserve `INTERNAL` for unexpected failures.
+
+The current implementation applies canonical statuses across all RPC failure paths. Standard `google.rpc.Status` details include an `ErrorInfo` record with the service domain and application error code. The existing response `Error` fields remain in the protobuf messages for source compatibility, but are no longer used for failures.
 
 The gRPC adapter is the only place where protobuf strings become Java values. The deprecated client `LoginRequest.ip_address` is ignored; rate limiting uses the trusted transport peer address.
 
@@ -46,7 +48,7 @@ The gRPC adapter is the only place where protobuf strings become Java values. Th
 - Database access uses explicit API functions, locked search paths, non-login owner roles, and per-function grants.
 - Audit payloads use allowlisted fields and exclude password hashes, token hashes, backup-code hashes, and encrypted secret material.
 - Rate limits fail closed when their backing store is unavailable and distributed storage has an explicit cleanup policy.
-- TLS is fail-closed by default with an explicit protocol/cipher allowlist. Certificate authentication is not application authorization without principal mapping.
+- TLS is fail-closed by default with an explicit protocol/cipher allowlist. Certificate authentication is not application authorization without principal mapping and an explicit per-RPC machine-client policy. Terminal certificates identify devices/services and do not replace user bearer tokens for user-scoped RPCs.
 
 ## Testing and operations
 
@@ -54,6 +56,7 @@ The gRPC adapter is the only place where protobuf strings become Java values. Th
 - Keep unit tests deterministic; use integration tests for PostgreSQL, TLS, migrations, and transaction boundaries.
 - Preserve 100 percent line coverage for included classes.
 - Test missing, malformed, expired, revoked, mismatched, unauthorized, and unavailable-dependency paths.
+- Require bounded inbound messages and metadata, explicit client or ingress deadlines, and a documented health/reflection policy.
 - Apply Flyway migrations through the approved single migration job and never repair automatically.
 - Document compatibility windows, residual risks, and operational prerequisites. Never describe planned controls as implemented.
 

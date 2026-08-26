@@ -60,10 +60,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"varargs", "unchecked"})
 class AuthGrpcServiceTest {
 
     @Mock private LoginCommandHandler loginHandler;
@@ -231,6 +233,32 @@ class AuthGrpcServiceTest {
         assertEquals(TEST_USER_ID, response.getPasswordResetRequired().getUserId());
     }
 
+        @Test
+        void login_MfaEnrollmentRequiredResult_ReturnsEnrollmentResponse() {
+                when(loginHandler.handle(any())).thenReturn(LoginResult.mfaEnrollmentRequired(
+                                com.oodesigns.cas.domain.value.MfaEnrollmentToken.of("enrollment.token.here"),
+                                UserId.of(TEST_USER_ID)));
+
+                service.login(validLoginRequest(), loginObserver);
+
+                final ArgumentCaptor<LoginResponse> captor = ArgumentCaptor.forClass(LoginResponse.class);
+                verify(loginObserver).onNext(captor.capture());
+                verify(loginObserver).onCompleted();
+                assertTrue(captor.getValue().hasMfaEnrollmentRequired());
+        }
+
+        @Test
+        void login_RejectsMissingPeerIp() {
+                final Context previous = Context.current();
+                Context.ROOT.attach();
+                try {
+                        service.login(validLoginRequest(), loginObserver);
+                        verifyCanonicalError(loginObserver, Status.Code.INVALID_ARGUMENT);
+                } finally {
+                        Context.current().detach(previous);
+                }
+        }
+
     @Test
     void login_FailureResult_ReturnsErrorResponse() {
         final LoginResult result =
@@ -240,14 +268,21 @@ class AuthGrpcServiceTest {
 
         service.login(validLoginRequest(), loginObserver);
 
-        final ArgumentCaptor<LoginResponse> captor = ArgumentCaptor.forClass(LoginResponse.class);
-        verify(loginObserver).onNext(captor.capture());
-        verify(loginObserver).onCompleted();
-
-        final LoginResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_CREDENTIALS", response.getError().getErrorCode());
+        verifyCanonicalError(loginObserver, Status.Code.UNAUTHENTICATED);
     }
+
+        @Test
+        void login_MapsRemainingApplicationStatusCategories() {
+                final String[] codes = {"RATE_LIMITED", "INTERNAL_ERROR", "MFA_SETUP_REQUIRED", "OTHER"};
+                final Status.Code[] statuses = {Status.Code.RESOURCE_EXHAUSTED, Status.Code.INTERNAL,
+                                Status.Code.FAILED_PRECONDITION, Status.Code.INVALID_ARGUMENT};
+                for (int index = 0; index < codes.length; index++) {
+                        clearInvocations(loginObserver);
+                        when(loginHandler.handle(any())).thenReturn(LoginResult.failure(codes[index], "failure"));
+                        service.login(validLoginRequest(), loginObserver);
+                        verifyCanonicalError(loginObserver, statuses[index]);
+                }
+        }
 
     @Test
     void login_InvalidRequest_ReturnsInvalidRequestError() {
@@ -259,14 +294,8 @@ class AuthGrpcServiceTest {
 
         service.login(invalidRequest, loginObserver);
 
-        final ArgumentCaptor<LoginResponse> captor = ArgumentCaptor.forClass(LoginResponse.class);
-        verify(loginObserver).onNext(captor.capture());
-        verify(loginObserver).onCompleted();
+        verifyCanonicalError(loginObserver, Status.Code.INVALID_ARGUMENT);
         verify(loginHandler, never()).handle(any());
-
-        final LoginResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
     }
 
     // =========================================================================
@@ -293,6 +322,13 @@ class AuthGrpcServiceTest {
         assertEquals("JBSWY3DPEHPK3PXP", response.getSuccess().getSecret());
     }
 
+        @Test
+        void setupTotp_RejectsPrincipalMismatch() {
+                service.setupTotp(SetupTotpRequest.newBuilder()
+                                .setUserId(UUID.randomUUID().toString()).setUsername("testuser").build(), setupTotpObserver);
+                verifyCanonicalError(setupTotpObserver, Status.Code.PERMISSION_DENIED);
+        }
+
     @Test
     void setupTotp_FailureResult_ReturnsErrorResponse() {
         final SetupTotpResult result =
@@ -302,14 +338,7 @@ class AuthGrpcServiceTest {
 
         service.setupTotp(validSetupTotpRequest(), setupTotpObserver);
 
-        final ArgumentCaptor<SetupTotpResponse> captor =
-                ArgumentCaptor.forClass(SetupTotpResponse.class);
-        verify(setupTotpObserver).onNext(captor.capture());
-        verify(setupTotpObserver).onCompleted();
-
-        final SetupTotpResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INTERNAL_ERROR", response.getError().getErrorCode());
+        verifyCanonicalError(setupTotpObserver, Status.Code.INTERNAL);
     }
 
     @Test
@@ -322,15 +351,8 @@ class AuthGrpcServiceTest {
 
         service.setupTotp(invalidRequest, setupTotpObserver);
 
-        final ArgumentCaptor<SetupTotpResponse> captor =
-                ArgumentCaptor.forClass(SetupTotpResponse.class);
-        verify(setupTotpObserver).onNext(captor.capture());
-        verify(setupTotpObserver).onCompleted();
+        verifyCanonicalError(setupTotpObserver, Status.Code.INVALID_ARGUMENT);
         verify(setupTotpHandler, never()).handle(any());
-
-        final SetupTotpResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
     }
 
     // =========================================================================
@@ -359,6 +381,13 @@ class AuthGrpcServiceTest {
         assertTrue(response.getSuccess().getBackupCodesList().contains("ABCD-EFGH-IJKL-MNOP"));
     }
 
+        @Test
+        void enableTotp_RejectsPrincipalMismatch() {
+                service.enableTotp(EnableTotpRequest.newBuilder()
+                                .setUserId(UUID.randomUUID().toString()).setTotpCode("123456").build(), enableTotpObserver);
+                verifyCanonicalError(enableTotpObserver, Status.Code.PERMISSION_DENIED);
+        }
+
     @Test
     void enableTotp_FailureResult_ReturnsErrorResponse() {
         final EnableTotpResult result =
@@ -368,14 +397,7 @@ class AuthGrpcServiceTest {
 
         service.enableTotp(validEnableTotpRequest(), enableTotpObserver);
 
-        final ArgumentCaptor<EnableTotpResponse> captor =
-                ArgumentCaptor.forClass(EnableTotpResponse.class);
-        verify(enableTotpObserver).onNext(captor.capture());
-        verify(enableTotpObserver).onCompleted();
-
-        final EnableTotpResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_TOTP_CODE", response.getError().getErrorCode());
+        verifyCanonicalError(enableTotpObserver, Status.Code.UNAUTHENTICATED);
     }
 
     @Test
@@ -388,15 +410,8 @@ class AuthGrpcServiceTest {
 
         service.enableTotp(invalidRequest, enableTotpObserver);
 
-        final ArgumentCaptor<EnableTotpResponse> captor =
-                ArgumentCaptor.forClass(EnableTotpResponse.class);
-        verify(enableTotpObserver).onNext(captor.capture());
-        verify(enableTotpObserver).onCompleted();
+        verifyCanonicalError(enableTotpObserver, Status.Code.INVALID_ARGUMENT);
         verify(enableTotpHandler, never()).handle(any());
-
-        final EnableTotpResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
     }
 
     // =========================================================================
@@ -436,14 +451,7 @@ class AuthGrpcServiceTest {
 
         service.verifyTotp(validVerifyTotpRequest(), verifyTotpObserver);
 
-        final ArgumentCaptor<VerifyTotpResponse> captor =
-                ArgumentCaptor.forClass(VerifyTotpResponse.class);
-        verify(verifyTotpObserver).onNext(captor.capture());
-        verify(verifyTotpObserver).onCompleted();
-
-        final VerifyTotpResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_TOTP_CODE", response.getError().getErrorCode());
+        verifyCanonicalError(verifyTotpObserver, Status.Code.UNAUTHENTICATED);
     }
 
     @Test
@@ -456,15 +464,8 @@ class AuthGrpcServiceTest {
 
         service.verifyTotp(invalidRequest, verifyTotpObserver);
 
-        final ArgumentCaptor<VerifyTotpResponse> captor =
-                ArgumentCaptor.forClass(VerifyTotpResponse.class);
-        verify(verifyTotpObserver).onNext(captor.capture());
-        verify(verifyTotpObserver).onCompleted();
+        verifyCanonicalError(verifyTotpObserver, Status.Code.INVALID_ARGUMENT);
         verify(verifyTotpHandler, never()).handle(any());
-
-        final VerifyTotpResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
     }
 
     // =========================================================================
@@ -503,13 +504,7 @@ class AuthGrpcServiceTest {
 
         service.refresh(validRefreshRequest(), refreshObserver);
 
-        final ArgumentCaptor<RefreshResponse> captor = ArgumentCaptor.forClass(RefreshResponse.class);
-        verify(refreshObserver).onNext(captor.capture());
-        verify(refreshObserver).onCompleted();
-
-        final RefreshResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("REFRESH_TOKEN_REUSE_DETECTED", response.getError().getErrorCode());
+        verifyCanonicalError(refreshObserver, Status.Code.UNAUTHENTICATED);
     }
 
     @Test
@@ -521,14 +516,8 @@ class AuthGrpcServiceTest {
 
         service.refresh(invalidRequest, refreshObserver);
 
-        final ArgumentCaptor<RefreshResponse> captor = ArgumentCaptor.forClass(RefreshResponse.class);
-        verify(refreshObserver).onNext(captor.capture());
-        verify(refreshObserver).onCompleted();
+        verifyCanonicalError(refreshObserver, Status.Code.INVALID_ARGUMENT);
         verify(refreshTokenHandler, never()).handle(any());
-
-        final RefreshResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
     }
 
         // =========================================================================
@@ -550,19 +539,40 @@ class AuthGrpcServiceTest {
         }
 
         @Test
+        void disableTotp_RejectsEnrollmentToken() {
+                withContext(UserId.of(TEST_USER_ID), Set.of(), true, () ->
+                        service.disableTotp(validDisableTotpRequest(), disableTotpObserver));
+                verifyCanonicalError(disableTotpObserver, Status.Code.UNAUTHENTICATED);
+        }
+
+        @Test
+        void disableTotp_RejectsPrincipalMismatch() {
+                service.disableTotp(DisableTotpRequest.newBuilder()
+                        .setUserId(UUID.randomUUID().toString()).setPassword("securepassword123")
+                        .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.USER_REQUESTED)
+                        .build(), disableTotpObserver);
+                verifyCanonicalError(disableTotpObserver, Status.Code.PERMISSION_DENIED);
+        }
+
+        @Test
+        void disableTotp_AllowsPrivilegedReasonWithCurrentPermission() {
+                when(disableTotpHandler.handle(any())).thenReturn(DisableTotpResult.success());
+                withContext(UserId.of(TEST_USER_ID), Set.of(Permission.of("manage_mfa")), false, () ->
+                        service.disableTotp(DisableTotpRequest.newBuilder().setUserId(TEST_USER_ID)
+                                .setPassword("securepassword123")
+                                .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.ADMIN_FORCED)
+                                .build(), disableTotpObserver));
+                verify(disableTotpObserver).onCompleted();
+        }
+
+        @Test
         void logout_FailureResult_ReturnsErrorResponse() {
                 when(logoutHandler.handle(any())).thenReturn(
                                 LogoutResult.failure("INVALID_ACCESS_TOKEN", "Invalid token"));
 
                 service.logout(LogoutRequest.newBuilder().setAccessToken(TEST_ACCESS_TOKEN).build(), logoutObserver);
 
-                final ArgumentCaptor<LogoutResponse> captor = ArgumentCaptor.forClass(LogoutResponse.class);
-                verify(logoutObserver).onNext(captor.capture());
-                verify(logoutObserver).onCompleted();
-
-                final LogoutResponse response = captor.getValue();
-                assertTrue(response.hasError());
-                assertEquals("INVALID_ACCESS_TOKEN", response.getError().getErrorCode());
+                verifyCanonicalError(logoutObserver, Status.Code.UNAUTHENTICATED);
         }
 
         @Test
@@ -571,14 +581,8 @@ class AuthGrpcServiceTest {
 
                 service.logout(invalidRequest, logoutObserver);
 
-                final ArgumentCaptor<LogoutResponse> captor = ArgumentCaptor.forClass(LogoutResponse.class);
-                verify(logoutObserver).onNext(captor.capture());
-                verify(logoutObserver).onCompleted();
+                verifyCanonicalError(logoutObserver, Status.Code.INVALID_ARGUMENT);
                 verify(logoutHandler, never()).handle(any());
-
-                final LogoutResponse response = captor.getValue();
-                assertTrue(response.hasError());
-                assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
         }
 
     // =========================================================================
@@ -602,6 +606,18 @@ class AuthGrpcServiceTest {
         assertTrue(response.hasSuccess());
     }
 
+        @Test
+        void logout_RejectsBodyTokenThatDiffersFromBearerToken() {
+                final Context previous = Context.current().withValue(
+                                GrpcAuthInterceptor.BEARER_TOKEN, "different.token.value").attach();
+                try {
+                        service.logout(LogoutRequest.newBuilder().setAccessToken(TEST_ACCESS_TOKEN).build(), logoutObserver);
+                        verifyCanonicalError(logoutObserver, Status.Code.UNAUTHENTICATED);
+                } finally {
+                        Context.current().detach(previous);
+                }
+        }
+
     @Test
     void disableTotp_FailureResult_ReturnsErrorResponse() {
         final DisableTotpResult result =
@@ -611,15 +627,26 @@ class AuthGrpcServiceTest {
 
         service.disableTotp(validDisableTotpRequest(), disableTotpObserver);
 
-        final ArgumentCaptor<DisableTotpResponse> captor =
-                ArgumentCaptor.forClass(DisableTotpResponse.class);
-        verify(disableTotpObserver).onNext(captor.capture());
-        verify(disableTotpObserver).onCompleted();
-
-        final DisableTotpResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_PASSWORD", response.getError().getErrorCode());
+        verifyCanonicalError(disableTotpObserver, Status.Code.UNAUTHENTICATED);
     }
+
+        @Test
+        void disableTotp_RejectsPrivilegedReasonWithoutPermission() {
+                final DisableTotpRequest request = DisableTotpRequest.newBuilder()
+                                .setUserId(TEST_USER_ID).setPassword("securepassword123")
+                                .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.ADMIN_FORCED).build();
+                service.disableTotp(request, disableTotpObserver);
+                verifyCanonicalError(disableTotpObserver, Status.Code.PERMISSION_DENIED);
+        }
+
+        @Test
+        void disableTotp_RejectsPrivilegedReasonForOwnUserWithoutPermission() {
+                final DisableTotpRequest request = DisableTotpRequest.newBuilder()
+                                .setUserId(TEST_USER_ID).setPassword("securepassword123")
+                                .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.ADMIN_FORCED).build();
+                service.disableTotp(request, disableTotpObserver);
+                verifyCanonicalError(disableTotpObserver, Status.Code.PERMISSION_DENIED);
+        }
 
     @Test
     void disableTotp_UnspecifiedReason_ReturnsInvalidRequestError() {
@@ -631,15 +658,8 @@ class AuthGrpcServiceTest {
 
         service.disableTotp(requestWithNoReason, disableTotpObserver);
 
-        final ArgumentCaptor<DisableTotpResponse> captor =
-                ArgumentCaptor.forClass(DisableTotpResponse.class);
-        verify(disableTotpObserver).onNext(captor.capture());
-        verify(disableTotpObserver).onCompleted();
+        verifyCanonicalError(disableTotpObserver, Status.Code.INVALID_ARGUMENT);
         verify(disableTotpHandler, never()).handle(any());
-
-        final DisableTotpResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
     }
 
     @Test
@@ -653,15 +673,8 @@ class AuthGrpcServiceTest {
 
         service.disableTotp(invalidRequest, disableTotpObserver);
 
-        final ArgumentCaptor<DisableTotpResponse> captor =
-                ArgumentCaptor.forClass(DisableTotpResponse.class);
-        verify(disableTotpObserver).onNext(captor.capture());
-        verify(disableTotpObserver).onCompleted();
+        verifyCanonicalError(disableTotpObserver, Status.Code.INVALID_ARGUMENT);
         verify(disableTotpHandler, never()).handle(any());
-
-        final DisableTotpResponse response = captor.getValue();
-        assertTrue(response.hasError());
-        assertEquals("INVALID_REQUEST", response.getError().getErrorCode());
     }
 
     @Test
@@ -672,12 +685,7 @@ class AuthGrpcServiceTest {
                 .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.ADMIN_FORCED)
                 .build();
         service.disableTotp(request, disableTotpObserver);
-        final ArgumentCaptor<DisableTotpResponse> captor =
-                ArgumentCaptor.forClass(DisableTotpResponse.class);
-        verify(disableTotpObserver).onNext(captor.capture());
-        verify(disableTotpObserver).onCompleted();
-        assertTrue(captor.getValue().hasError());
-        assertEquals("INVALID_REQUEST", captor.getValue().getError().getErrorCode());
+        verifyCanonicalError(disableTotpObserver, Status.Code.PERMISSION_DENIED);
         verify(disableTotpHandler, never()).handle(any());
     }
 
@@ -689,12 +697,7 @@ class AuthGrpcServiceTest {
                 .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.SECURITY_INCIDENT)
                 .build();
         service.disableTotp(request, disableTotpObserver);
-        final ArgumentCaptor<DisableTotpResponse> captor =
-                ArgumentCaptor.forClass(DisableTotpResponse.class);
-        verify(disableTotpObserver).onNext(captor.capture());
-        verify(disableTotpObserver).onCompleted();
-        assertTrue(captor.getValue().hasError());
-        assertEquals("INVALID_REQUEST", captor.getValue().getError().getErrorCode());
+        verifyCanonicalError(disableTotpObserver, Status.Code.PERMISSION_DENIED);
         verify(disableTotpHandler, never()).handle(any());
     }
 
@@ -706,12 +709,7 @@ class AuthGrpcServiceTest {
                 .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.RECOVERY_FLOW)
                 .build();
         service.disableTotp(request, disableTotpObserver);
-        final ArgumentCaptor<DisableTotpResponse> captor =
-                ArgumentCaptor.forClass(DisableTotpResponse.class);
-        verify(disableTotpObserver).onNext(captor.capture());
-        verify(disableTotpObserver).onCompleted();
-        assertTrue(captor.getValue().hasError());
-        assertEquals("INVALID_REQUEST", captor.getValue().getError().getErrorCode());
+        verifyCanonicalError(disableTotpObserver, Status.Code.PERMISSION_DENIED);
         verify(disableTotpHandler, never()).handle(any());
     }
 
@@ -756,6 +754,19 @@ class AuthGrpcServiceTest {
         }
 
         @Test
+        void adminDisableTotp_RejectsMissingPrincipal() {
+                final Context previous = Context.current();
+                Context.ROOT.withValue(
+                        GrpcAuthInterceptor.PERMISSIONS, Set.of(Permission.of("manage_mfa"))).attach();
+                try {
+                        service.adminDisableTotp(validAdminDisableTotpRequest(UUID.randomUUID().toString()), adminDisableTotpObserver);
+                        verifyCanonicalError(adminDisableTotpObserver, Status.Code.UNAUTHENTICATED);
+                } finally {
+                        Context.current().detach(previous);
+                }
+        }
+
+        @Test
         void adminDisableTotp_RejectsEnrollmentTokenContext() {
                 withContext(UserId.of(UUID.randomUUID()), Set.of(Permission.of("manage_mfa")), true, () ->
                         service.adminDisableTotp(validAdminDisableTotpRequest(UUID.randomUUID().toString()), adminDisableTotpObserver));
@@ -796,6 +807,14 @@ class AuthGrpcServiceTest {
                 assertEquals(Status.INVALID_ARGUMENT.getCode(), ((StatusRuntimeException) errorCaptor.getValue()).getStatus().getCode());
         }
 
+        @Test
+        void adminDisableTotp_RejectsHandlerRuntimeFailure() {
+                when(adminDisableTotpHandler.handle(any())).thenThrow(new IllegalStateException("failure"));
+                withContext(UserId.of(UUID.randomUUID()), Set.of(Permission.of("manage_mfa")), false, () ->
+                        service.adminDisableTotp(validAdminDisableTotpRequest(UUID.randomUUID().toString()), adminDisableTotpObserver));
+                verifyCanonicalError(adminDisableTotpObserver, Status.Code.INTERNAL);
+        }
+
     // =========================================================================
     // Helpers
     // =========================================================================
@@ -805,6 +824,15 @@ class AuthGrpcServiceTest {
                 .setUsername("testuser")
                 .setPassword("securepassword123")
                 .build();
+    }
+
+    @Test
+    void adminDisableTotp_MapsHandlerFailureToCanonicalStatus() {
+        when(adminDisableTotpHandler.handle(any())).thenReturn(
+                DisableTotpResult.failure("INVALID_PASSWORD", "Administrator reauthentication failed."));
+        withContext(UserId.of(UUID.randomUUID()), Set.of(Permission.of("manage_mfa")), false, () ->
+                service.adminDisableTotp(validAdminDisableTotpRequest(UUID.randomUUID().toString()), adminDisableTotpObserver));
+        verifyCanonicalError(adminDisableTotpObserver, Status.Code.UNAUTHENTICATED);
     }
 
     private SetupTotpRequest validSetupTotpRequest() {
@@ -848,6 +876,13 @@ class AuthGrpcServiceTest {
                                 .setAdminPassword("AdminPassword1234")
                                 .setReason(com.oodesigns.cas.infrastructure.grpc.proto.DisableReason.ADMIN_FORCED)
                                 .build();
+        }
+
+        private void verifyCanonicalError(final StreamObserver<?> observer, final Status.Code expectedCode) {
+                final ArgumentCaptor<Throwable> errorCaptor = ArgumentCaptor.forClass(Throwable.class);
+                verify(observer).onError(errorCaptor.capture());
+                assertEquals(expectedCode,
+                                ((StatusRuntimeException) errorCaptor.getValue()).getStatus().getCode());
         }
 
         private void withContext(final UserId principal,

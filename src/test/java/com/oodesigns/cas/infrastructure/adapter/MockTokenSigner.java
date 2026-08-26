@@ -6,6 +6,7 @@ import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.RefreshToken;
 import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
+import com.oodesigns.cas.domain.value.RecoveryToken;
 
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
@@ -52,6 +53,12 @@ public class MockTokenSigner implements Ports.TokenSigner {
     public java.util.Optional<MfaEnrollmentToken> signMfaEnrollmentToken(
             final Payload payload, final Instant expiresAt) {
         return sign(payload, expiresAt).map(MfaEnrollmentToken::of);
+    }
+
+    @Override
+    public java.util.Optional<RecoveryToken> signRecoveryToken(
+            final Payload payload, final Instant expiresAt) {
+        return sign(payload, expiresAt).map(RecoveryToken::of);
     }
 
     /**

@@ -1,0 +1,37 @@
+@startuml DeploymentSecurityStack
+!include ../themes/dark-theme.puml
+skinparam componentStyle rectangle
+left to right direction
+
+actor "Developer / Operator" as Dev
+rectangle "GitHub Repository" as Repo
+rectangle "GitHub-hosted CI\nlightweight validation only" as GitHubCI
+rectangle "Approved Internal Runner\nJenkins / GitLab / Argo / platform pipeline" as InternalRunner
+rectangle "Local Security Gate\n./scripts/security-check.sh" as LocalGate
+rectangle "Artifact Registry" as Registry
+rectangle "Production Deployment\nTLS + mTLS + secret manager" as Production
+rectangle "Observability Stack\nPrometheus + Grafana + OTEL" as Observability
+rectangle "PostgreSQL\nAudit + rate limits + app state" as DB
+rectangle "Structured Security Logs\nJSON + correlation IDs" as Logs
+rectangle "Policy & Review\nchange record + approvals" as Policy
+
+Dev --> Repo
+Repo --> GitHubCI : PR/branch validation
+GitHubCI --> InternalRunner : no authoritative gate
+InternalRunner --> LocalGate : run approved internal security gate
+LocalGate --> Registry : image + scan evidence
+Registry --> Production : deploy by immutable digest
+Production --> Observability : metrics + trace data
+Production --> Logs : auth, authz, mTLS, audit events
+Production --> DB : migrations + audit + rate-limit data
+Policy --> InternalRunner : signoff / rotation / emergency approvals
+Policy --> Production : trust, retention, incident ownership
+
+note right of InternalRunner
+  Production enforcement lives here:
+  OSV, Trivy, image digest verification,
+  Flyway validation, TLS tests,
+  secret rotation evidence, audit retention checks
+end note
+
+@enduml
