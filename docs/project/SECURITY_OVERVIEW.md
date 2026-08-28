@@ -88,7 +88,7 @@ JWT HMAC conversion and access/refresh-token hashing explicitly clear their temp
 
 Absent credentials and password mismatches both return `INVALID_CREDENTIALS`, reducing account-enumeration detail in the public result. [BcryptPasswordVerifier](../../src/main/java/com/oodesigns/cas/infrastructure/adapter/BcryptPasswordVerifier.java) suppresses malformed-hash detail and returns an empty result instead of exposing verification internals.
 
-The service identifies `PASSWORD_RESET_REQUIRED`, but [auth.proto](../../src/main/proto/auth.proto) does not define recovery RPCs or reset-scoped tokens. The approved future model is administrator-issued recovery: no public request-password-reset RPC and no email delivery dependency. A complete recovery workflow is outside the current service contract and must not be inferred from the login outcome.
+The service identifies `PASSWORD_RESET_REQUIRED` for compatibility with clients that still need an administrator-led recovery decision. The current contract also defines administrator-issued recovery through `IssueRecoveryToken` and `CompleteRecovery`; there is no public request-password-reset RPC and no email delivery dependency. Follow [ADMIN_RECOVERY_RUNBOOK.md](ADMIN_RECOVERY_RUNBOOK.md) for the required out-of-band identity verification and deployment smoke test.
 
 ## MFA and TOTP
 
@@ -127,7 +127,7 @@ Version 2 tokens include subject, audience where applicable, JTI, issued-at, exp
 The active signing key is used for issuance, while an allowlisted active-plus-previous key set supports manual rotation. Current limitations are:
 
 - HS256 uses shared symmetric secrets; compromise of a verification key permits signing.
-- Legacy tokens may have no issuer claim during the controlled migration window.KEEP_DB_TEST_ENV=true ./scripts/run-database-tests.sh New version-2 tokens use and require issuer `central-auth-service`; retire legacy verification after the maximum token lifetime and revoke remaining legacy sessions where possible.
+- Legacy tokens may have no issuer claim during the controlled migration window. New version-2 tokens use and require issuer `central-auth-service`; retire legacy verification after the maximum token lifetime and revoke remaining legacy sessions where possible.
 - Verification tries allowed keys rather than selecting by `kid`.
 - Key distribution, retirement, and emergency rotation are operational procedures rather than an integrated key-management service.
 
@@ -209,7 +209,7 @@ The following table records the status of the findings from the original securit
 
 ## Reviewer verification
 
-The remaining follow-up work is tracked in [SECURITY_TODO.md](SECURITY_TODO.md). Canonical gRPC status migration is complete for the current service contract; failures now use transport statuses with standard `google.rpc.Status` details.
+Remaining operational work is tracked in [SECURITY_ROLLOUT.md](SECURITY_ROLLOUT.md) and [SECURITY_IMPLEMENTATION_PLAN.md](SECURITY_IMPLEMENTATION_PLAN.md). Canonical gRPC status migration is complete for the current service contract; failures now use transport statuses with standard `google.rpc.Status` details.
 
 Use these checks when reviewing a release:
 

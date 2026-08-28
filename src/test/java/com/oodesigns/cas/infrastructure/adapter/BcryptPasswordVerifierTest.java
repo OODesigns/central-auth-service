@@ -162,4 +162,18 @@ class BcryptPasswordVerifierTest {
             assertTrue(result.isEmpty(), "Should return empty Optional when encoder throws exception");
         }
     }
+
+    @Test
+    void shouldHashPassword() {
+        final Password password = Password.of(TEST_PASSWORD.toCharArray());
+
+        final PasswordHash hash = verifier.hash(password);
+
+        assertTrue(new BCryptPasswordEncoder().matches(TEST_PASSWORD, hash.value()));
+    }
+
+    @Test
+    void shouldRejectNullPasswordWhenHashing() {
+        assertThrows(NullPointerException.class, () -> verifier.hash(null));
+    }
 }

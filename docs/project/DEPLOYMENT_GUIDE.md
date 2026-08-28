@@ -6,6 +6,35 @@ This is the short guide for deploying Central Auth Service safely. The security 
 
 Use this guide with [ADMIN_RECOVERY_RUNBOOK.md](ADMIN_RECOVERY_RUNBOOK.md) when deploying the account-recovery feature.
 
+## Choose Your Path
+
+This repository supports two different activities:
+
+| Activity | What you need |
+| --- | --- |
+| Local development on Linux Mint | Docker, Docker Compose, generated local secrets, and passing local tests. No enterprise evidence package is required. |
+| Real production deployment | A protected runtime, approved secrets and certificates, backups, monitoring, migration controls, and release records. |
+
+For local development, start with [TRIAL_STACK_GUIDE.md](TRIAL_STACK_GUIDE.md).
+The production evidence requirements later in this document and in
+[SECURITY_ROLLOUT.md](SECURITY_ROLLOUT.md) apply only when the service is being
+released for real users or deployed onto shared infrastructure.
+
+## New Operator Path
+
+Read this section first if you are new to the service or to application
+security:
+
+1. Use [TRIAL_STACK_GUIDE.md](TRIAL_STACK_GUIDE.md) to run the local trial.
+2. Use the port table below to resolve host-port conflicts.
+3. For a real deployment, complete the release steps and the acceptance list
+	in [SECURITY_ROLLOUT.md](SECURITY_ROLLOUT.md).
+4. Ask the release owner to confirm the image digest, migration evidence, TLS,
+	secrets, backups, monitoring, and approval record before production traffic.
+
+The trial stack is for learning only. It enables plaintext gRPC and reflection
+locally and must never be reused as a production configuration.
+
 ## What Has Already Been Fixed
 
 | Security concern | What protects us now | Why it matters |
@@ -24,9 +53,10 @@ Use this guide with [ADMIN_RECOVERY_RUNBOOK.md](ADMIN_RECOVERY_RUNBOOK.md) when 
 | Unclear gRPC failures | Failures use canonical gRPC status plus `google.rpc.ErrorInfo`. | Clients can handle errors reliably without parsing text. |
 | Missing security evidence | Metrics, bounded security events, audit records, image scans, and deployment checks are available. | Helps detect problems and investigate them later. |
 
-## The Release Steps
+## The Production Release Steps
 
-Do these in order. Stop if a step fails.
+These steps are for a real production release. They are not required for a
+local Linux Mint development run. Stop if a production step fails.
 
 1. **Prepare secrets and configuration.** Copy `.env.example` to `.env`. Replace every example secret. Do not commit `.env`.
 2. **Start PostgreSQL and apply migrations.** Run `docker compose up -d db flyway`. Flyway creates schemas, roles, database functions, and the recovery-token tables.
@@ -35,6 +65,40 @@ Do these in order. Stop if a step fails.
 5. **Deploy by image digest.** Do not deploy a mutable image tag such as `latest`.
 6. **Check TLS, health, login, MFA, refresh, logout, and recovery.** Use [ADMIN_RECOVERY_RUNBOOK.md](ADMIN_RECOVERY_RUNBOOK.md) for recovery checks.
 7. **Keep the evidence.** Save Flyway output, test results, scan results, image digest, approval ID, and smoke-test result with the release record.
+
+## Port Bindings
+
+The root `compose.yml` uses these host-to-container bindings:
+
+| Service | Default host binding | Container port | Environment override |
+| --- | --- | --- | --- |
+| PostgreSQL | `127.0.0.1:5432` | `5432` | `POSTGRES_HOST_PORT` |
+| gRPC service | `0.0.0.0:50051` | `50051` | `GRPC_HOST_PORT` |
+
+The application-to-database connection always uses the Compose service name
+and container port: `db:5432`. `POSTGRES_HOST_PORT` is only for host-side
+access, administration, and tests; it must not be substituted for `DB_PORT`
+when the application runs in the Compose network.
+
+Set host ports in `.env` before starting the stack if the defaults are already
+allocated:
+
+```dotenv
+POSTGRES_HOST_PORT=55433
+GRPC_HOST_PORT=50052
+```
+
+The root Compose database binding is loopback-only. A real deployment should
+prefer a private or managed PostgreSQL service and should not expose PostgreSQL
+on `0.0.0.0`. If the deployment platform publishes the database itself, apply
+the platform's firewall and private-network controls and keep the application
+connection as `DB_HOST=<private database host>` and `DB_PORT=<database port>`.
+
+The devcontainer Compose file is separate and binds PostgreSQL as
+`0.0.0.0:5432:5432` for local tools. If Docker reports `Bind for
+0.0.0.0:5432 failed: port is already allocated`, stop the service using that
+port or change the devcontainer binding before restarting it. This error is
+not evidence that the trial stack selected the wrong port.
 
 ## Database Tests: How the Environment Is Set
 
@@ -103,6 +167,20 @@ RUN_DATABASE_TESTS=true ./gradlew databaseIntegrationTest -PincludeDbTests
 ```
 
 The first two do not need database credentials. `scripts/security-check.sh` deliberately removes database environment variables for those non-database tests, so local database settings cannot affect them.
+
+## Local Development Completion
+
+For Linux Mint development, the local job is complete when:
+
+1. `./scripts/start-trial-stack.sh` starts the trial stack successfully.
+2. The gRPC request in [TRIAL_STACK_GUIDE.md](TRIAL_STACK_GUIDE.md) succeeds.
+3. `./gradlew test integrationTest jacocoTestCoverageVerification` passes.
+4. Generated files such as `.trial.env` and `.trial-admin-password` remain local and are never committed or shared.
+
+You do not need a secret manager, public TLS certificate, backup evidence,
+enterprise approval, image registry, or production release record for this
+local workflow. Those controls become necessary only when the service leaves
+your development machine.
 
 ## Things That Must Keep Happening
 

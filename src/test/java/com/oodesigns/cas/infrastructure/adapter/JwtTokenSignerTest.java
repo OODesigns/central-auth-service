@@ -159,6 +159,23 @@ class JwtTokenSignerTest {
     }
 
     @Test
+    void shouldSignAllTokenPurposes() {
+        final Payload payload = Payload.of("{\"sub\":\"user123\"}");
+        final Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+
+        assertTrue(signer.signRefreshToken(payload, expiresAt).isPresent());
+        assertTrue(signer.signTwoFactorVerificationToken(payload, expiresAt).isPresent());
+        assertTrue(signer.signRecoveryToken(payload, expiresAt).isPresent());
+    }
+
+    @Test
+    void shouldReturnEmptyForMalformedJsonPayload() {
+        final Payload payload = Payload.of("not-json");
+
+        assertTrue(signer.signAccessToken(payload, Instant.now().plus(1, ChronoUnit.HOURS)).isEmpty());
+    }
+
+    @Test
     @DisplayName("Should set correct expiration in token")
     void shouldSetCorrectExpiration() {
         final Payload payload = Payload.of("{\"sub\":\"user123\"}");

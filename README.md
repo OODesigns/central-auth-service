@@ -18,8 +18,27 @@ docker compose logs -f app
 ```
 
 The Compose stack starts PostgreSQL, waits for it to become healthy, applies
-Flyway migrations, and then starts the Java 25 gRPC service on host port 50051.
-Override the host port with `GRPC_HOST_PORT` in `.env`.
+Flyway migrations, and then starts the Java 25 gRPC service. The host port
+bindings are:
+
+| Service | Host binding | Container port | Override |
+| --- | --- | --- | --- |
+| PostgreSQL | `127.0.0.1:5432` | `5432` | `POSTGRES_HOST_PORT` |
+| gRPC service | `0.0.0.0:50051` | `50051` | `GRPC_HOST_PORT` |
+
+The application connects to PostgreSQL internally as `db:5432`; changing
+`POSTGRES_HOST_PORT` changes host access only. Set the variables in `.env`
+before startup when a host port is already allocated. For example:
+
+```dotenv
+POSTGRES_HOST_PORT=55433
+GRPC_HOST_PORT=50052
+```
+
+The root deployment Compose file binds PostgreSQL to loopback only. Do not
+change that binding to `0.0.0.0` unless external database access is explicitly
+required and protected by the deployment network and firewall. PostgreSQL is
+not intended to be an internet-facing service.
 
 `V1_2_0` was corrected before the first production release to disable legacy
 test credentials. Existing development database volumes created by an older
@@ -33,8 +52,8 @@ docker compose down --volumes
 
 The application image is multi-stage: Gradle builds the distribution with a
 Java 25 JDK, while the final non-root runtime contains only a Java 25 JRE and
-the application distribution. PostgreSQL is not published to the host by the
-deployment Compose file.
+the application distribution. PostgreSQL is published only on `127.0.0.1` by
+the deployment Compose file, using the binding described above.
 
 ## Environment Parameters
 

@@ -33,14 +33,14 @@ The internal runner must execute that script before deployment and preserve its 
 
 Account recovery uses an administrator-issued recovery token. CAS does not expose a public request-password-reset RPC and does not depend on an email provider. An authorized administrator delivers the one-time token through an organization-approved out-of-band support channel. The repository now implements the token, storage, protected issuance RPC, and public completion RPC; support-process approval and production database migration remain deployment prerequisites.
 
-1. Add `RecoveryToken` and reset-purpose claims, a short expiration, JTI, hash-only persistence, and atomic single-use consumption.
-2. Add database API functions to issue and consume recovery tokens, update passwords, revoke refresh-token families, and require MFA re-enrollment. Each operation must create an attributable audit event.
-3. Add ports for recovery-token storage, privileged issuance, and session revocation. No mail or verified-email port is needed.
-4. Add an `IssueRecoveryToken` handler that requires the current `manage_recovery` permission. It must invalidate any previous unused recovery token for the target account and show the new token only once to the administrator.
-5. Add a `CompleteRecovery` handler that accepts only the reset-purpose token and a new password. Invalid, expired, and consumed tokens must have the same public failure outcome.
-6. Add `IssueRecoveryToken` as a protected administrative RPC and `CompleteRecovery` as the only public recovery RPC in `auth.proto`. `GrpcAuthInterceptor` must require a current access token and `manage_recovery` for issuance.
-7. Add unit and database integration coverage for authorization, token expiry/replay/concurrent consumption, password update, refresh-family revocation, MFA re-enrollment, and audit attribution.
-8. Deploy only after internal-runner smoke tests cover issuance and completion, and the support team approves its out-of-band identity-verification and token-delivery procedure.
+1. Completed: `RecoveryToken`, reset-purpose claims, short expiration, JTI, hash-only persistence, and atomic single-use consumption.
+2. Completed: database API functions issue and consume recovery tokens, update passwords, revoke refresh-token families, and require MFA re-enrollment.
+3. Completed: ports exist for recovery-token storage, privileged issuance, and session revocation. No mail or verified-email port is needed.
+4. Completed: `IssueRecoveryToken` requires the current `manage_recovery` permission, invalidates previous unused tokens, and shows the new token only once to the administrator.
+5. Completed: `CompleteRecovery` accepts only the reset-purpose token and a new password, with one public failure outcome for invalid, expired, and consumed tokens.
+6. Completed: `IssueRecoveryToken` is protected and `CompleteRecovery` is the only public recovery RPC in `auth.proto`; `GrpcAuthInterceptor` enforces access-token and permission requirements.
+7. In progress: complete unit and database integration coverage for authorization, token expiry/replay/concurrent consumption, password update, refresh-family revocation, MFA re-enrollment, and audit attribution.
+8. Required before production: internal-runner smoke tests must cover issuance and completion, and the support team must approve the out-of-band identity-verification and token-delivery procedure.
 
 ## Acceptance criteria
 

@@ -15,6 +15,7 @@ import io.grpc.Status;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.net.InetSocketAddress;
 import java.util.Optional;
 import java.util.Set;
 import javax.net.ssl.SSLSession;
@@ -48,6 +49,16 @@ class GrpcAuthInterceptorTest {
         new GrpcAuthInterceptor(verifier, mock(Ports.UserRetriever.class)).interceptCall(call, headers, next);
         verify(next).startCall(call, headers);
         verify(verifier, never()).verifyAccessToken(AccessToken.of(TOKEN));
+    }
+
+    @Test
+    void peerIpReturnsRemoteIpv4Address() {
+        final ServerCall<?, ?> call = mock(ServerCall.class);
+        final InetSocketAddress address = new InetSocketAddress("192.0.2.10", 50051);
+        when(call.getAttributes()).thenReturn(Attributes.newBuilder()
+                .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, address).build());
+
+        assertEquals("192.0.2.10", GrpcAuthInterceptor.peerIp(call));
     }
 
     @Test

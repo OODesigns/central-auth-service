@@ -21,6 +21,20 @@ class FileKeySupplierTest {
     }
 
     @Test
+    void removesWindowsTrailingLineBreak() throws Exception {
+        Files.writeString(secretDirectory.resolve("JWT_SECRET"), "0123456789ABCDEF0123456789ABCDEF\r\n");
+
+        assertTrue(new FileKeySupplier(secretDirectory).getPassword("JWT_SECRET").isPresent());
+    }
+
+    @Test
+    void rejectsInvalidSecretMaterial() throws Exception {
+        Files.writeString(secretDirectory.resolve("JWT_SECRET"), "short");
+
+        assertTrue(new FileKeySupplier(secretDirectory).getPassword("JWT_SECRET").isEmpty());
+    }
+
+    @Test
     void rejectsUnsafeOrMissingSecretNames() {
         final FileKeySupplier supplier = new FileKeySupplier(secretDirectory);
 

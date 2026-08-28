@@ -1,6 +1,15 @@
 # Production Security Rollout
 
-This runbook describes the production automation and operational controls required after the application security work is complete. Repository CI provides a baseline gate; production must also run these stages from an approved internal runner such as Jenkins, GitLab CI, Argo Workflows, or the deployment platform's native pipeline.
+This runbook describes production automation and operational controls. It is
+not required for local development on Linux Mint. For local development, use
+[TRIAL_STACK_GUIDE.md](TRIAL_STACK_GUIDE.md) and the local test commands in
+[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
+
+The controls below become relevant when the service is released for real users,
+shared infrastructure, or an organization with formal change management.
+Repository CI provides a baseline gate; production must also run these stages
+from an approved internal runner such as Jenkins, GitLab CI, Argo Workflows, or
+the deployment platform's native pipeline.
 
 ## Automated Pipeline
 

@@ -6,6 +6,10 @@ import com.oodesigns.cas.application.command.DisableReason;
 import com.oodesigns.cas.application.command.DisableTotpResult;
 import com.oodesigns.cas.application.command.EnableTotpCommandHandler;
 import com.oodesigns.cas.application.command.EnableTotpResult;
+import com.oodesigns.cas.application.command.CompleteRecoveryCommandHandler;
+import com.oodesigns.cas.application.command.CompleteRecoveryResult;
+import com.oodesigns.cas.application.command.IssueRecoveryTokenCommandHandler;
+import com.oodesigns.cas.application.command.IssueRecoveryTokenResult;
 import com.oodesigns.cas.application.command.LoginCommandHandler;
 import com.oodesigns.cas.application.command.LoginResult;
 import com.oodesigns.cas.application.command.LogoutCommandHandler;
@@ -39,6 +43,10 @@ import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.SetupTotpResponse;
 import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpRequest;
 import com.oodesigns.cas.infrastructure.grpc.proto.VerifyTotpResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.IssueRecoveryTokenRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.IssueRecoveryTokenResponse;
+import com.oodesigns.cas.infrastructure.grpc.proto.CompleteRecoveryRequest;
+import com.oodesigns.cas.infrastructure.grpc.proto.CompleteRecoveryResponse;
 import io.grpc.stub.StreamObserver;
 import io.grpc.Context;
 import io.grpc.Status;
@@ -76,6 +84,8 @@ class AuthGrpcServiceTest {
         @Mock private AdminDisableTotpCommandHandler adminDisableTotpHandler;
     @Mock private RefreshTokenCommandHandler refreshTokenHandler;
         @Mock private LogoutCommandHandler logoutHandler;
+        @Mock private IssueRecoveryTokenCommandHandler issueRecoveryTokenHandler;
+        @Mock private CompleteRecoveryCommandHandler completeRecoveryHandler;
 
     @Mock private StreamObserver<LoginResponse> loginObserver;
     @Mock private StreamObserver<SetupTotpResponse> setupTotpObserver;
@@ -85,6 +95,8 @@ class AuthGrpcServiceTest {
         @Mock private StreamObserver<AdminDisableTotpResponse> adminDisableTotpObserver;
     @Mock private StreamObserver<RefreshResponse> refreshObserver;
         @Mock private StreamObserver<LogoutResponse> logoutObserver;
+        @Mock private StreamObserver<IssueRecoveryTokenResponse> issueRecoveryObserver;
+        @Mock private StreamObserver<CompleteRecoveryResponse> completeRecoveryObserver;
 
     private AuthGrpcService service;
         private Context previousContext;
@@ -835,6 +847,97 @@ class AuthGrpcServiceTest {
         verifyCanonicalError(adminDisableTotpObserver, Status.Code.UNAUTHENTICATED);
     }
 
+    @Test
+    void recoveryConstructorRejectsNullHandlers() {
+        assertThrows(NullPointerException.class, () -> recoveryService(null, completeRecoveryHandler));
+        assertThrows(NullPointerException.class, () -> recoveryService(issueRecoveryTokenHandler, null));
+    }
+
+    @Test
+    void issueRecoveryTokenRejectsEnrollmentAndMissingPermission() {
+        final IssueRecoveryTokenRequest request = IssueRecoveryTokenRequest.newBuilder()
+                .setTargetUserId(TEST_USER_ID).build();
+        withContext(UserId.of(TEST_USER_ID), Set.of(Permission.of("manage_recovery")), true,
+                () -> recoveryService(issueRecoveryTokenHandler, completeRecoveryHandler)
+                        .issueRecoveryToken(request, issueRecoveryObserver));
+        verifyCanonicalError(issueRecoveryObserver, Status.Code.UNAUTHENTICATED);
+
+        clearInvocations(issueRecoveryObserver);
+        withContext(UserId.of(TEST_USER_ID), Set.of(), false,
+                () -> recoveryService(issueRecoveryTokenHandler, completeRecoveryHandler)
+                        .issueRecoveryToken(request, issueRecoveryObserver));
+        verifyCanonicalError(issueRecoveryObserver, Status.Code.PERMISSION_DENIED);
+    }
+
+    @Test
+    void issueRecoveryTokenMapsSuccessAndFailure() {
+        final IssueRecoveryTokenRequest request = IssueRecoveryTokenRequest.newBuilder()
+                .setTargetUserId(TEST_USER_ID).build();
+        when(issueRecoveryTokenHandler.handle(any())).thenReturn(
+                IssueRecoveryTokenResult.success(com.oodesigns.cas.domain.value.RecoveryToken.of("recovery.token.value")));
+        withContext(UserId.of(TEST_USER_ID), Set.of(Permission.of("manage_recovery")), false,
+                () -> recoveryService(issueRecoveryTokenHandler, completeRecoveryHandler)
+                        .issueRecoveryToken(request, issueRecoveryObserver));
+        verify(issueRecoveryObserver).onNext(any(IssueRecoveryTokenResponse.class));
+        verify(issueRecoveryObserver).onCompleted();
+
+        clearInvocations(issueRecoveryObserver);
+        when(issueRecoveryTokenHandler.handle(any())).thenReturn(
+                IssueRecoveryTokenResult.failure("INTERNAL_ERROR", "failure"));
+        withContext(UserId.of(TEST_USER_ID), Set.of(Permission.of("manage_recovery")), false,
+                () -> recoveryService(issueRecoveryTokenHandler, completeRecoveryHandler)
+                        .issueRecoveryToken(request, issueRecoveryObserver));
+        verifyCanonicalError(issueRecoveryObserver, Status.Code.INTERNAL);
+    }
+
+    @Test
+    void issueRecoveryTokenMapsInvalidRequest() {
+        final IssueRecoveryTokenRequest request = IssueRecoveryTokenRequest.newBuilder()
+                .setTargetUserId("invalid").build();
+        withContext(UserId.of(TEST_USER_ID), Set.of(Permission.of("manage_recovery")), false,
+                () -> recoveryService(issueRecoveryTokenHandler, completeRecoveryHandler)
+                        .issueRecoveryToken(request, issueRecoveryObserver));
+        verifyCanonicalError(issueRecoveryObserver, Status.Code.INVALID_ARGUMENT);
+    }
+
+        @Test
+        void issueRecoveryTokenRejectsMissingRecoveryHandler() {
+                final IssueRecoveryTokenRequest request = IssueRecoveryTokenRequest.newBuilder()
+                                .setTargetUserId(TEST_USER_ID).build();
+                withContext(UserId.of(TEST_USER_ID), Set.of(Permission.of("manage_recovery")), false,
+                                () -> service.issueRecoveryToken(request, issueRecoveryObserver));
+
+                verifyCanonicalError(issueRecoveryObserver, Status.Code.UNAUTHENTICATED);
+        }
+
+    @Test
+    void completeRecoveryMapsUnavailableSuccessFailureAndInvalidRequest() {
+        service.completeRecovery(CompleteRecoveryRequest.newBuilder().build(), completeRecoveryObserver);
+        verifyCanonicalError(completeRecoveryObserver, Status.Code.UNAVAILABLE);
+
+        clearInvocations(completeRecoveryObserver);
+        when(completeRecoveryHandler.handle(any())).thenReturn(CompleteRecoveryResult.success());
+        recoveryService(issueRecoveryTokenHandler, completeRecoveryHandler).completeRecovery(
+                CompleteRecoveryRequest.newBuilder().setRecoveryToken("recovery.token.value")
+                        .setNewPassword("securepassword123").build(), completeRecoveryObserver);
+        verify(completeRecoveryObserver).onNext(any(CompleteRecoveryResponse.class));
+        verify(completeRecoveryObserver).onCompleted();
+
+        clearInvocations(completeRecoveryObserver);
+        when(completeRecoveryHandler.handle(any())).thenReturn(
+                CompleteRecoveryResult.failure("INVALID_RECOVERY_TOKEN", "failure"));
+        recoveryService(issueRecoveryTokenHandler, completeRecoveryHandler).completeRecovery(
+                CompleteRecoveryRequest.newBuilder().setRecoveryToken("recovery.token.value")
+                        .setNewPassword("securepassword123").build(), completeRecoveryObserver);
+        verifyCanonicalError(completeRecoveryObserver, Status.Code.UNAUTHENTICATED);
+
+        clearInvocations(completeRecoveryObserver);
+        recoveryService(issueRecoveryTokenHandler, completeRecoveryHandler).completeRecovery(
+                CompleteRecoveryRequest.newBuilder().setRecoveryToken("bad").setNewPassword("short").build(),
+                completeRecoveryObserver);
+        verifyCanonicalError(completeRecoveryObserver, Status.Code.INVALID_ARGUMENT);
+    }
+
     private SetupTotpRequest validSetupTotpRequest() {
         return SetupTotpRequest.newBuilder()
                 .setUserId(TEST_USER_ID)
@@ -869,6 +972,13 @@ class AuthGrpcServiceTest {
                 .setRefreshToken("valid.refresh.token")
                 .build();
     }
+
+        private AuthGrpcService recoveryService(final IssueRecoveryTokenCommandHandler issueHandler,
+                                                                                         final CompleteRecoveryCommandHandler completeHandler) {
+                return new AuthGrpcService(loginHandler, setupTotpHandler, enableTotpHandler,
+                                verifyTotpHandler, disableTotpHandler, adminDisableTotpHandler,
+                                refreshTokenHandler, logoutHandler, issueHandler, completeHandler);
+        }
 
         private AdminDisableTotpRequest validAdminDisableTotpRequest(final String targetUserId) {
                 return AdminDisableTotpRequest.newBuilder()

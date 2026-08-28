@@ -9,6 +9,7 @@ import com.oodesigns.cas.domain.value.UserId;
 import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.RefreshToken;
 import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
+import com.oodesigns.cas.domain.value.RecoveryToken;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
@@ -141,6 +142,17 @@ class JwtTokenVerifierTest {
                 when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
 
                 assertEquals(userId, verifier.verifyRefreshToken(RefreshToken.of(token)).orElseThrow().asUUID());
+        }
+
+        @Test
+        void verifyRecoveryTokenAcceptsVersionTwoTopLevelClaims() {
+                final UUID userId = UUID.randomUUID();
+                final String token = signVersionTwo(
+                        "{\"sub\":\"%s\",\"aud\":\"account_recovery\",\"jti\":\"%s\"}"
+                                .formatted(userId, UUID.randomUUID()));
+                when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+                assertEquals(userId, verifier.verifyRecoveryToken(RecoveryToken.of(token)).orElseThrow().asUUID());
         }
 
         @Test

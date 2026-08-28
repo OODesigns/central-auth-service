@@ -58,6 +58,24 @@ The script creates two local files:
 
 Both files are ignored by Git. The script uses a separate Docker Compose project named `central-auth-service-trial`, so it does not mix with another Compose stack in this folder.
 
+### Trial port selection
+
+The trial script writes these host bindings to `.trial.env` on first start:
+
+| Service | Default host binding | Override |
+| --- | --- | --- |
+| PostgreSQL | `127.0.0.1:55432` | `TRIAL_POSTGRES_HOST_PORT` |
+| gRPC service | `0.0.0.0:50051` | `GRPC_HOST_PORT` |
+| grpcui | `127.0.0.1:8080` | `GRPCUI_HOST_PORT` |
+| Prometheus | `127.0.0.1:9090` | `PROMETHEUS_HOST_PORT` |
+| Grafana | `127.0.0.1:3000` | `GRAFANA_HOST_PORT` |
+
+The script chooses `55432` instead of the normal PostgreSQL host port
+`5432`, but it does not scan for an available port. If `55432` is occupied,
+choose a free port explicitly before starting. If `.trial.env` already exists,
+edit its `POSTGRES_HOST_PORT` value because the script preserves existing trial
+settings.
+
 The trial stack enables plaintext gRPC and reflection only locally. grpcui reads `auth.proto` directly, so its browser UI does not depend on reflection discovery.
 
 ## Log In
