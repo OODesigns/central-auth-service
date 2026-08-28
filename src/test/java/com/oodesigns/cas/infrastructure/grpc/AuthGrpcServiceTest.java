@@ -284,10 +284,21 @@ class AuthGrpcServiceTest {
     }
 
         @Test
+        void login_RejectsBlankPeerIp() {
+                final Context previous = Context.current().withValue(GrpcAuthInterceptor.PEER_IP, " ").attach();
+                try {
+                        service.login(validLoginRequest(), loginObserver);
+                        verifyCanonicalError(loginObserver, Status.Code.INVALID_ARGUMENT);
+                } finally {
+                        Context.current().detach(previous);
+                }
+        }
+
+        @Test
         void login_MapsRemainingApplicationStatusCategories() {
-                final String[] codes = {"RATE_LIMITED", "INTERNAL_ERROR", "MFA_SETUP_REQUIRED", "OTHER"};
+                final String[] codes = {"RATE_LIMITED", "INTERNAL_ERROR", "MFA_SETUP_REQUIRED", "MFA_VERIFICATION_REQUIRED", "OTHER"};
                 final Status.Code[] statuses = {Status.Code.RESOURCE_EXHAUSTED, Status.Code.INTERNAL,
-                                Status.Code.FAILED_PRECONDITION, Status.Code.INVALID_ARGUMENT};
+                                Status.Code.FAILED_PRECONDITION, Status.Code.FAILED_PRECONDITION, Status.Code.INVALID_ARGUMENT};
                 for (int index = 0; index < codes.length; index++) {
                         clearInvocations(loginObserver);
                         when(loginHandler.handle(any())).thenReturn(LoginResult.failure(codes[index], "failure"));
@@ -910,6 +921,46 @@ class AuthGrpcServiceTest {
                 verifyCanonicalError(issueRecoveryObserver, Status.Code.UNAUTHENTICATED);
         }
 
+        @Test
+        void issueRecoveryTokenRejectsMissingAdministratorPrincipal() {
+                final Context previous = Context.ROOT.withValue(
+                                GrpcAuthInterceptor.PERMISSIONS, Set.of(Permission.of("manage_recovery"))).attach();
+                try {
+                        service.issueRecoveryToken(IssueRecoveryTokenRequest.newBuilder()
+                                        .setTargetUserId(TEST_USER_ID).build(), issueRecoveryObserver);
+                        verifyCanonicalError(issueRecoveryObserver, Status.Code.UNAUTHENTICATED);
+                } finally {
+                        Context.current().detach(previous);
+                }
+        }
+
+        @Test
+        void logoutRejectsTokenThatDoesNotMatchBearerContext() {
+                final Context previous = Context.current().withValue(
+                                GrpcAuthInterceptor.BEARER_TOKEN, "different.token").attach();
+                try {
+                        service.logout(LogoutRequest.newBuilder().setAccessToken(TEST_ACCESS_TOKEN).build(), logoutObserver);
+                        verifyCanonicalError(logoutObserver, Status.Code.UNAUTHENTICATED);
+                } finally {
+                        Context.current().detach(previous);
+                }
+        }
+
+        @Test
+        void adminDisableTotpRejectsUnprivilegedAndUnspecifiedReasons() {
+                final AdminDisableTotpRequest request = validAdminDisableTotpRequest(TEST_USER_ID);
+                withContext(UserId.of(TEST_USER_ID), Set.of(), false,
+                                () -> service.adminDisableTotp(request, adminDisableTotpObserver));
+                verifyCanonicalError(adminDisableTotpObserver, Status.Code.PERMISSION_DENIED);
+
+                clearInvocations(adminDisableTotpObserver);
+                withContext(UserId.of(TEST_USER_ID), Set.of(Permission.of("manage_mfa")), false,
+                                () -> service.adminDisableTotp(AdminDisableTotpRequest.newBuilder()
+                                                .setTargetUserId(TEST_USER_ID).setAdminPassword("AdminPassword1234").build(),
+                                                adminDisableTotpObserver));
+                verifyCanonicalError(adminDisableTotpObserver, Status.Code.INVALID_ARGUMENT);
+        }
+
     @Test
     void completeRecoveryMapsUnavailableSuccessFailureAndInvalidRequest() {
         service.completeRecovery(CompleteRecoveryRequest.newBuilder().build(), completeRecoveryObserver);
@@ -937,6 +988,53 @@ class AuthGrpcServiceTest {
                 completeRecoveryObserver);
         verifyCanonicalError(completeRecoveryObserver, Status.Code.INVALID_ARGUMENT);
     }
+
+        @Test
+        void logoutAllowsMatchingBearerContext() {
+                when(logoutHandler.handle(any())).thenReturn(LogoutResult.success());
+                final Context previous = Context.current().withValue(
+                                GrpcAuthInterceptor.BEARER_TOKEN, TEST_ACCESS_TOKEN).attach();
+                try {
+                        service.logout(LogoutRequest.newBuilder().setAccessToken(TEST_ACCESS_TOKEN).build(), logoutObserver);
+                        verify(logoutObserver).onCompleted();
+                } finally {
+                        Context.current().detach(previous);
+                }
+        }
+
+        @Test
+        void coversServiceHelperBranches() throws Exception {
+                final var matchesPrincipal = AuthGrpcService.class.getDeclaredMethod("matchesPrincipal", String.class);
+                matchesPrincipal.setAccessible(true);
+                assertTrue((boolean) matchesPrincipal.invoke(service, TEST_USER_ID));
+                assertEquals(false, matchesPrincipal.invoke(service, UUID.randomUUID().toString()));
+                final Context previous = Context.current();
+                Context.ROOT.attach();
+                try {
+                        assertEquals(false, matchesPrincipal.invoke(service, TEST_USER_ID));
+                } finally {
+                        Context.current().detach(previous);
+                }
+
+                final var statusCode = AuthGrpcService.class.getDeclaredMethod("statusCode", String.class);
+                statusCode.setAccessible(true);
+                for (final String code : List.of("INVALID_CREDENTIALS", "INVALID_ACCESS_TOKEN", "INVALID_PASSWORD",
+                                "INVALID_TOTP_CODE", "INVALID_2FA_TOKEN", "INVALID_REFRESH_TOKEN",
+                                "REFRESH_TOKEN_REUSE_DETECTED", "INVALID_RECOVERY_TOKEN")) {
+                        assertEquals(Status.Code.UNAUTHENTICATED, statusCode.invoke(service, code));
+                }
+                assertEquals(Status.Code.RESOURCE_EXHAUSTED, statusCode.invoke(service, "RATE_LIMITED"));
+                assertEquals(Status.Code.INTERNAL, statusCode.invoke(service, "INTERNAL_ERROR"));
+                assertEquals(Status.Code.FAILED_PRECONDITION, statusCode.invoke(service, "MFA_SETUP_REQUIRED"));
+                assertEquals(Status.Code.INVALID_ARGUMENT, statusCode.invoke(service, "UNKNOWN"));
+
+                final var fail = AuthGrpcService.class.getDeclaredMethod("fail", StreamObserver.class, Status.Code.class, String.class);
+                fail.setAccessible(true);
+                fail.invoke(service, loginObserver, Status.Code.INTERNAL, null);
+                clearInvocations(loginObserver);
+                fail.invoke(service, loginObserver, Status.Code.INTERNAL, " ");
+                verify(loginObserver).onError(any(Throwable.class));
+        }
 
     private SetupTotpRequest validSetupTotpRequest() {
         return SetupTotpRequest.newBuilder()

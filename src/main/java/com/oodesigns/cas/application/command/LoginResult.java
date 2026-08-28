@@ -150,8 +150,8 @@ public sealed interface LoginResult
 
             @Override
             public T orElse(final Function<FailureResult, T> failureMapper) {
-                return failureMapper.apply(new FailureResult("MFA_SETUP_REQUIRED",
-                    "MFA enrollment is required. Call SetupTotp to enroll."));
+                return failureMapper.apply(new FailureResult("MFA_VERIFICATION_REQUIRED",
+                    "2FA verification is required. Submit the verification token to complete login."));
             }
         }
     }

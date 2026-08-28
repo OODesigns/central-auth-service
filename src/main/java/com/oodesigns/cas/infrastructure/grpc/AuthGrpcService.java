@@ -410,9 +410,8 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                     fail(responseObserver, Status.Code.INVALID_ARGUMENT, "Disable reason must be specified");
                     return;
                 }
-                final boolean ownAccount = matchesPrincipal(request.getUserId());
                 final boolean privileged = GrpcAuthInterceptor.hasPermission("manage_mfa");
-                if ((!ownAccount && !privileged) || (reason != DisableReason.USER_REQUESTED && !privileged)) {
+                if (reason != DisableReason.USER_REQUESTED && !privileged) {
                     fail(responseObserver, Status.Code.PERMISSION_DENIED,
                         "Privileged disable reasons require administrative authorization");
                     return;
@@ -603,7 +602,7 @@ public final class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
                  "REFRESH_TOKEN_REUSE_DETECTED", "INVALID_RECOVERY_TOKEN" -> Status.Code.UNAUTHENTICATED;
             case "RATE_LIMITED" -> Status.Code.RESOURCE_EXHAUSTED;
             case "INTERNAL_ERROR" -> Status.Code.INTERNAL;
-            case "MFA_SETUP_REQUIRED" -> Status.Code.FAILED_PRECONDITION;
+            case "MFA_SETUP_REQUIRED", "MFA_VERIFICATION_REQUIRED" -> Status.Code.FAILED_PRECONDITION;
             default -> Status.Code.INVALID_ARGUMENT;
         };
     }

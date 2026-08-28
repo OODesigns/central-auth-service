@@ -223,10 +223,10 @@ class LoginCommandHandlerTest {
         final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(success -> {
-            fail("Expected 2FA required result");
+            fail("Expected 2FA verification required result");
             return null;
         }).orElse(failure -> {
-            assertEquals("MFA_SETUP_REQUIRED", failure.errorCode());
+            assertEquals("MFA_VERIFICATION_REQUIRED", failure.errorCode());
             return null;
         });
     }
@@ -322,10 +322,10 @@ class LoginCommandHandlerTest {
         final LoginResult result = loginHandler.handle(cmd);
 
         result.mapTo(success -> {
-            fail("Expected 2FA challenge, not full success");
+            fail("Expected 2FA verification required, not full success");
             return null;
         }).orElse(failure -> {
-            assertEquals("MFA_SETUP_REQUIRED", failure.errorCode());
+            assertEquals("MFA_VERIFICATION_REQUIRED", failure.errorCode());
             return null;
         });
     }

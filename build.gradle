@@ -106,6 +106,21 @@ test {
 
 }
 
+tasks.register('criticalAuthTests', Test) {
+    group = 'verification'
+    description = 'Runs the business-critical authentication scenarios: login decisions, MFA, rate limiting, and API mapping.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.oodesigns.cas.application.command.LoginCommandHandlerTest'
+        includeTestsMatching 'com.oodesigns.cas.application.command.LoginResultTest'
+        includeTestsMatching 'com.oodesigns.cas.infrastructure.grpc.AuthGrpcServiceTest'
+        includeTestsMatching 'com.oodesigns.cas.infrastructure.adapter.LoginRateLimiterTest'
+    }
+    shouldRunAfter test
+}
+
 tasks.register('integrationTest', Test) {
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
@@ -129,6 +144,16 @@ tasks.register('databaseIntegrationTest', Test) {
     onlyIf {
         includeDbTests
     }
+}
+
+tasks.register('smokeTest', Test) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'external-smoke'
+    }
+    systemProperty 'trialEnvFile', findProperty('trialEnvFile') ?: '.trial.env'
+    shouldRunAfter tasks.named('databaseIntegrationTest')
 }
 
 tasks.withType(Test).configureEach {

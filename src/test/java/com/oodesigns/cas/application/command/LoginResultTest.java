@@ -262,8 +262,7 @@ class LoginResultTest {
             TwoFactorVerificationToken.of("token.value.here"), null));
 
         final String mapped = r.mapTo(_ -> "OK").orElse(LoginResult.FailureResult::errorCode);
-        // For Required2FAResult the mapTo should return failure mapping (MFA_SETUP_REQUIRED)
-        assertEquals("MFA_SETUP_REQUIRED", mapped);
+        assertEquals("MFA_VERIFICATION_REQUIRED", mapped);
     }
 
     @Test
