@@ -4,104 +4,40 @@ title TOTP Lifecycle
 hide footbox
 
 actor User
-participant "gRPC" as Grpc
-participant "Command Handler" as Handler
-participant "Security Service" as Security
-participant "Token Service" as Tokens
+participant "gRPC API" as Grpc
+participant "TOTP Commands" as Handler
 database "Authentication API" as Db
 
-== Enrollment Setup ==
-group #426b55 OK
-  User -> Grpc: SetupTotp(user_id, username)
-  Grpc -> Handler: handle setup command
-  Handler -> Security: generate secret
-  Security -> Db: store encrypted pending secret
-  Db -->> Security: stored
-  Security -->> Handler: Base32 secret
-  Handler -> Handler: build otpauth URI
-  Handler -->> Grpc: secret + URI
-  Grpc -->> User: setup success
+group #C7E8C999 1. Enroll
+User -> Grpc: SetupTotp / EnableTotp
+Grpc -> Handler: create and verify enrollment
+Handler -> Db: store encrypted secret
+Handler -> Db: mark verified; store backup-code hashes
+Handler -->> Grpc: setup complete
+Grpc -->> User: secret, URI, and one-time backup codes
 end
 
-== Enrollment Activation ==
-User -> Grpc: EnableTotp(user_id, code)
-Grpc -> Handler: handle enable command
-Handler -> Security: verify setup code
-Security -> Db: get pending secret
-alt #7a454d INVALID CODE
-  Security -->> Handler: false
-  Handler -->> Grpc: INVALID_TOTP_CODE
-  Grpc -->> User: error
-else #426b55 CODE OK
-  Security -->> Handler: true
-  Handler -> Security: enable TOTP
-  Security -> Db: set verified_at
-  alt #7a454d ALREADY ENABLED
-    Security -->> Handler: false
-    Handler -->> Grpc: TOTP_ALREADY_ENABLED
-    Grpc -->> User: error
-  else #426b55 ENABLED
-    Security -> Db: replace backup-code hashes
-    Security -->> Handler: plaintext backup codes
-    Handler -->> Grpc: enable success
-    Grpc -->> User: backup codes\none-time display
-  end
-end
-
-== Login Challenge ==
+group #C7E8C999 2. Verify
 User -> Grpc: VerifyTotp(token, factor)
-Grpc -> Handler: handle verification command
-Handler -> Security: verify challenge token
-alt #7a454d INVALID TOKEN
-  Security -->> Handler: empty
-  Handler -->> Grpc: INVALID_VERIFICATION_TOKEN
-  Grpc -->> User: error
-else #426b55 TOKEN OK
-  Security -->> Handler: user_id
-  Handler -> Security: check rate limit
-  alt #7a454d BLOCKED
-    Security -->> Handler: blocked
-    Handler -->> Grpc: RATE_LIMIT_EXCEEDED
-    Grpc -->> User: error
-  else #426b55 ALLOWED
-    Handler -> Security: verify TOTP or backup code
-    Security -> Db: active secret or unused hashes
-    alt #7a454d INVALID FACTOR
-      Security -->> Handler: false
-      Handler -->> Grpc: INVALID_TOTP_CODE
-      Grpc -->> User: error
-    else #426b55 OK
-      Security -->> Handler: true
-      Handler -> Db: load user
-      Handler -> Tokens: generate access + refresh pair
-      Handler -> Db: store refresh token hash
-      Handler -->> Grpc: verification success
-      Grpc -->> User: access + refresh tokens
-    end
-  end
+Grpc -> Handler: verify challenge and factor
+Handler -> Db: read active secret or backup-code hash
+Handler -> Db: store refresh-token hash
+Handler -->> Grpc: access and refresh tokens
+Grpc -->> User: authenticated session
 end
 
-== Disable TOTP ==
-User -> Grpc: DisableTotp(user_id, password, reason)
-Grpc -> Handler: handle disable command
-Handler -> Db: find credential hash
-Handler -> Security: verify password and user_id
-alt #7a454d INVALID PASSWORD
-  Security -->> Handler: empty
-  Handler -->> Grpc: INVALID_PASSWORD
-  Grpc -->> User: error
-else #426b55 PASSWORD OK
-  Security -->> Handler: verified user_id
-  Handler -> Security: disable TOTP
-  Security -> Db: delete TOTP and backup codes
-  alt #7a454d NOT ENABLED
-    Security -->> Handler: false
-    Handler -->> Grpc: TOTP_NOT_ENABLED
-    Grpc -->> User: error
-  else #426b55 OK
-    Security -->> Handler: true
-    Handler -->> Grpc: disable success
-    Grpc -->> User: success
-  end
+group #C7E8C999 3. Disable
+User -> Grpc: DisableTotp(password, reason)
+Grpc -> Handler: verify password and disable TOTP
+Handler -> Db: delete secret and backup-code hashes
+Handler -->> Grpc: disable complete
+Grpc -->> User: TOTP disabled
 end
+
+note right of Handler
+  Detailed flows:
+  totp/01-TOTP-Enrollment.puml
+  totp/02-TOTP-Verification.puml
+  totp/03-TOTP-Disable.puml
+end note
 @enduml

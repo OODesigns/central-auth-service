@@ -1,0 +1,45 @@
+@startuml TOTPVerification
+!include ../../themes/dark-theme.puml
+title TOTP Challenge Verification and Disable
+hide footbox
+
+actor User
+participant "gRPC" as Grpc
+participant "TOTP Handler" as Handler
+participant "Security Service" as Security
+participant "Token Service" as Tokens
+database "Authentication API" as Db
+
+== Verify challenge ==
+User -> Grpc: VerifyTotp(token, factor)
+Grpc -> Handler: handle verification command
+Handler -> Security: verify challenge token
+alt #F3B6BE99 INVALID TOKEN
+  Security -->> Handler: empty
+  Handler -->> Grpc: INVALID_VERIFICATION_TOKEN
+  Grpc -->> User: error
+else #C7E8C999 TOKEN OK
+  Security -->> Handler: user_id
+  Handler -> Security: check rate limit
+  alt #F3B6BE99 BLOCKED
+    Security -->> Handler: blocked
+    Handler -->> Grpc: RATE_LIMIT_EXCEEDED
+    Grpc -->> User: error
+  else #C7E8C999 ALLOWED
+    Handler -> Security: verify TOTP or backup code
+    Security -> Db: active secret or unused hashes
+    alt #F3B6BE99 INVALID FACTOR
+      Security -->> Handler: false
+      Handler -->> Grpc: INVALID_TOTP_CODE
+      Grpc -->> User: error
+    else #C7E8C999 OK
+      Security -->> Handler: true
+      Handler -> Db: load user
+      Handler -> Tokens: generate access + refresh pair
+      Handler -> Db: store refresh token hash
+      Handler -->> Grpc: verification success
+      Grpc -->> User: access + refresh tokens
+    end
+  end
+end
+@enduml

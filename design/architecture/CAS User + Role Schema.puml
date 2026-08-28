@@ -1,4 +1,4 @@
-@startuml AuthenticationDataModel
+@startuml CAS User + Role Schema
 !include ../themes/dark-theme.puml
 title Authentication Persistence Model (private_schema)
 

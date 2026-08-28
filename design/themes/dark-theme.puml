@@ -1,118 +1,125 @@
 ' ===============================
 ' Activity start / end nodes (SUPPORTED)
 ' ===============================
-skinparam activityStartColor #22c55e
-skinparam activityStartBorderColor #16a34a
+skinparam activityStartColor #ffffff
+skinparam activityStartBorderColor #000000
 
-skinparam activityEndColor #64748b
-skinparam activityEndBorderColor #94a3b8
+skinparam activityEndColor #ffffff
+skinparam activityEndBorderColor #000000
 
 ' ===============================
 ' Canvas & global defaults
 ' ===============================
-skinparam backgroundColor #12161c
-skinparam defaultFontColor #e5e7eb
+skinparam backgroundColor #ffffff
+skinparam defaultFontColor #000000
 skinparam defaultFontSize 16
 skinparam shadowing false
 skinparam roundcorner 6
 skinparam maxMessageSize 110
 skinparam sequenceMessageAlign center
 
-skinparam ArrowColor #93c5fd
+skinparam ArrowColor #000000
 skinparam ArrowFontSize 15
-skinparam BorderColor #4b5563
+skinparam BorderColor #000000
 
 ' ===============================
 ' Architecture, sequence, and data-model elements
 ' ===============================
 skinparam Participant {
-  BackgroundColor #1f2937
-  BorderColor #94a3b8
-  FontColor #f9fafb
+  BackgroundColor #E8F1FB
+  BorderColor #000000
+  FontColor #000000
   FontSize 16
 }
 
 skinparam Actor {
-  BackgroundColor #1f2937
-  BorderColor #94a3b8
-  FontColor #f9fafb
+  BackgroundColor #E8F1FB
+  BorderColor #000000
+  FontColor #000000
   FontSize 16
 }
 
 skinparam Component {
-  BackgroundColor #1f2937
-  BorderColor #94a3b8
-  FontColor #f9fafb
+  BackgroundColor #FFF4CC
+  BorderColor #000000
+  FontColor #000000
 }
 
 skinparam Interface {
-  BackgroundColor #1f2937
-  BorderColor #93c5fd
-  FontColor #f9fafb
+  BackgroundColor #FFF4CC
+  BorderColor #000000
+  FontColor #000000
 }
 
 skinparam Database {
-  BackgroundColor #1f2937
-  BorderColor #94a3b8
-  FontColor #f9fafb
+  BackgroundColor #E8F5E9
+  BorderColor #000000
+  FontColor #000000
 }
 
 skinparam Entity {
-  BackgroundColor #1f2937
-  BorderColor #94a3b8
-  FontColor #f9fafb
+  BackgroundColor #E8F5E9
+  BorderColor #000000
+  FontColor #000000
 }
+
+skinparam entityBackgroundColor #E8F5E9
+skinparam entityBorderColor #000000
+skinparam entityFontColor #000000
+skinparam classBackgroundColor #E8F5E9
+skinparam classBorderColor #000000
+skinparam classFontColor #000000
 
 skinparam Class {
-  BackgroundColor #1f2937
-  BorderColor #94a3b8
-  FontColor #f9fafb
-  AttributeFontColor #f9fafb
+  BackgroundColor #E8F5E9
+  BorderColor #000000
+  FontColor #000000
+  AttributeFontColor #000000
 }
 
-skinparam SequenceGroupBorderColor #38bdf8
-skinparam SequenceGroupBodyBackgroundColor #0b1220
-skinparam SequenceGroupHeaderBackgroundColor #1f2937
-skinparam SequenceGroupHeaderFontColor #111827
+skinparam SequenceGroupBorderColor #000000
+skinparam SequenceGroupBodyBackgroundColor #ffffff
+skinparam SequenceGroupHeaderBackgroundColor #ffffff
+skinparam SequenceGroupHeaderFontColor #000000
 skinparam SequenceGroupFontSize 16
-skinparam SequenceDividerBackgroundColor #1f2937
-skinparam SequenceDividerBorderColor #94a3b8
-skinparam SequenceDividerFontColor #f9fafb
+skinparam SequenceDividerBackgroundColor #ffffff
+skinparam SequenceDividerBorderColor #000000
+skinparam SequenceDividerFontColor #000000
 
 skinparam Package {
-  BackgroundColor #0b1220
-  BorderColor #38bdf8
-  FontColor #38bdf8
+  BackgroundColor #F3E8FF
+  BorderColor #000000
+  FontColor #000000
 }
 
 skinparam Folder {
-  BackgroundColor #1f2937
-  BorderColor #94a3b8
-  FontColor #f9fafb
+  BackgroundColor #F3E8FF
+  BorderColor #000000
+  FontColor #000000
 }
 
 skinparam Cloud {
-  BackgroundColor #1f2937
-  BorderColor #94a3b8
-  FontColor #f9fafb
+  BackgroundColor #F3E8FF
+  BorderColor #000000
+  FontColor #000000
 }
 
 ' ===============================
 ' Activities (normal flow)
 ' ===============================
 skinparam Activity {
-  BackgroundColor #1f2937
-  BorderColor #6b7280
-  FontColor #f9fafb
+  BackgroundColor #F5F5F5
+  BorderColor #000000
+  FontColor #000000
 }
 
 ' ===============================
 ' Decision diamonds
 ' ===============================
 skinparam Diamond {
-  BackgroundColor #020617
-  BorderColor #60a5fa
-  FontColor #60a5fa
+  BackgroundColor #ffffff
+  BorderColor #000000
+  FontColor #000000
 }
 
 ' ===============================
@@ -120,37 +127,37 @@ skinparam Diamond {
 ' ===============================
 
 skinparam Activity<<failure>> {
-  BackgroundColor #7a454d
-  BorderColor #d99a9f
-  FontColor #fff1f2
+  BackgroundColor #F3B6BE99
+  BorderColor #D98C98
+  FontColor #000000
 }
 
 skinparam Activity<<warning>> {
-  BackgroundColor #78350f
-  BorderColor #f59e0b
-  FontColor #fef3c7
+  BackgroundColor #F59E0B
+  BorderColor #000000
+  FontColor #000000
 }
 
 skinparam Activity<<success>> {
-  BackgroundColor #426b55
-  BorderColor #91c9a8
-  FontColor #f0fdf4
+  BackgroundColor #C7E8C999
+  BorderColor #91B993
+  FontColor #111827
 }
 
 ' ===============================
 ' Notes (data / DB calls / intent)
 ' ===============================
 skinparam Note {
-  BackgroundColor #2a303a
-  BorderColor #9ca3af
-  FontColor #f3f4f6
+  BackgroundColor #ffffff
+  BorderColor #000000
+  FontColor #000000
 }
 
 ' ===============================
 ' Partitions / security boundaries
 ' ===============================
 skinparam Partition {
-  BackgroundColor #0b1220
-  BorderColor #38bdf8
-  FontColor #38bdf8
+  BackgroundColor #ffffff
+  BorderColor #000000
+  FontColor #000000
 }

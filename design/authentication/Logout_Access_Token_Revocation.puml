@@ -14,11 +14,11 @@ database "Invalidated JWTs" as Db
 Client -> Grpc: Logout(access token)
 Grpc -> Handler: LogoutCommand
 Handler -> Verifier: verify access token
-alt #7a454d INVALID TOKEN
+alt #F3B6BE99 INVALID TOKEN
   Verifier -->> Handler: empty
   Handler -->> Grpc: INVALID_ACCESS_TOKEN
   Grpc -->> Client: error
-else #426b55 OK
+else #C7E8C999 OK
   Handler -> Store: revoke(jti, SHA-256(token), expiry, logout)
   Store -> Db: api_schema.invalidate_jwt(...)
   Db -->> Store: recorded

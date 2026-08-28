@@ -1,0 +1,47 @@
+@startuml TOTPEnrollment
+!include ../../themes/dark-theme.puml
+title TOTP Enrollment and Activation
+hide footbox
+
+actor User
+participant "gRPC" as Grpc
+participant "TOTP Handler" as Handler
+participant "Security Service" as Security
+database "Authentication API" as Db
+
+== Setup ==
+User -> Grpc: SetupTotp(user_id, username)
+Grpc -> Handler: handle setup command
+Handler -> Security: generate secret
+Security -> Db: store encrypted pending secret
+Db -->> Security: stored
+Security -->> Handler: Base32 secret
+Handler -> Handler: build otpauth URI
+Handler -->> Grpc: secret + URI
+Grpc -->> User: setup success
+
+== Activation ==
+User -> Grpc: EnableTotp(user_id, code)
+Grpc -> Handler: handle enable command
+Handler -> Security: verify setup code
+Security -> Db: get pending secret
+alt #F3B6BE99 INVALID CODE
+  Security -->> Handler: false
+  Handler -->> Grpc: INVALID_TOTP_CODE
+  Grpc -->> User: error
+else #C7E8C999 CODE OK
+  Security -->> Handler: true
+  Handler -> Security: enable TOTP
+  Security -> Db: set verified_at
+  alt #F3B6BE99 ALREADY ENABLED
+    Security -->> Handler: false
+    Handler -->> Grpc: TOTP_ALREADY_ENABLED
+    Grpc -->> User: error
+  else #C7E8C999 ENABLED
+    Security -> Db: replace backup-code hashes
+    Security -->> Handler: plaintext backup codes
+    Handler -->> Grpc: enable success
+    Grpc -->> User: backup codes, one-time display
+  end
+end
+@enduml

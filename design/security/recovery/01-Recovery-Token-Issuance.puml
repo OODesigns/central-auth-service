@@ -1,0 +1,29 @@
+@startuml RecoveryTokenIssuance
+!include ../../themes/dark-theme.puml
+title Administrator Recovery Token Issuance
+hide footbox
+
+actor "Support Administrator" as Admin
+participant "Auth gRPC" as Auth
+participant "Authorization Guard" as Guard
+participant "Recovery Handler" as Recovery
+participant "Recovery Token Service" as Tokens
+database "Database" as Db
+participant "Audit Log" as Audit
+
+Admin -> Auth: IssueRecoveryToken(target user)
+Auth -> Guard: access token + manage_recovery permission
+alt #F3B6BE99 DENIED
+  Guard --> Auth: denied
+  Auth --> Admin: PERMISSION_DENIED
+else #C7E8C999 AUTHORIZED
+  Guard --> Auth: administrator principal
+  Auth -> Recovery: issue(target user, administrator)
+  Recovery -> Tokens: sign short-lived recovery token
+  Tokens --> Recovery: token + JTI
+  Recovery -> Db: store token hash; invalidate existing tokens
+  Recovery -> Audit: record recovery_issued
+  Recovery --> Auth: one-time recovery token
+  Auth --> Admin: token shown once
+end
+@enduml

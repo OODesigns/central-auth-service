@@ -14,10 +14,10 @@ participant "Approved Out-of-Band Channel" as Channel
 
 Admin -> Auth: IssueRecoveryToken(target user)
 Auth -> Guard: access token + manage_recovery permission
-alt #7a454d Missing or insufficient authorization
+alt #F3B6BE99 Missing or insufficient authorization
     Guard --> Auth: denied
     Auth --> Admin: PERMISSION_DENIED
-else #426b55 Authorized administrator
+else #C7E8C999 Authorized administrator
     Guard --> Auth: administrator principal
     Auth -> Recovery: issue(target user, administrator)
     Recovery -> Tokens: sign reset-purpose, short-lived token
@@ -32,12 +32,12 @@ end
 User -> Auth: CompleteRecovery(token, new password)
 Auth -> Recovery: complete(token, new password)
 Recovery -> Tokens: verify signature, audience, expiry
-alt #7a454d Invalid, expired, or consumed
+alt #F3B6BE99 Invalid, expired, or consumed
     Tokens --> Recovery: invalid
     Recovery -> Audit: record recovery_failed
     Recovery --> Auth: UNAUTHENTICATED
     Auth --> User: recovery failed
-else #426b55 Valid recovery token
+else #C7E8C999 Valid recovery token
     Tokens --> Recovery: target user + JTI
     Recovery -> DB: consume token; update password; revoke sessions; require MFA enrollment
     Recovery -> Audit: record recovery_completed

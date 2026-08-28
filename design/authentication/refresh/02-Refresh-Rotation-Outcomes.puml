@@ -1,0 +1,42 @@
+@startuml RefreshRotationOutcomes
+!include ../../themes/dark-theme.puml
+title Refresh Token Rotation Outcomes
+hide footbox
+
+actor Client
+participant "gRPC" as Grpc
+participant "Refresh Handler" as Handler
+participant "Token Service" as Tokens
+participant "Refresh Store" as Store
+database "Refresh Tokens" as Db
+
+Client -> Grpc: valid refresh request
+Grpc -> Handler: rotate token
+Handler -> Tokens: generate replacement pair
+alt #F3B6BE99 TOKEN ERROR
+  Tokens -->> Handler: empty
+  Handler -->> Grpc: INTERNAL_ERROR
+  Grpc -->> Client: error
+else #C7E8C999 PAIR OK
+  Tokens -->> Handler: access + refresh pair
+  Handler -> Store: rotate(old token, new refresh token)
+  Store -> Store: hash both compact tokens
+  Store -> Db: rotate_refresh_token(old hash, new hash)
+  alt #C7E8C999 ROTATED
+    Db -->> Store: ROTATED
+    Store -->> Handler: ROTATED
+    Handler -->> Grpc: fresh access + refresh tokens
+    Grpc -->> Client: success
+  else #F3B6BE99 REUSED
+    Db -> Db: revoke active token family
+    Db -->> Store: REUSE_DETECTED
+    Store -->> Handler: REUSE_DETECTED
+    Handler -->> Grpc: REFRESH_TOKEN_REUSE_DETECTED
+    Grpc -->> Client: error; login required
+  else #F3B6BE99 EXPIRED OR NOT FOUND
+    Db -->> Store: expired or not found
+    Handler -->> Grpc: INVALID_REFRESH_TOKEN
+    Grpc -->> Client: error
+  end
+end
+@enduml

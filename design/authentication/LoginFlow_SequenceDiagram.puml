@@ -17,29 +17,29 @@ participant "Users" as Users
 Client -> Grpc: Login\nusername, password, IP
 Grpc -> Login: handle(LoginCommand)
 Login -> Limits: check IP, username, and combined limits
-alt #7a454d BLOCKED
+alt #F3B6BE99 BLOCKED
     Limits -->> Login: Blocked
     Login -->> Grpc: RATE_LIMITED
     Grpc -->> Client: LoginResponse.error(RATE_LIMITED)
-else #426b55 OK
+else #C7E8C999 OK
     Login -> Credentials: findCredentialsByUsername(username)
     Credentials -->> Login: credentials or empty
-    alt #7a454d INVALID CREDENTIALS
+    alt #F3B6BE99 INVALID CREDENTIALS
         Login -> Auth: verify(credentials, password)
         Auth -->> Login: empty
         Login -->> Grpc: INVALID_CREDENTIALS
         Grpc -->> Client: LoginResponse.error(INVALID_CREDENTIALS)
-    else #426b55 PASSWORD OK
+    else #C7E8C999 PASSWORD OK
         Login -> Auth: getAuthenticatedUser(credentials)
         Auth -->> Login: userId
         Login -> Users: findById(userId)
         Users -->> Login: User(policy, permissions)
         Login -> TotpStatus: check2FAStatus(userId)
         TotpStatus -->> Login: enabled or disabled
-        alt #7a454d MFA SETUP REQUIRED
+        alt #F3B6BE99 MFA SETUP REQUIRED
             Login -->> Grpc: MFA_SETUP_REQUIRED
             Grpc -->> Client: LoginResponse.error(MFA_SETUP_REQUIRED)
-        else #426b55 TOTP ENROLLED
+        else #C7E8C999 TOTP ENROLLED
             Login -> Tokens: generate2FAVerificationToken(userId)
             Tokens -->> Login: short-lived verification token
             Login -->> Grpc: Required2FA
@@ -47,11 +47,11 @@ else #426b55 OK
             Client -> Grpc: VerifyTotp\ntoken and factor
             Grpc -> Grpc: VerifyTotpCommandHandler
             Grpc -->> Client: access + refresh tokens
-        else #78350f TOTP DISABLED
-            alt #78350f PASSWORD RESET REQUIRED
+        else #F59E0B TOTP DISABLED
+            alt #F59E0B PASSWORD RESET REQUIRED
                 Login -->> Grpc: PASSWORD_RESET_REQUIRED
                 Grpc -->> Client: LoginResponse.password_reset_required
-            else #426b55 OK
+            else #C7E8C999 OK
                 Login -> Tokens: generateTokens(user)
                 Tokens -->> Login: access + refresh pair
                 Login -> RefreshStore: issue(userId, refresh token)

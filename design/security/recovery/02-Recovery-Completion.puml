@@ -1,0 +1,29 @@
+@startuml RecoveryCompletion
+!include ../../themes/dark-theme.puml
+title User Recovery Completion
+hide footbox
+
+actor User
+participant "Auth gRPC" as Auth
+participant "Recovery Handler" as Recovery
+participant "Recovery Token Service" as Tokens
+database "Database" as Db
+participant "Audit Log" as Audit
+
+User -> Auth: CompleteRecovery(token, new password)
+Auth -> Recovery: complete(token, new password)
+Recovery -> Tokens: verify signature, audience, expiry
+alt #F3B6BE99 INVALID, EXPIRED, OR CONSUMED
+  Tokens --> Recovery: invalid
+  Recovery -> Audit: record recovery_failed
+  Recovery --> Auth: UNAUTHENTICATED
+  Auth --> User: recovery failed
+else #C7E8C999 VALID TOKEN
+  Tokens --> Recovery: target user + JTI
+  Recovery -> Db: consume token; update password
+  Recovery -> Db: revoke sessions; require MFA enrollment
+  Recovery -> Audit: record recovery_completed
+  Recovery --> Auth: success
+  Auth --> User: recovery completed
+end
+@enduml

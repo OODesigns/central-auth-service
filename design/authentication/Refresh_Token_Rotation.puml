@@ -15,44 +15,44 @@ database "Refresh Tokens" as Db
 Client -> Grpc: Refresh(presented refresh token)
 Grpc -> Handler: RefreshTokenCommand
 Handler -> Verifier: verifyRefreshToken(signature, exp, aud)
-alt #7a454d INVALID TOKEN
+alt #F3B6BE99 INVALID TOKEN
   Verifier -->> Handler: empty
   Handler -->> Grpc: INVALID_REFRESH_TOKEN
   Grpc -->> Client: error
-else #426b55 TOKEN OK
+else #C7E8C999 TOKEN OK
   Handler -> Users: findById(subject)
-  alt #7a454d USER NOT FOUND
+  alt #F3B6BE99 USER NOT FOUND
     Users -->> Handler: empty
     Handler -->> Grpc: USER_NOT_FOUND
     Grpc -->> Client: error
-  else #426b55 USER OK
+  else #C7E8C999 USER OK
     Users -->> Handler: user + permissions
     Handler -> Tokens: generate replacement pair
-    alt #7a454d TOKEN ERROR
+    alt #F3B6BE99 TOKEN ERROR
       Tokens -->> Handler: empty
       Handler -->> Grpc: INTERNAL_ERROR
       Grpc -->> Client: error
-    else #426b55 PAIR OK
+    else #C7E8C999 PAIR OK
       Tokens -->> Handler: access + refresh pair
       Handler -> Store: rotate(old token, new refresh token)
       Store -> Store: SHA-256 both compact tokens
       Store -> Db: api_schema.rotate_refresh_token(old hash, new hash)
-      alt #426b55 ROTATED
+      alt #C7E8C999 ROTATED
         Db -->> Store: ROTATED
         Store -->> Handler: ROTATED
         Handler -->> Grpc: fresh access + refresh tokens
         Grpc -->> Client: RefreshSuccess
-      else #7a454d REUSED
+      else #F3B6BE99 REUSED
         Db -> Db: revoke active token family\nreason: reuse_detected
         Db -->> Store: REUSE_DETECTED
         Store -->> Handler: REUSE_DETECTED
         Handler -->> Grpc: REFRESH_TOKEN_REUSE_DETECTED
         Grpc -->> Client: error; login required
-      else #7a454d EXPIRED
+      else #F3B6BE99 EXPIRED
         Db -->> Store: EXPIRED
         Handler -->> Grpc: REFRESH_TOKEN_EXPIRED
         Grpc -->> Client: error
-      else #7a454d NOT FOUND
+      else #F3B6BE99 NOT FOUND
         Db -->> Store: NOT_FOUND
         Handler -->> Grpc: INVALID_REFRESH_TOKEN
         Grpc -->> Client: error

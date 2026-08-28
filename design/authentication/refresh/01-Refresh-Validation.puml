@@ -1,0 +1,30 @@
+@startuml RefreshValidation
+!include ../../themes/dark-theme.puml
+title Refresh Token Validation
+hide footbox
+
+actor Client
+participant "gRPC" as Grpc
+participant "Refresh Handler" as Handler
+participant "JWT Verifier" as Verifier
+participant "Users" as Users
+
+Client -> Grpc: Refresh(presented refresh token)
+Grpc -> Handler: RefreshTokenCommand
+Handler -> Verifier: verify signature, expiry, audience
+alt #F3B6BE99 INVALID TOKEN
+  Verifier -->> Handler: empty
+  Handler -->> Grpc: INVALID_REFRESH_TOKEN
+  Grpc -->> Client: error
+else #C7E8C999 TOKEN OK
+  Handler -> Users: findById(subject)
+  alt #F3B6BE99 USER NOT FOUND
+    Users -->> Handler: empty
+    Handler -->> Grpc: USER_NOT_FOUND
+    Grpc -->> Client: error
+  else #C7E8C999 USER OK
+    Users -->> Handler: user + permissions
+    Handler -->> Grpc: continue to token rotation
+  end
+end
+@enduml
