@@ -120,6 +120,7 @@ class DatabaseValueObjectsTest {
     @Test
     void databasePasswordRejectsNoDigit() {
         assertThrows(IllegalArgumentException.class, () -> DatabasePassword.of("NoDigit@Pass"));
+        assertThrows(IllegalArgumentException.class, () -> DatabasePassword.of("NoDigit/Pass"));
     }
 
     @Test

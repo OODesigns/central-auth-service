@@ -30,6 +30,7 @@ class JooqTrustedClientRetrieverTest {
         final JooqTrustedClientRetriever retriever = new JooqTrustedClientRetriever(dsl);
 
         assertTrue(retriever.findByFingerprint(" ").isEmpty());
+        assertTrue(retriever.findByFingerprint(null).isEmpty());
         verify(dsl, org.mockito.Mockito.never()).fetchOptional(anyString(), eq(" "));
     }
 

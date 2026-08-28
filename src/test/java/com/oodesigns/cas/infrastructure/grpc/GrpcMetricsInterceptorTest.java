@@ -45,6 +45,14 @@ class GrpcMetricsInterceptorTest {
                     Status.DEADLINE_EXCEEDED);
             close(interceptor, com.oodesigns.cas.infrastructure.grpc.proto.AuthServiceGrpc.getLoginMethod(),
                     Status.UNAUTHENTICATED.withDescription("Trusted machine client certificate is required"));
+            close(interceptor, com.oodesigns.cas.infrastructure.grpc.proto.AuthServiceGrpc.getVerifyTotpMethod(),
+                    Status.OK);
+            close(interceptor, com.oodesigns.cas.infrastructure.grpc.proto.AuthServiceGrpc.getLoginMethod(),
+                    Status.OK.withDescription("ordinary completion"));
+            close(interceptor, com.oodesigns.cas.infrastructure.grpc.proto.AuthServiceGrpc.getAdminDisableTotpMethod(),
+                    Status.INVALID_ARGUMENT);
+            close(interceptor, com.oodesigns.cas.infrastructure.grpc.proto.AuthServiceGrpc.getLoginMethod(),
+                    Status.UNAVAILABLE);
         }
     }
 

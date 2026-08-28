@@ -54,6 +54,7 @@ class TotpRateLimiterTest {
         assertThrows(IllegalArgumentException.class, () -> new TotpRateLimiter(-1, duration));
         assertThrows(IllegalArgumentException.class, () -> new TotpRateLimiter(5, null));
         assertThrows(IllegalArgumentException.class, () -> new TotpRateLimiter(5, Duration.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> new TotpRateLimiter(5, Duration.ofMinutes(-1)));
         assertThrows(IllegalArgumentException.class,
             () -> new TotpRateLimiter(5, duration, 0, System::nanoTime));
         assertThrows(NullPointerException.class,

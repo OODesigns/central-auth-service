@@ -11,6 +11,7 @@ import com.oodesigns.cas.domain.value.RefreshToken;
 import com.oodesigns.cas.domain.value.TwoFactorVerificationToken;
 import com.oodesigns.cas.domain.value.RecoveryToken;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+
 import java.util.UUID;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -31,10 +33,12 @@ import java.util.logging.StreamHandler;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class JwtTokenVerifierTest {
+
 
     // 32+ chars for HS256 minimum key length (JJWT enforces >= 256 bits for HS256)
     private static final String TEST_SECRET =
@@ -50,6 +54,7 @@ class JwtTokenVerifierTest {
     private JwtTokenVerifier verifier;
     private SecretKey signingKey;
 
+
     @BeforeEach
     void setUp() {
                 verifier = new JwtTokenVerifier(keySupplier, JWT_KEY_ID, new ObjectMapper(), accessTokenRevocationStore);
@@ -61,6 +66,7 @@ class JwtTokenVerifierTest {
     @Test
     void constructor_ThrowsNullPointerException_WhenKeySupplierIsNull() {
         assertThrows(NullPointerException.class,
+
                                 () -> new JwtTokenVerifier(null, JWT_KEY_ID, accessTokenRevocationStore));
     }
 
@@ -79,6 +85,7 @@ class JwtTokenVerifierTest {
                 assertThrows(IllegalArgumentException.class,
                         () -> new JwtTokenVerifier(keySupplier, List.of(" "), accessTokenRevocationStore));
         }
+
 
     @Test
     void verify2FAVerificationToken_ReturnsEmpty_WhenTokenIsNull() {
@@ -550,6 +557,107 @@ class JwtTokenVerifierTest {
         }
     }
 
+        @Test
+        void coversAudienceAndVersionValidationBranches() throws Exception {
+                assertFalse(JwtTokenVerifier.hasAudienceValue("wrong", "expected"));
+                assertFalse(JwtTokenVerifier.hasAudienceValue(42, "expected"));
+                assertFalse(JwtTokenVerifier.hasAudienceValue(List.of("wrong"), "expected"));
+
+                final Claims claims = mock(Claims.class);
+                when(claims.get("ver", Number.class)).thenReturn(1);
+                assertFalse(invokeBoolean("isVersionTwo", claims));
+                when(claims.get("ver", Number.class)).thenReturn(null);
+                assertFalse(invokeBoolean("isVersionTwo", claims));
+        }
+
+        @Test
+        void rejectsBlankVersionTwoSubject() {
+                final String token = Jwts.builder()
+                                .header().keyId(JWT_KEY_ID).and()
+                                .issuer(com.oodesigns.cas.domain.service.TokenService.TOKEN_ISSUER)
+                                .subject("  ")
+                                .audience().add("2fa_verification").and()
+                                .claim("ver", 2)
+                                .expiration(Date.from(Instant.now().plusSeconds(300)))
+                                .signWith(signingKey, Jwts.SIG.HS256).compact();
+                when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(KeyPassword.of(TEST_SECRET)));
+
+                assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of(token)).isEmpty());
+        }
+
+            @Test
+            void coversPrivateClaimValidationCombinations() throws Exception {
+                                final String validJti = UUID.randomUUID().toString();
+                                final String validSubject = UUID.randomUUID().toString();
+                final Claims userClaims = mock(Claims.class);
+                lenient().when(userClaims.get("aud")).thenReturn("2fa_verification");
+                lenient().when(userClaims.getSubject()).thenReturn(" ");
+                assertTrue(invokeOptional("extractVersionTwoUserId", new Class<?>[] {Claims.class, String.class},
+                        userClaims, "2fa_verification").isEmpty());
+                lenient().when(userClaims.getSubject()).thenReturn(UUID.randomUUID().toString());
+                assertTrue(invokeOptional("extractVersionTwoUserId", new Class<?>[] {Claims.class, String.class},
+                        userClaims, "2fa_verification").isPresent());
+
+                final Claims accessClaims = mock(Claims.class);
+                lenient().when(accessClaims.get("aud")).thenReturn("access_token");
+                lenient().when(accessClaims.getSubject()).thenReturn(UUID.randomUUID().toString());
+                lenient().when(accessClaims.getId()).thenReturn(UUID.randomUUID().toString());
+                lenient().when(accessClaims.getExpiration()).thenReturn(new Date());
+                lenient().when(accessTokenRevocationStore.isInvalidated(org.mockito.ArgumentMatchers.any())).thenReturn(false);
+                assertTrue(invokeOptional("extractVersionTwoAccessTokenClaims", new Class<?>[] {Claims.class}, accessClaims).isPresent());
+                lenient().when(accessClaims.getExpiration()).thenReturn(null);
+                assertTrue(invokeOptional("extractVersionTwoAccessTokenClaims", new Class<?>[] {Claims.class}, accessClaims).isEmpty());
+
+                lenient().when(accessClaims.get("aud")).thenReturn("wrong");
+                lenient().when(accessClaims.getSubject()).thenReturn(UUID.randomUUID().toString());
+                lenient().when(accessClaims.getId()).thenReturn(UUID.randomUUID().toString());
+                lenient().when(accessClaims.getExpiration()).thenReturn(new Date());
+                assertTrue(invokeOptional("extractVersionTwoAccessTokenClaims", new Class<?>[] {Claims.class}, accessClaims).isEmpty());
+                lenient().when(accessClaims.get("aud")).thenReturn("access_token");
+                lenient().when(accessClaims.getSubject()).thenReturn(null);
+                assertTrue(invokeOptional("extractVersionTwoAccessTokenClaims", new Class<?>[] {Claims.class}, accessClaims).isEmpty());
+                lenient().when(accessClaims.getSubject()).thenReturn(" ");
+                assertTrue(invokeOptional("extractVersionTwoAccessTokenClaims", new Class<?>[] {Claims.class}, accessClaims).isEmpty());
+                lenient().when(accessClaims.getSubject()).thenReturn(UUID.randomUUID().toString());
+                lenient().when(accessClaims.getId()).thenReturn(null);
+                assertTrue(invokeOptional("extractVersionTwoAccessTokenClaims", new Class<?>[] {Claims.class}, accessClaims).isEmpty());
+                lenient().when(accessClaims.getId()).thenReturn(" ");
+                assertTrue(invokeOptional("extractVersionTwoAccessTokenClaims", new Class<?>[] {Claims.class}, accessClaims).isEmpty());
+
+                assertTrue(invokeOptional("extractAccessTokenClaims", new Class<?>[] {String.class, Date.class},
+                        null, new Date()).isEmpty());
+                assertTrue(invokeOptional("extractAccessTokenClaims", new Class<?>[] {String.class, Date.class},
+                        "{\"sub\":\"%s\",\"jti\":\"%s\"}".formatted(validSubject, validJti), new Date()).isPresent());
+                assertTrue(invokeOptional("extractAccessTokenClaims", new Class<?>[] {String.class, Date.class},
+                        "{}", new Date()).isEmpty());
+                assertTrue(invokeOptional("extractAccessTokenClaims", new Class<?>[] {String.class, Date.class},
+                        "{\"aud\":null}", new Date()).isEmpty());
+                assertTrue(invokeOptional("extractAccessTokenClaims", new Class<?>[] {String.class, Date.class},
+                        "{\"aud\":\"\"}", new Date()).isEmpty());
+                assertTrue(invokeOptional("extractAccessTokenClaims", new Class<?>[] {String.class, Date.class},
+                        "{\"aud\":\"access_token\"}", new Date()).isEmpty());
+                assertTrue(invokeOptional("extractAccessTokenClaims", new Class<?>[] {String.class, Date.class},
+                        "{\"sub\":\"\",\"jti\":\"%s\"}".formatted(validJti), new Date()).isEmpty());
+                assertTrue(invokeOptional("extractAccessTokenClaims", new Class<?>[] {String.class, Date.class},
+                        "{\"sub\":\"%s\",\"jti\":\"\"}".formatted(validSubject), new Date()).isEmpty());
+                assertTrue(invokeOptional("extractAccessTokenClaims", new Class<?>[] {String.class, Date.class},
+                        "{\"sub\":\"%s\"}".formatted(validSubject), new Date()).isEmpty());
+            }
+
+            @SuppressWarnings("unchecked")
+            private Optional<Object> invokeOptional(final String methodName, final Class<?>[] parameterTypes,
+                                                    final Object... arguments) throws Exception {
+                final var method = JwtTokenVerifier.class.getDeclaredMethod(methodName, parameterTypes);
+                method.setAccessible(true);
+                return (Optional<Object>) method.invoke(verifier, arguments);
+            }
+
+        private boolean invokeBoolean(final String methodName, final Claims claims) throws Exception {
+                final var method = JwtTokenVerifier.class.getDeclaredMethod(methodName, Claims.class);
+                method.setAccessible(true);
+                return (boolean) method.invoke(verifier, claims);
+        }
+
     // -------------------------------------------------------------------------
     // Refresh token verification
     // -------------------------------------------------------------------------
@@ -567,6 +675,31 @@ class JwtTokenVerifierTest {
         assertTrue(result.isPresent());
         assertEquals(userId, result.get().asUUID());
     }
+
+        @Test
+        void returnsEmptyWhenKeyPasswordCannotBeRead() {
+                final KeyPassword password = mock(KeyPassword.class);
+                when(password.toUtf8Bytes()).thenThrow(new IllegalStateException("key unavailable"));
+                when(keySupplier.getPassword(JWT_KEY_ID)).thenReturn(Optional.of(password));
+
+                assertTrue(verifier.verifyAccessToken(AccessToken.of("one.two.three")).isEmpty());
+                assertTrue(verifier.verify2FAVerificationToken(TwoFactorVerificationToken.of("one.two.three")).isEmpty());
+        }
+
+        @Test
+        void handlesParserFailuresFromKeyMaterialDuringPrivateVerification() throws Exception {
+                final KeyPassword password = mock(KeyPassword.class);
+                lenient().when(password.toUtf8Bytes()).thenThrow(new IllegalStateException("key unavailable"));
+                final var parseAccess = JwtTokenVerifier.class.getDeclaredMethod(
+                        "parseAndVerifyAccessToken", String.class, KeyPassword.class);
+                parseAccess.setAccessible(true);
+                final var parsePurpose = JwtTokenVerifier.class.getDeclaredMethod(
+                        "parseAndVerify", String.class, KeyPassword.class, String.class);
+                parsePurpose.setAccessible(true);
+
+                assertTrue(((Optional<?>) parseAccess.invoke(verifier, "token", password)).isEmpty());
+                assertTrue(((Optional<?>) parsePurpose.invoke(verifier, "token", password, "access_token")).isEmpty());
+        }
 
     @Test
     void verifyRefreshToken_ReturnsEmpty_WhenTokenIsNull() {

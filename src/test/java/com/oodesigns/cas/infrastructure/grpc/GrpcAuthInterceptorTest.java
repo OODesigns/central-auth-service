@@ -6,6 +6,7 @@ import com.oodesigns.cas.domain.value.AccessToken;
 import com.oodesigns.cas.domain.value.MfaEnrollmentToken;
 import com.oodesigns.cas.domain.value.Jti;
 import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.domain.value.Permission;
 import com.oodesigns.cas.infrastructure.grpc.proto.AuthServiceGrpc;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.net.InetSocketAddress;
 import java.util.Optional;
 import java.util.Set;
+import java.util.List;
 import javax.net.ssl.SSLSession;
 import java.security.cert.X509Certificate;
 
@@ -50,6 +52,21 @@ class GrpcAuthInterceptorTest {
         verify(next).startCall(call, headers);
         verify(verifier, never()).verifyAccessToken(AccessToken.of(TOKEN));
     }
+
+        @Test
+        void allowsReflectionRpcWithoutBearerToken() {
+        final Ports.TokenVerifier verifier = mock(Ports.TokenVerifier.class);
+            final MethodDescriptor<Object, Object> method = mock(MethodDescriptor.class);
+            when(method.getFullMethodName()).thenReturn("grpc.health.v1.Health/Check");
+            final ServerCall<Object, Object> call = call(method);
+        final ServerCallHandler<Object, Object> next = mock(ServerCallHandler.class);
+            final Metadata headers = new Metadata();
+
+        new GrpcAuthInterceptor(verifier, mock(Ports.UserRetriever.class))
+                .interceptCall(call, headers, next);
+
+            verify(next).startCall(call, headers);
+        }
 
     @Test
     void peerIpReturnsRemoteIpv4Address() {
@@ -209,6 +226,72 @@ class GrpcAuthInterceptorTest {
     @Test
     void exposesMachineClientContextValue() {
         assertEquals(null, GrpcAuthInterceptor.machineClientId());
+    }
+
+    @Test
+    void coversPermissionAndMethodClassificationBranches() throws Exception {
+        assertEquals(false, GrpcAuthInterceptor.hasPermission(null));
+        assertEquals(false, GrpcAuthInterceptor.hasPermission("read_data"));
+        final var previous = io.grpc.Context.current().withValue(
+                GrpcAuthInterceptor.PERMISSIONS, Set.of(Permission.of("read_data"))).attach();
+        try {
+            assertEquals(true, GrpcAuthInterceptor.hasPermission("read_data"));
+            assertEquals(false, GrpcAuthInterceptor.hasPermission("missing"));
+            assertEquals(false, GrpcAuthInterceptor.hasPermission(null));
+        } finally {
+            io.grpc.Context.current().detach(previous);
+        }
+
+        final GrpcAuthInterceptor interceptor = new GrpcAuthInterceptor(
+                mock(Ports.TokenVerifier.class), mock(Ports.UserRetriever.class));
+        assertMethod(interceptor, "isPublic", "cas.v1.AuthService/Login", true);
+        assertMethod(interceptor, "isPublic", "cas.v1.AuthService/Refresh", true);
+        assertMethod(interceptor, "isPublic", "cas.v1.AuthService/VerifyTotp", true);
+        assertMethod(interceptor, "isPublic", "cas.v1.AuthService/CompleteRecovery", true);
+        assertMethod(interceptor, "isPublic", "cas.v1.AuthService/DisableTotp", false);
+        assertMethod(interceptor, "isSetupOrEnable", "cas.v1.AuthService/SetupTotp", true);
+        assertMethod(interceptor, "isSetupOrEnable", "cas.v1.AuthService/EnableTotp", true);
+        assertMethod(interceptor, "isSetupOrEnable", "cas.v1.AuthService/Login", false);
+        assertMethod(interceptor, "isAuthorizationSensitive", "cas.v1.AuthService/DisableTotp", true);
+        assertMethod(interceptor, "isAuthorizationSensitive", "cas.v1.AuthService/AdminDisableTotp", true);
+        assertMethod(interceptor, "isAuthorizationSensitive", "cas.v1.AuthService/IssueRecoveryToken", true);
+        assertMethod(interceptor, "isAuthorizationSensitive", "cas.v1.AuthService/Login", false);
+        assertMethod(interceptor, "isReflection", "grpc.health.v1.Health/Check", true);
+        assertMethod(interceptor, "isReflection", "cas.v1.AuthService/Login", false);
+    }
+
+    @Test
+    void rejectsAllMalformedBearerHeaderForms() {
+        final Ports.TokenVerifier verifier = mock(Ports.TokenVerifier.class);
+        final ServerCall<Object, Object> call = call(AuthServiceGrpc.getDisableTotpMethod());
+        final ServerCallHandler<Object, Object> next = mock(ServerCallHandler.class);
+        final GrpcAuthInterceptor interceptor = new GrpcAuthInterceptor(verifier, mock(Ports.UserRetriever.class));
+
+        for (final String header : List.of("Basic token", "Bearer ")) {
+            interceptor.interceptCall(call, headers(header), next);
+        }
+        verify(call, org.mockito.Mockito.times(2)).close(any(Status.class), any(Metadata.class));
+    }
+
+    @Test
+    void rejectsEmptyCertificateChain() throws Exception {
+        final SSLSession session = mock(SSLSession.class);
+        when(session.getPeerCertificates()).thenReturn(new java.security.cert.Certificate[0]);
+        final ServerCall<Object, Object> call = call(AuthServiceGrpc.getLoginMethod(),
+                Attributes.newBuilder().set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session).build());
+
+        new GrpcAuthInterceptor(mock(Ports.TokenVerifier.class), mock(Ports.UserRetriever.class),
+                mock(Ports.TrustedClientRetriever.class), true)
+                .interceptCall(call, new Metadata(), mock(ServerCallHandler.class));
+
+        verify(call).close(any(Status.class), any(Metadata.class));
+    }
+
+    private void assertMethod(final GrpcAuthInterceptor interceptor, final String methodName,
+                              final String method, final boolean expected) throws Exception {
+        final var methodReference = GrpcAuthInterceptor.class.getDeclaredMethod(methodName, String.class);
+        methodReference.setAccessible(true);
+        assertEquals(expected, methodReference.invoke(interceptor, method));
     }
 
     private ServerCall<Object, Object> call(final MethodDescriptor<?, ?> method) {

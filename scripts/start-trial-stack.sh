@@ -76,3 +76,11 @@ echo "Prometheus:    http://127.0.0.1:9090"
 echo "Grafana:       http://127.0.0.1:3000"
 echo "Admin password is stored only in $password_file"
 echo "Use ./scripts/stop-trial-stack.sh to stop the stack."
+
+if [[ "${TRIAL_RUN_SMOKE_TEST:-true}" == "true" ]]; then
+    echo "Running the real trial smoke test: 100 users, login, update, delete, and metrics."
+    ./gradlew --quiet smokeTest
+    echo "Trial smoke test passed."
+else
+    echo "Trial smoke test skipped (set TRIAL_RUN_SMOKE_TEST=true to run it)."
+fi

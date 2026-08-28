@@ -78,6 +78,30 @@ settings.
 
 The trial stack enables plaintext gRPC and reflection only locally. grpcui reads `auth.proto` directly, so its browser UI does not depend on reflection discovery.
 
+After the containers start, the script runs a real process-level smoke test by
+default. It connects to the running PostgreSQL and gRPC containers, creates 100
+temporary trial users, logs in representative users, updates one username,
+deletes another, verifies the deleted login fails, and checks Prometheus for
+gRPC metrics. The fixture users are removed when the smoke test finishes, while
+the Prometheus time series remain available for inspection.
+
+To start the containers without running the workload:
+
+```bash
+TRIAL_RUN_SMOKE_TEST=false ./scripts/start-trial-stack.sh
+```
+
+To run it again against an already-running trial stack:
+
+```bash
+./gradlew smokeTest
+```
+
+The smoke test deliberately uses only existing API operations. The service does
+not currently expose public user create, update, or delete RPCs, so database
+fixture setup is used for users and the real gRPC API is used for authentication
+and security actions.
+
 ## Log In
 
 ### Grafana
@@ -124,7 +148,7 @@ Useful browser checks:
 | What to check | Where |
 | --- | --- |
 | Service is being scraped | Prometheus: `Status` then `Targets`. The `central-auth-service` target should be `UP`. |
-| Raw request metrics | Prometheus query page. Search for `grpc_server_call_count`. |
+| Raw request metrics | Prometheus query page. Search for `grpc_server_call_count_total`. |
 | Authentication dashboard | Grafana: `Dashboards`, then Central Auth overview. |
 | gRPC request UI | grpcui: choose a method, fill fields, and invoke. |
 

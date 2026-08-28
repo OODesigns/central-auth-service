@@ -125,7 +125,7 @@ public final class GrpcAuthInterceptor implements ServerInterceptor {
         } else {
             principal = Optional.empty();
         }
-        if (principal.isEmpty() || (!enrollmentMethod && accessPrincipal.isEmpty())) {
+        if (principal.isEmpty()) {
             reject(call, Status.Code.UNAUTHENTICATED, "UNAUTHENTICATED", "Invalid or unauthorized bearer token");
             return new Listener<>() {};
         }

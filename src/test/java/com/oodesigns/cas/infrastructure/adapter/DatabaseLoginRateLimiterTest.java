@@ -79,6 +79,12 @@ class DatabaseLoginRateLimiterTest {
         assertThrows(IllegalArgumentException.class,
             () -> new DatabaseLoginRateLimiter(dsl, 1, Duration.ofSeconds((long) Integer.MAX_VALUE + 1)));
         assertThrows(IllegalArgumentException.class,
+            () -> new DatabaseLoginRateLimiter(dsl, 1, Duration.ZERO));
+        assertThrows(IllegalArgumentException.class,
+            () -> new DatabaseLoginRateLimiter(dsl, 1, Duration.ofSeconds(-1)));
+        assertThrows(IllegalArgumentException.class,
+            () -> new DatabaseLoginRateLimiter(dsl, 1, Duration.ofMillis(999)));
+        assertThrows(IllegalArgumentException.class,
             () -> new DatabaseLoginRateLimiter(dsl).checkLimit(null));
     }
 

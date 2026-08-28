@@ -117,6 +117,24 @@ class TotpSecretCipherTest {
         }
     }
 
+    @Test
+    void recognizesMagicAndGcmHeadersAtTheirBoundaries() throws Exception {
+        final var magic = TotpSecretCipher.class.getDeclaredMethod("hasMagic", byte[].class);
+        magic.setAccessible(true);
+        final var gcm = TotpSecretCipher.class.getDeclaredMethod("hasGcmHeader", byte[].class);
+        gcm.setAccessible(true);
+
+        assertFalse((boolean) magic.invoke(null, new byte[0]));
+        assertTrue((boolean) magic.invoke(null, new byte[] {'C', 'A', 'S'}));
+        assertFalse((boolean) magic.invoke(null, new byte[] {'X', 'A', 'S', 2}));
+        assertFalse((boolean) magic.invoke(null, new byte[] {'C', 'X', 'S', 2}));
+        assertFalse((boolean) magic.invoke(null, new byte[] {'C', 'A', 'X', 2}));
+        assertTrue((boolean) magic.invoke(null, new byte[] {'C', 'A', 'S', 2}));
+        assertFalse((boolean) gcm.invoke(null, new byte[] {'C', 'A', 'S'}));
+        assertFalse((boolean) gcm.invoke(null, new byte[] {'C', 'A', 'S', 3}));
+        assertTrue((boolean) gcm.invoke(null, new byte[] {'C', 'A', 'S', 2}));
+    }
+
     private byte[] encryptLegacy(final String plaintext) throws Exception {
         final byte[] iv = new byte[16];
         Arrays.fill(iv, (byte) 7);

@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import io.grpc.Context;
+import com.oodesigns.cas.domain.value.UserId;
+import com.oodesigns.cas.infrastructure.grpc.GrpcAuthInterceptor;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.jooq.tools.jdbc.MockConnection;
@@ -51,6 +54,25 @@ class JooqAuditTransactionTest {
             List.of("app.machine_client_id", "")), bindingValues(bindings));
         assertEquals(List.of("SELECT set_config(?, ?, true)", "SELECT set_config(?, ?, true)",
             "SELECT set_config(?, ?, true)", "SELECT service_mutation()"), executedSql);
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void defaultAttributionUsesAuthenticatedPrincipalFromContext() throws Exception {
+        final UUID userId = UUID.randomUUID();
+        final List<Object[]> bindings = new ArrayList<>();
+        final var principalField = GrpcAuthInterceptor.class.getDeclaredField("PRINCIPAL");
+        principalField.setAccessible(true);
+        final Context.Key principalKey = (Context.Key) principalField.get(null);
+        final Context previous = Context.current().withValue(principalKey, UserId.of(userId)).attach();
+        try {
+            new JooqAuditTransaction(
+                    DSL.using(new MockConnection(recordingProvider(new ArrayList<>(), bindings)), SQLDialect.POSTGRES))
+                    .execute(context -> context.execute("SELECT authenticated_mutation()"));
+        } finally {
+            Context.current().detach(previous);
+        }
+        assertEquals(userId.toString(), bindingValues(bindings).get(1).get(1));
     }
 
     private MockDataProvider recordingProvider(final List<String> executedSql, final List<Object[]> bindings) {

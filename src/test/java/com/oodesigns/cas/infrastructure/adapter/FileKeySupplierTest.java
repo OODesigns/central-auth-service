@@ -39,6 +39,7 @@ class FileKeySupplierTest {
         final FileKeySupplier supplier = new FileKeySupplier(secretDirectory);
 
         assertTrue(supplier.getPassword("../JWT_SECRET").isEmpty());
+        assertTrue(supplier.getPassword(null).isEmpty());
         assertTrue(supplier.getPassword("missing").isEmpty());
     }
 
